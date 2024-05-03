@@ -7,6 +7,9 @@ client/node_modules
 back/.pnp
 back/.pnp.js
 
+# postman
+back/media/api.postman_collection.json
+
 # testing
 /coverage
 

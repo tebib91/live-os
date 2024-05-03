@@ -1,8 +1,8 @@
 /*
 
-Copyright (c) 2019 - present AppSeed.us
+Copyright (c) 2024 - present liveos.io
 
 */
 export default {
-  webURL: 'https://localhost:5000/',
+  webURL: "https://localhost:5000/",
 };

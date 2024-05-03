@@ -1,18 +1,18 @@
 /*
 
-Copyright (c) 2019 - present AppSeed.us
+Copyright (c) 2024 - present liveos.io
 
 */
 
-import passport from 'passport';
-import { ExtractJwt, Strategy as JwtStrategy } from 'passport-jwt';
+import passport from "passport";
+import { ExtractJwt, Strategy as JwtStrategy } from "passport-jwt";
 
-import User from '../models/user';
-import { connection } from '../server/database';
+import User from "../models/user";
+import { connection } from "../server/database";
 
 export default (pass: passport.PassportStatic) => {
   const opts = {
-    jwtFromRequest: ExtractJwt.fromAuthHeaderWithScheme('jwt'),
+    jwtFromRequest: ExtractJwt.fromAuthHeaderWithScheme("jwt"),
     secretOrKey: process.env.SECRET,
   };
 
@@ -29,6 +29,6 @@ export default (pass: passport.PassportStatic) => {
       } catch (err) {
         return done(err, false);
       }
-    }),
+    })
   );
 };

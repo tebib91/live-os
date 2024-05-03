@@ -1,18 +1,18 @@
-import bcrypt from 'bcrypt';
+import bcrypt from "bcrypt";
 /*
 
-Copyright (c) 2019 - present AppSeed.us
+Copyright (c) 2024 - present liveos.io
 
 */
-import express from 'express';
-import Joi from 'joi';
-import jwt from 'jsonwebtoken';
+import express from "express";
+import Joi from "joi";
+import jwt from "jsonwebtoken";
 
-import { checkToken } from '../config/safeRoutes';
-import ActiveSession from '../models/activeSession';
-import User from '../models/user';
-import { connection } from '../server/database';
-import { logoutUser } from '../controllers/logout.controller';
+import { checkToken } from "../config/safeRoutes";
+import ActiveSession from "../models/activeSession";
+import User from "../models/user";
+import { connection } from "../server/database";
+import { logoutUser } from "../controllers/logout.controller";
 
 // eslint-disable-next-line new-cap
 const router = express.Router();
@@ -20,12 +20,11 @@ const router = express.Router();
 
 const userSchema = Joi.object().keys({
   email: Joi.string().email().required(),
-  username: Joi.string().alphanum().min(4).max(15)
-    .optional(),
+  username: Joi.string().alphanum().min(4).max(15).optional(),
   password: Joi.string().required(),
 });
 
-router.post('/register', (req, res) => {
+router.post("/register", (req, res) => {
   // Joy Validation
   const result = userSchema.validate(req.body);
   if (result.error) {
@@ -42,7 +41,7 @@ router.post('/register', (req, res) => {
 
   userRepository.findOne({ email }).then((user) => {
     if (user) {
-      res.json({ success: false, msg: 'Email already exists' });
+      res.json({ success: false, msg: "Email already exists" });
     } else {
       bcrypt.genSalt(10, (_err, salt) => {
         bcrypt.hash(password, salt).then((hash) => {
@@ -53,7 +52,11 @@ router.post('/register', (req, res) => {
           };
 
           userRepository.save(query).then((u) => {
-            res.json({ success: true, userID: u.id, msg: 'The user was successfully registered' });
+            res.json({
+              success: true,
+              userID: u.id,
+              msg: "The user was successfully registered",
+            });
           });
         });
       });
@@ -61,7 +64,7 @@ router.post('/register', (req, res) => {
   });
 });
 
-router.post('/login', (req, res) => {
+router.post("/login", (req, res) => {
   // Joy Validation
   const result = userSchema.validate(req.body);
   if (result.error) {
@@ -79,26 +82,30 @@ router.post('/login', (req, res) => {
   const activeSessionRepository = connection!.getRepository(ActiveSession);
   userRepository.findOne({ email }).then((user) => {
     if (!user) {
-      return res.json({ success: false, msg: 'Wrong credentials' });
+      return res.json({ success: false, msg: "Wrong credentials" });
     }
 
     if (!user.password) {
-      return res.json({ success: false, msg: 'No password' });
+      return res.json({ success: false, msg: "No password" });
     }
 
     bcrypt.compare(password, user.password, (_err2, isMatch) => {
       if (isMatch) {
         if (!process.env.SECRET) {
-          throw new Error('SECRET not provided');
+          throw new Error("SECRET not provided");
         }
 
-        const token = jwt.sign({
-          id: user.id,
-          username: user.username,
-          email: user.email,
-        }, process.env.SECRET, {
-          expiresIn: 86400, // 1 week
-        });
+        const token = jwt.sign(
+          {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+          },
+          process.env.SECRET,
+          {
+            expiresIn: 86400, // 1 week
+          }
+        );
 
         const query = { userId: user.id, token };
 
@@ -111,31 +118,34 @@ router.post('/login', (req, res) => {
           user,
         });
       }
-      return res.json({ success: false, msg: 'Wrong credentials' });
+      return res.json({ success: false, msg: "Wrong credentials" });
     });
   });
 });
 
-router.post('/logout', checkToken, logoutUser);
+router.post("/logout", checkToken, logoutUser);
 
-router.post('/checkSession', checkToken, (_req, res) => {
+router.post("/checkSession", checkToken, (_req, res) => {
   res.json({ success: true });
 });
 
-router.post('/all', checkToken, (_req, res) => {
+router.post("/all", checkToken, (_req, res) => {
   const userRepository = connection!.getRepository(User);
 
-  userRepository.find({}).then((users) => {
-    users = users.map((item) => {
-      const x = item;
-      (x as { password: string | undefined }).password = undefined;
-      return x;
-    });
-    res.json({ success: true, users });
-  }).catch(() => res.json({ success: false }));
+  userRepository
+    .find({})
+    .then((users) => {
+      users = users.map((item) => {
+        const x = item;
+        (x as { password: string | undefined }).password = undefined;
+        return x;
+      });
+      res.json({ success: true, users });
+    })
+    .catch(() => res.json({ success: false }));
 });
 
-router.post('/edit', checkToken, (req, res) => {
+router.post("/edit", checkToken, (req, res) => {
   const { userID, username, email } = req.body;
 
   const userRepository = connection!.getRepository(User);
@@ -144,22 +154,26 @@ router.post('/edit', checkToken, (req, res) => {
     if (user.length === 1) {
       const query = { id: user[0].id };
       const newvalues = { username, email };
-      userRepository.update(query, newvalues).then(
-        () => {
+      userRepository
+        .update(query, newvalues)
+        .then(() => {
           res.json({ success: true });
-        },
-      ).catch(() => {
-        res.json({ success: false, msg: 'There was an error. Please contract the administrator' });
-      });
+        })
+        .catch(() => {
+          res.json({
+            success: false,
+            msg: "There was an error. Please contract the administrator",
+          });
+        });
     } else {
-      res.json({ success: false, msg: 'Error updating user' });
+      res.json({ success: false, msg: "Error updating user" });
     }
   });
 });
 
 // Used for tests (nothing functional)
-router.get('/testme', (_req, res) => {
-  res.status(200).json({ success: true, msg: 'all good' });
+router.get("/testme", (_req, res) => {
+  res.status(200).json({ success: true, msg: "all good" });
 });
 
 export default router;

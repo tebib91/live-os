@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2019 - present AppSeed.us
+Copyright (c) 2024 - present liveos.io
 
 */
 import { NextFunction, Request, Response } from "express";

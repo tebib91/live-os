@@ -4,7 +4,7 @@ import compression from "compression";
 import cors from "cors";
 /*
 
-Copyright (c) 2019 - present AppSeed.us
+Copyright (c) 2024 - present liveos.io
 
 */
 import express from "express";

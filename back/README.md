@@ -1,34 +1,33 @@
+# [Nodejs API Server](https://liveos.io/product/soft-ui-dashboard/api-server-nodejs/react/)
 
-# [Nodejs API Server](https://appseed.us/product/soft-ui-dashboard/api-server-nodejs/react/)
+[Express/Nodejs Starter](https://liveos.io/product/soft-ui-dashboard/api-server-nodejs/react/) with `JWT Authentication`, OAuth (Github), and **SQLite** persistence - Provided by `liveos`. Authentication Flow uses `json web tokens` via Passport library - `passport-jwt` strategy.
 
-[Express/Nodejs Starter](https://appseed.us/product/soft-ui-dashboard/api-server-nodejs/react/) with `JWT Authentication`, OAuth (Github), and **SQLite** persistence - Provided by `AppSeed`. Authentication Flow uses `json web tokens` via Passport library - `passport-jwt` strategy.
-
-> 👉 [Support](https://appseed.us/support/) via **Discord & Email** provided by `AppSeed`. 
+> 👉 [Support](https://liveos.io/support/) via **Discord & Email** provided by `liveos`.
 
 <br />
 
 ## Features
 
-- 🚀 `Full-stack ready` with [React Soft Dashboard](https://appseed.us/product/soft-ui-dashboard/api-server-nodejs/react/)
-- ✅ Simple, intuitive codebase - can be extended with ease.  
+- 🚀 `Full-stack ready` with [React Soft Dashboard](https://liveos.io/product/soft-ui-dashboard/api-server-nodejs/react/)
+- ✅ Simple, intuitive codebase - can be extended with ease.
 - ✅ `TypeScript`, `Joy` for validation
 - ✅ **Stack**: NodeJS / Express / SQLite / TypeORM
-- ✅ Auth: Passport / `passport-jwt` strategy 
+- ✅ Auth: Passport / `passport-jwt` strategy
 - 🆕 `OAuth` for **Github**
-  
+
 <br />
 
 > Tested with:
 
-| NodeJS | NPM | YARN | 
-| --- | --- | --- | 
-| `v18.0.0`  | ✅ | ✅ |
-| `v16.10.0` | ✅ | ✅ | 
-| `v14.15.0` | ✅ | ✅ | 
+| NodeJS     | NPM | YARN |
+| ---------- | --- | ---- |
+| `v18.0.0`  | ✅  | ✅   |
+| `v16.10.0` | ✅  | ✅   |
+| `v14.15.0` | ✅  | ✅   |
 
 <br />
 
-![Nodejs API Server - Open-source Nodejs Starter provided by AppSeed.](https://user-images.githubusercontent.com/51070104/124414813-142aa180-dd5c-11eb-9279-6b082dadc51a.png)
+![Nodejs API Server - Open-source Nodejs Starter provided by liveos.](https://user-images.githubusercontent.com/51070104/124414813-142aa180-dd5c-11eb-9279-6b082dadc51a.png)
 
 <br />
 
@@ -54,7 +53,7 @@ $ cd api-server-nodejs
 
 ```bash
 $ npm i
-// OR 
+// OR
 $ yarn
 ```
 
@@ -64,21 +63,21 @@ $ yarn
 
 ```
 $ npm run typeorm migration:run
-// OR 
+// OR
 $ yarn typeorm migration:run
 ```
 
 <br />
 
-> 👉 **Step 4** - Edit the `.env` using the template `.env.sample`. 
+> 👉 **Step 4** - Edit the `.env` using the template `.env.sample`.
 
 ```env
 PORT=5000                       # API PORT
 SQLITE_PATH=./database.db       # Path to the SQLite database file
-SECRET="Whatever-STRONG"        # Secret for sensitive data hashing 
+SECRET="Whatever-STRONG"        # Secret for sensitive data hashing
 
 # Same as for React APP
-GITHUB_OAUTH_CLIENT_ID= ...     # Github OAuth secret 
+GITHUB_OAUTH_CLIENT_ID= ...     # Github OAuth secret
 GITHUB_OAUTH_CLIENT_SECRET= ... # Github OAuth secret
 ```
 
@@ -116,25 +115,25 @@ The API server will start using the `PORT` specified in `.env` file (default 500
 
 ```bash
 < ROOT / src >
-     | 
-     |-- config/                              
-     |    |-- config.ts             # Configuration       
-     |    |-- passport.ts           # Define Passport Strategy             
-     | 
+     |
+     |-- config/
+     |    |-- config.ts             # Configuration
+     |    |-- passport.ts           # Define Passport Strategy
+     |
      |-- migration/
      |    |-- some_migration.ts     # database migrations
      |
-     |-- models/                              
-     |    |-- activeSession.ts      # Sessions Model (Typeorm)              
-     |    |-- user.ts               # User Model (Typeorm) 
-     | 
-     |-- routes/                              
+     |-- models/
+     |    |-- activeSession.ts      # Sessions Model (Typeorm)
+     |    |-- user.ts               # User Model (Typeorm)
+     |
+     |-- routes/
      |    |-- users.ts              # Define Users API Routes
-     | 
-     | 
+     |
+     |
      |-- index.js                   # API Entry Point
      |-- .env                       # Specify the ENV variables
-     |                        
+     |
      |-- ************************************************************************
 ```
 
@@ -154,7 +153,7 @@ The SQLite Path is set in `.env`, as `SQLITE_PATH`
 $ yarn typeorm migration:generate -n your_migration_name
 ```
 
-> 👉 Run migration: 
+> 👉 Run migration:
 
 ```bash
 $ yarn typeorm migration:run
@@ -174,8 +173,8 @@ Content-Type: application/json
 
 {
     "username":"test",
-    "password":"pass", 
-    "email":"test@appseed.us"
+    "password":"pass",
+    "email":"test@liveos.io"
 }
 ```
 
@@ -188,8 +187,8 @@ POST /api/users/login
 Content-Type: application/json
 
 {
-    "password":"pass", 
-    "email":"test@appseed.us"
+    "password":"pass",
+    "email":"test@liveos.io"
 }
 ```
 
@@ -211,15 +210,15 @@ authorization: JWT_TOKEN (returned by Login request)
 
 ## ✨ Update role for existing user
 
-> 👉 Using npm: 
+> 👉 Using npm:
 
-```$ npm run update-role [user_id] [role_id (optional)]```
+`$ npm run update-role [user_id] [role_id (optional)]`
 
 <br />
 
-> 👉 Using yarn: 
+> 👉 Using yarn:
 
-```$ yarn update-role [user_id] [role_id (optional)]```
+`$ yarn update-role [user_id] [role_id (optional)]`
 
 - [user_id] is the id of existing user to update role for.
 - [role_id] is the id of role: 1 for admin & 2 for user. If you don't provide any role_id it would update user to admin role.
@@ -238,7 +237,7 @@ $ yarn test
 
 ## ✨ Credits
 
-This software is provided by the core AppSeed team with an inspiration from other great NodeJS starters: 
+This software is provided by the core liveos team with an inspiration from other great NodeJS starters:
 
 - Initial verison - coded by [Teo Deleanu](https://www.linkedin.com/in/teodeleanu/)
 - [Hackathon Starter](https://github.com/sahat/hackathon-starter) - A truly amazing boilerplate for Node.js apps
@@ -248,4 +247,5 @@ This software is provided by the core AppSeed team with an inspiration from othe
 <br />
 
 ---
-**[Node JS API Server](https://appseed.us/boilerplate-code/nodejs-starter/)** - provided by AppSeed [App Generator](https://appseed.us)
+
+**[Node JS API Server](https://liveos.io/boilerplate-code/nodejs-starter/)** - provided by liveos [App Generator](https://liveos.io)
