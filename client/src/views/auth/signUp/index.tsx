@@ -1,32 +1,8 @@
-/* eslint-disable */
-/*!
-  _   _  ___  ____  ___ ________  _   _   _   _ ___   
- | | | |/ _ \|  _ \|_ _|__  / _ \| \ | | | | | |_ _| 
- | |_| | | | | |_) || |  / / | | |  \| | | | | || | 
- |  _  | |_| |  _ < | | / /| |_| | |\  | | |_| || |
- |_| |_|\___/|_| \_\___/____\___/|_| \_|  \___/|___|
-                                                                                                                                                                                                                                                                                                                                       
-=========================================================
-* Horizon UI - v1.1.0
-=========================================================
-
-* Product Page: https://www.horizon-ui.com/
-* Copyright 2022 Horizon UI (https://www.horizon-ui.com/)
-
-* Designed and Coded by Simmmple
-
-=========================================================
-
-* The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-*/
-
 import { NavLink } from 'react-router-dom';
 // Chakra imports
 import {
   Box,
   Button,
-  Checkbox,
   Flex,
   FormControl,
   FormLabel,
@@ -36,18 +12,15 @@ import {
   InputGroup,
   InputRightElement,
   Text,
-  Link,
   useColorModeValue,
 } from '@chakra-ui/react';
 // Custom components
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import AuthApi from '../../../api/auth';
-import { HSeparator } from 'components/separator/Separator';
 import DefaultAuth from 'layouts/auth/Default';
 // Assets
 import illustration from 'assets/img/auth/auth.png';
-import { FcGoogle } from 'react-icons/fc';
 import { MdOutlineRemoveRedEye } from 'react-icons/md';
 import { RiEyeCloseLine } from 'react-icons/ri';
 import { useAuth } from 'contexts/auth.context';
@@ -86,9 +59,9 @@ function SignIn() {
     if (name === '') {
       return setError('You must enter your name.');
     }
-    if (email === '') {
-      return setError('You must enter your email.');
-    }
+    // if (email === '') {
+    //   return setError('You must enter your email.');
+    // }
     if (password === '') {
       return setError('You must enter a password.');
     }
@@ -96,7 +69,7 @@ function SignIn() {
       setButtonText('Signing up');
       let response = await AuthApi.Register({
         username: name,
-        email,
+        email: email ? email : undefined,
         password,
       });
       if (response.data && response.data.success === false) {
@@ -211,7 +184,7 @@ function SignIn() {
                 Email<Text color={brandStars}>*</Text>
               </FormLabel>
               <Input
-                isRequired={true}
+                isRequired={false}
                 variant="auth"
                 fontSize="sm"
                 ms={{ base: '0px', md: '0px' }}
