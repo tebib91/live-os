@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
@@ -17,6 +18,6 @@ export default class User {
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   date?: string;
 
-  @Column({type: 'text'})
-  user_role!: string
+  @Column({ type: 'text' })
+  user_role!: string;
 }

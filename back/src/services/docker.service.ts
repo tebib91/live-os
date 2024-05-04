@@ -1,4 +1,6 @@
-const Docker = require("dockerode");
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/comma-dangle */
+import Docker from 'dockerode';
 
 interface Container {
   id: string;
@@ -11,7 +13,7 @@ class DockerService {
   docker = new Docker(); // Or a different instantiation method
 
   constructor() {
-    this.docker = new Docker({ socketPath: "/var/run/docker.sock" }); // Replace with your Docker socket path
+    this.docker = new Docker({ socketPath: '/var/run/docker.sock' }); // Replace with your Docker socket path
   }
 
   async listContainers(): Promise<Container[]> {
@@ -26,7 +28,7 @@ class DockerService {
         })
       );
     } catch (error) {
-      console.error("Error listing containers:", error);
+      console.error('Error listing containers:', error);
       throw error; // Or handle the error gracefully and return an appropriate error message
     }
   }
@@ -35,7 +37,7 @@ class DockerService {
     try {
       await this.docker.getContainer(containerId).start();
     } catch (error) {
-      console.error("Error starting container:", error);
+      console.error('Error starting container:', error);
       throw error; // Or handle the error gracefully
     }
   }
@@ -44,7 +46,7 @@ class DockerService {
     try {
       await this.docker.getContainer(containerId).stop();
     } catch (error) {
-      console.error("Error stopping container:", error);
+      console.error('Error stopping container:', error);
       throw error; // Or handle the error gracefully
     }
   }
@@ -53,7 +55,7 @@ class DockerService {
     try {
       await this.docker.getContainer(containerId).remove();
     } catch (error) {
-      console.error("Error removing container:", error);
+      console.error('Error removing container:', error);
       throw error; // Or handle the error gracefully
     }
   }

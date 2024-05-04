@@ -1,3 +1,3 @@
-const DEFAULT_ROLE = 'user'
+const DEFAULT_ROLE = 'user';
 
-export {DEFAULT_ROLE}
+export { DEFAULT_ROLE };

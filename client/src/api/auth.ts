@@ -1,4 +1,4 @@
-import axios from "./index";
+import axios from './index';
 
 class AuthApi {
   static Login = (data: any) => {
@@ -16,6 +16,6 @@ class AuthApi {
   };
 }
 
-let base = "users";
+let base = 'users';
 
 export default AuthApi;

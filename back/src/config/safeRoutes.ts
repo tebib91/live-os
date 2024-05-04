@@ -1,12 +1,10 @@
 /*
-
 Copyright (c) 2024 - present liveos.io
-
 */
-import { NextFunction, Request, Response } from "express";
+import { NextFunction, Request, Response } from 'express';
 
-import ActiveSession from "../models/activeSession";
-import { connection } from "../server/database";
+import ActiveSession from '../models/activeSession';
+import { connection } from '../server/database';
 
 // eslint-disable-next-line import/prefer-default-export
 export const checkToken = (req: Request, res: Response, next: NextFunction) => {
@@ -19,10 +17,10 @@ export const checkToken = (req: Request, res: Response, next: NextFunction) => {
       if (session.length === 1) {
         return next(); // Call next() inside the resolved promise
       }
-      return res.json({ success: false, msg: "User is not logged on" });
+      return res.json({ success: false, msg: 'User is not logged on' });
     })
     .catch((error) => {
       console.error(error); // Handle errors appropriately
-      return res.status(500).json({ message: "Internal Server Error" });
+      return res.status(500).json({ message: 'Internal Server Error' });
     });
 };

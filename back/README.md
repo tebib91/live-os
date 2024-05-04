@@ -2,14 +2,68 @@
 
 [Express/Nodejs Starter](https://liveos.io/product/soft-ui-dashboard/api-server-nodejs/react/) with `JWT Authentication`, OAuth (Github), and **SQLite** persistence - Provided by `liveos`. Authentication Flow uses `json web tokens` via Passport library - `passport-jwt` strategy.
 
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+
 > 👉 [Support](https://liveos.io/support/) via **Discord & Email** provided by `liveos`.
 
-<br />
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
 
 ## Features
 
-- 🚀 `Full-stack ready` with [React Soft Dashboard](https://liveos.io/product/soft-ui-dashboard/api-server-nodejs/react/)
-- ✅ Simple, intuitive codebase - can be extended with ease.
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+
+```
+
+```
+
+// OR
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+
 - ✅ `TypeScript`, `Joy` for validation
 - ✅ **Stack**: NodeJS / Express / SQLite / TypeORM
 - ✅ Auth: Passport / `passport-jwt` strategy
@@ -19,17 +73,9 @@
 
 > Tested with:
 
-| NodeJS     | NPM | YARN |
-| ---------- | --- | ---- |
-| `v18.0.0`  | ✅  | ✅   |
-| `v16.10.0` | ✅  | ✅   |
-| `v14.15.0` | ✅  | ✅   |
-
-<br />
-
-![Nodejs API Server - Open-source Nodejs Starter provided by liveos.](https://user-images.githubusercontent.com/51070104/124414813-142aa180-dd5c-11eb-9279-6b082dadc51a.png)
-
-<br />
+| NodeJS    | NPM | YARN |
+| --------- | --- | ---- |
+| `v18.0.0` | ✅  | ✅   |
 
 ## ✨ Requirements
 
@@ -37,22 +83,77 @@
 - [SQLite](https://www.sqlite.org/index.html)
 
 <br />
+$ cd api-server-nodejs
+```
+```
+// OR
+
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
 
 ## ✨ How to use the code
 
 > 👉 **Step 1** - Clone the project
+> $ cd api-server-nodejs
+
+```
+$ cd api-server-nodejs
+```
+
+```
+// OR
+$ cd api-server-nodejs
+```
+
+```
+// OR
+$ cd api-server-nodejs
+```
+
+```
+// OR
+$ cd api-server-nodejs
+```
+
+```
+// OR
+$ cd api-server-nodejs
+```
+
+```
+// OR
+```
+
+// OR
 
 ```bash
 $ git clone https://github.com/app-generator/api-server-nodejs.git
 $ cd api-server-nodejs
 ```
 
-<br />
-
-> 👉 **Step 2** - Install dependencies via `Yarn`
+```
+// OR
+$ cd api-server-nodejs
+```
 
 ```bash
-$ npm i
+$ git clone https://github.com/app-generator/api-server-nodejs.git
+$ cd api-server-nodejs
+```
+
+```
 // OR
 $ yarn
 ```
