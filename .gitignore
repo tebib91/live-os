@@ -1,20 +1,20 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-back/node_modules
 client/node_modules
+node_modules
 
-back/.pnp
-back/.pnp.js
+.pnp
+.pnp.js
 
 # postman
-back/media/api.postman_collection.json
+media/api.postman_collection.json
 
 # testing
 /coverage
 
 # production
-back/build
+build
 
 # misc
 .DS_Store

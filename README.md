@@ -1,53 +1,352 @@
-## live-os: A Simple, Easy-to-Use Personal Cloud System
+# [Nodejs API Server](https://liveos.io/product/soft-ui-dashboard/api-server-nodejs/react/)
 
-live-os is an open-source project that aims to provide a user-friendly personal cloud experience built around the Docker ecosystem. It allows you to easily deploy and manage various self-hosted applications on your own hardware, giving you control and privacy over your data.
+[Express/Nodejs Starter](https://liveos.io/product/soft-ui-dashboard/api-server-nodejs/react/) with `JWT Authentication`, OAuth (Github), and **SQLite** persistence - Provided by `liveos`. Authentication Flow uses `json web tokens` via Passport library - `passport-jwt` strategy.
+
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+
+> 👉 [Support](https://liveos.io/support/) via **Discord & Email** provided by `liveos`.
+
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
 
 ## Features
 
-- **Simple and Elegant User Interface:** live-os boasts a minimalist and intuitive interface that streamlines container management.
-- **Docker Integration:** Leverage the vast ecosystem of Docker applications to build your personalized cloud with ease.
-- **Pre-built App Store:** live-os offers a curated selection of popular self-hosted apps readily available for deployment.
-- **Customizable:** You can install and manage any containerized application beyond the pre-built store.
-- **Open Source:** live-os is a community-driven project, allowing for contributions and customization.
+$ cd api-server-nodejs
 
-## Getting Started
+```
 
-### Prerequisites:
+```
 
-- A spare computer or server with sufficient resources.
-- Basic understanding of Docker concepts (optional).
+// OR
+$ cd api-server-nodejs
 
-### Installation:
+```
 
-1. Download the live-os image for your system architecture from the [official website](https://live-os.io/).
-2. Follow the installation guide for your chosen platform (e.g., Raspberry Pi, x86-64 machine) to flash the image onto a storage device.
-3. Boot your system with the live-os image.
+```
 
-## Usage
+// OR
 
-- Access the live-os web interface through your browser at http://your_server_ip:8080.
-- Login with the default credentials (provided during installation or documented).
-- Explore the user interface to browse the pre-built app store, search for additional containers, or manage existing deployments.
-- Configure your chosen applications according to their specific needs.
+```
 
-## Resources
+```
 
-- Official Website: [https://liveos.io/](https://liveos.io/)
-- Documentation: [https://liveos.io/](https://liveos.io/) (Link might change, refer to official website for latest documentation)
-- Community Forum: [https://github.com/topics/github-discussions](https://github.com/topics/github-discussions)
+// OR
+$ cd api-server-nodejs
 
-## Contributing
+```
 
-live-os welcomes contributions from the community. You can contribute by:
+```
 
-- Reporting bugs and suggesting improvements.
-- Submitting pull requests with code changes.
-- Participating in discussions and helping other users on the forum.
+// OR
 
-## License
+- ✅ `TypeScript`, `Joy` for validation
+- ✅ **Stack**: NodeJS / Express / SQLite / TypeORM
+- ✅ Auth: Passport / `passport-jwt` strategy
+- 🆕 `OAuth` for **Github**
 
-live-os is licensed under the Apache License 2.0: [https://www.apache.org/licenses/LICENSE-2.0](https://www.apache.org/licenses/LICENSE-2.0).
+<br />
 
-## Contact
+> Tested with:
 
-For any questions or feedback regarding live-os, feel free to reach out to the community forum or explore the official website for contact details.
+| NodeJS    | NPM | YARN |
+| --------- | --- | ---- |
+| `v18.0.0` | ✅  | ✅   |
+
+## ✨ Requirements
+
+- [Node.js](https://nodejs.org/) >= v16.13
+- [SQLite](https://www.sqlite.org/index.html)
+
+<br />
+$ cd api-server-nodejs
+```
+```
+// OR
+
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+$ cd api-server-nodejs
+
+```
+
+```
+
+// OR
+
+## ✨ How to use the code
+
+> 👉 **Step 1** - Clone the project
+> $ cd api-server-nodejs
+
+```
+$ cd api-server-nodejs
+```
+
+```
+// OR
+$ cd api-server-nodejs
+```
+
+```
+// OR
+$ cd api-server-nodejs
+```
+
+```
+// OR
+$ cd api-server-nodejs
+```
+
+```
+// OR
+$ cd api-server-nodejs
+```
+
+```
+// OR
+```
+
+// OR
+
+```bash
+$ git clone https://github.com/app-generator/api-server-nodejs.git
+$ cd api-server-nodejs
+```
+
+```
+// OR
+$ cd api-server-nodejs
+```
+
+```bash
+$ git clone https://github.com/app-generator/api-server-nodejs.git
+$ cd api-server-nodejs
+```
+
+```
+// OR
+$ yarn
+```
+
+<br />
+
+> 👉 **Step 3** - Run the SQLite migration via TypeORM
+
+```
+$ npm run typeorm migration:run
+// OR
+$ yarn typeorm migration:run
+```
+
+<br />
+
+> 👉 **Step 4** - Edit the `.env` using the template `.env.sample`.
+
+```env
+PORT=5000                       # API PORT
+SQLITE_PATH=./database.db       # Path to the SQLite database file
+SECRET="Whatever-STRONG"        # Secret for sensitive data hashing
+
+# Same as for React APP
+GITHUB_OAUTH_CLIENT_ID= ...     # Github OAuth secret
+GITHUB_OAUTH_CLIENT_SECRET= ... # Github OAuth secret
+```
+
+<br />
+
+> 👉 **Step 5** - Start the API server (development mode)
+
+```bash
+$ npm run dev
+// OR
+$ yarn dev
+```
+
+<br />
+
+> 👉 **Step 6** - Production Build (files generated in `build` directory)
+
+```bash
+$ yarn build
+```
+
+<br />
+
+> 👉 **Step 7** - Start the API server for production (files served from `build/index.js`)
+
+```bash
+$ yarn start
+```
+
+The API server will start using the `PORT` specified in `.env` file (default 5000).
+
+<br />
+
+## ✨ Codebase Structure
+
+```bash
+< ROOT / src >
+     |
+     |-- config/
+     |    |-- config.ts             # Configuration
+     |    |-- passport.ts           # Define Passport Strategy
+     |
+     |-- migration/
+     |    |-- some_migration.ts     # database migrations
+     |
+     |-- models/
+     |    |-- activeSession.ts      # Sessions Model (Typeorm)
+     |    |-- user.ts               # User Model (Typeorm)
+     |
+     |-- routes/
+     |    |-- users.ts              # Define Users API Routes
+     |
+     |
+     |-- index.js                   # API Entry Point
+     |-- .env                       # Specify the ENV variables
+     |
+     |-- ************************************************************************
+```
+
+<br />
+
+## ✨ SQLite Path
+
+The SQLite Path is set in `.env`, as `SQLITE_PATH`
+
+<br />
+
+## ✨ Database migration
+
+> 👉 Generate migration:
+
+```bash
+$ yarn typeorm migration:generate -n your_migration_name
+```
+
+> 👉 Run migration:
+
+```bash
+$ yarn typeorm migration:run
+```
+
+<br />
+
+## ✨ API
+
+For a fast set up, use this POSTMAN file: [api_sample](https://github.com/app-generator/api-server-nodejs-pro/blob/master/media/api.postman_collection.json)
+
+> 👉 **Register** - `api/users/register`
+
+```
+POST api/users/register
+Content-Type: application/json
+
+{
+    "username":"test",
+    "password":"pass",
+    "email":"test@liveos.io"
+}
+```
+
+<br />
+
+> 👉 **Login** - `api/users/login`
+
+```
+POST /api/users/login
+Content-Type: application/json
+
+{
+    "password":"pass",
+    "email":"test@liveos.io"
+}
+```
+
+<br />
+
+> 👉 **Logout** - `api/users/logout`
+
+```
+POST api/users/logout
+Content-Type: application/json
+authorization: JWT_TOKEN (returned by Login request)
+
+{
+    "token":"JWT_TOKEN"
+}
+```
+
+<br />
+
+## ✨ Update role for existing user
+
+> 👉 Using npm:
+
+`$ npm run update-role [user_id] [role_id (optional)]`
+
+<br />
+
+> 👉 Using yarn:
+
+`$ yarn update-role [user_id] [role_id (optional)]`
+
+- [user_id] is the id of existing user to update role for.
+- [role_id] is the id of role: 1 for admin & 2 for user. If you don't provide any role_id it would update user to admin role.
+
+<br />
+
+## ✨ Run the Tests (`minimal suite`)
+
+```
+$ npm run test
+// OR
+$ yarn test
+```
+
+<br />
+
+## ✨ Credits
+
+This software is provided by the core liveos team with an inspiration from other great NodeJS starters:
+
+- Initial verison - coded by [Teo Deleanu](https://www.linkedin.com/in/teodeleanu/)
+- [Hackathon Starter](https://github.com/sahat/hackathon-starter) - A truly amazing boilerplate for Node.js apps
+- [Node Server Boilerplate](https://github.com/hagopj13/node-express-boilerplate) - just another cool starter
+- [React NodeJS Argon](https://github.com/creativetimofficial/argon-dashboard-react-nodejs) - released by **Creative-Tim** and [ProjectData](https://projectdata.dev/)
+
+<br />
+
+---
+
+**[Node JS API Server](https://liveos.io/boilerplate-code/nodejs-starter/)** - provided by liveos [App Generator](https://liveos.io)

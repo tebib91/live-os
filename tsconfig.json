@@ -3,8 +3,8 @@
     "target": "es2018",
     "declaration": false,
     "resolveJsonModule": true,
-    "baseUrl": "./back",
-    "outDir": "./back/build",
+    "baseUrl": "server",
+    "outDir": "server/build",
     "strict": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
@@ -24,6 +24,6 @@
     "preserveSymlinks": true
   },
   "lib": ["esnext"],
-  "include": ["/back/src", "back/tests", "client/node_modules"],
-  "exclude": ["back/node_modules", "client/node_modules"]
+  "include": ["src", "tests", "client/node_modules"],
+  "exclude": ["server/node_modules", "client/node_modules"]
 }
