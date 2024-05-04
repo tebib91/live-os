@@ -124,7 +124,7 @@ function SignIn() {
             fontWeight="400"
             fontSize="md"
           >
-            Open-source Full-stack Starter built with React and Chakra
+            Open-source Personal Cloud OS
           </Text>
         </Box>
         <Flex

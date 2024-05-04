@@ -1,8 +1,12 @@
-import axios from "./index";
+import axios from './index';
 
 class ContainersApi {
   static All = () => {
-    return axios.get(`${base}/all`);
+    const user = JSON.parse(localStorage.getItem('user')) as any;
+
+    return axios.get(`${base}/all`, {
+      headers: { Authorization: `${user.token}` },
+    });
   };
 
   static startContainer = (id: string) => {
@@ -14,6 +18,6 @@ class ContainersApi {
   };
 }
 
-let base = "containers";
+let base = 'containers';
 
 export default ContainersApi;

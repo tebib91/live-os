@@ -1,16 +1,16 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export default class Container {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: "text", nullable: false })
-  name!: string;
+  @Column({ type: 'text', nullable: false })
+  names!: string;
 
-  @Column({ type: "text", nullable: false })
-  imageName!: string;
+  @Column({ type: 'text', nullable: false })
+  image!: string;
 
-  @Column({ type: "text", nullable: true })
+  @Column({ type: 'text', nullable: true })
   status?: string;
 }
