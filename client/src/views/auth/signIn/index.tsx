@@ -112,6 +112,8 @@ function SignIn() {
         px={{ base: '25px', md: '0px' }}
         mt={{ base: '40px', md: '14vh' }}
         flexDirection="column"
+        ml={{ base: 'auto', md: 'auto', lg: 'auto' }}
+        mr={{ base: 'auto', md: 'auto', lg: 'auto' }}
       >
         <Box me="auto">
           <Heading color={textColor} fontSize="36px" mb="10px">

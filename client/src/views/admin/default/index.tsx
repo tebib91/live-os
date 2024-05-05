@@ -26,10 +26,12 @@ import {
   Box,
   Flex,
   FormLabel,
+  Grid,
   Icon,
   Select,
   SimpleGrid,
   useColorModeValue,
+  Text,
 } from '@chakra-ui/react';
 // Assets
 import Usa from 'assets/img/dashboards/usa.png';
@@ -55,11 +57,15 @@ import tableDataComplex from 'views/admin/default/variables/tableDataComplex';
 import ContainersApi from 'api/containers';
 import Container from 'models/containers';
 import { useEffect, useState } from 'react';
+import Banner from '../marketplace/components/Banner';
+import Card from 'components/card/Card';
 
 export default function UserReports() {
   // Chakra Color Mode
   const brandColor = useColorModeValue('brand.500', 'white');
   const boxBg = useColorModeValue('secondaryGray.300', 'whiteAlpha.100');
+  const textColor = useColorModeValue('secondaryGray.900', 'white');
+  const textColorBrand = useColorModeValue('brand.500', 'white');
 
   const [containers, setContainers] = useState([]);
 
@@ -81,46 +87,82 @@ export default function UserReports() {
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      <SimpleGrid
-        columns={{ base: 1, md: 2, lg: 3, '2xl': 6 }}
-        gap="20px"
+      <Grid
         mb="20px"
+        gridTemplateColumns={{ xl: 'repeat(3, 1fr)', '2xl': '1fr 0.46fr' }}
+        gap={{ base: '20px', xl: '20px' }}
+        display={{ base: 'block', xl: 'grid' }}
       >
-        {containers.map((container: Container) => (
-          <MiniStatistics
-            key={container.id}
-            startContent={
-              <IconBox
-                w="42px"
-                h="42px"
-                bg="linear-gradient(90deg, #4481EB 0%, #04BEFE 100%)"
-                icon={<Icon w="28px" h="28px" as={MdAddTask} color="white" />}
-              />
-            }
-            name={container.names}
-            value={container.status}
-          />
-        ))}
-      </SimpleGrid>
-
-      {/* <SimpleGrid columns={{ base: 1, md: 2, xl: 2 }} gap="20px" mb="20px">
-        <TotalSpent />
-        <WeeklyRevenue />
-      </SimpleGrid>
-      <SimpleGrid columns={{ base: 1, md: 1, xl: 2 }} gap="20px" mb="20px">
-        <CheckTable tableData={tableDataCheck} />
-        <SimpleGrid columns={{ base: 1, md: 2, xl: 2 }} gap="20px">
-          <DailyTraffic />
-          <PieCard />
-        </SimpleGrid>
-      </SimpleGrid>
-      <SimpleGrid columns={{ base: 1, md: 1, xl: 2 }} gap="20px" mb="20px">
-        <ComplexTable tableData={tableDataComplex} />
-        <SimpleGrid columns={{ base: 1, md: 2, xl: 2 }} gap="20px">
-          <Tasks />
-          <MiniCalendar h="100%" minW="100%" selectRange={false} />
-        </SimpleGrid>
-      </SimpleGrid> */}
+        <Flex
+          flexDirection="column"
+          gridArea={{ xl: '1 / 1 / 2 / 3', '2xl': '1 / 1 / 2 / 2' }}
+        >
+          <Banner />
+          <Flex direction="column">
+            <Flex
+              mt="45px"
+              mb="20px"
+              justifyContent="space-between"
+              direction={{ base: 'column', md: 'row' }}
+              align={{ base: 'start', md: 'center' }}
+            >
+              <Text color={textColor} fontSize="2xl" ms="24px" fontWeight="700">
+                Apps
+              </Text>
+            </Flex>
+            <SimpleGrid
+              columns={{ base: 1, md: 2, lg: 3 }}
+              gap="20px"
+              mb="20px"
+            >
+              {containers.map((container: Container) => (
+                <MiniStatistics
+                  key={container.id}
+                  startContent={
+                    <IconBox
+                      w="42px"
+                      h="42px"
+                      bg="linear-gradient(90deg, #4481EB 0%, #04BEFE 100%)"
+                      icon={
+                        <Icon w="28px" h="28px" as={MdAddTask} color="white" />
+                      }
+                    />
+                  }
+                  name={container.names}
+                  value={container.status}
+                />
+              ))}
+            </SimpleGrid>
+          </Flex>
+        </Flex>
+        <Flex
+          flexDirection="column"
+          gridArea={{ xl: '1 / 3 / 2 / 4', '2xl': '1 / 2 / 2 / 3' }}
+        >
+          <Card px="0px" mb="20px"></Card>
+        </Flex>
+      </Grid>
     </Box>
   );
 }
+// <SimpleGrid
+//   columns={{ base: 1, md: 2, lg: 3, '2xl': 6 }}
+//   gap="20px"
+//   mb="20px"
+// >
+//   {containers.map((container: Container) => (
+//     <MiniStatistics
+//       key={container.id}
+//       startContent={
+//         <IconBox
+//           w="42px"
+//           h="42px"
+//           bg="linear-gradient(90deg, #4481EB 0%, #04BEFE 100%)"
+//           icon={<Icon w="28px" h="28px" as={MdAddTask} color="white" />}
+//         />
+//       }
+//       name={container.names}
+//       value={container.status}
+//     />
+//   ))}
+// </SimpleGrid>;

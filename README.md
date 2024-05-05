@@ -17,6 +17,10 @@ live-os is an open-source project that aims to provide a user-friendly personal 
 - A spare computer or server with sufficient resources.
 - Basic understanding of Docker concepts (optional).
 
+## Development environment
+
+1. Install `sudo apt-get install build-essential libudev-dev` you'll need libudev to build libusb if a prebuild is not available.
+
 ### Installation:
 
 1. Download the live-os image for your system architecture from the [official website](https://live-os.io/).

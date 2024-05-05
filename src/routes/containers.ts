@@ -1,8 +1,5 @@
-// import bcrypt from "bcrypt";
 /*
-
 Copyright (c) 2024 - present liveos.io
-
 */
 import express from 'express';
 import { checkToken } from '../config/safeRoutes';
