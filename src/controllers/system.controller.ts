@@ -1,17 +1,20 @@
 /* eslint-disable @typescript-eslint/comma-dangle */
 import { Request, Response } from 'express';
 import DockerService from '../services/docker.service';
+import SystemService from '../services/system.service';
 
 export const getUtilization = async (
   _req: Request,
   res: Response
 ): Promise<void> => {
   try {
+    console.log('hob');
+    
     // Create new service instance here
-    const containers = await new DockerService().listContainers();
-    res.json(containers);
+    const utilizationSystem = await new SystemService().getUtilizationSystem()
+    res.json(utilizationSystem);
   } catch (error) {
-    res.status(500).json({ message: 'Error listing containers' });
+    res.status(500).json({ message: 'Error utilization System' });
   }
 };
 export const startContainer = async (

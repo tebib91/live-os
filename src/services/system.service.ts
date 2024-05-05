@@ -1,6 +1,6 @@
 import os from 'os'; // Node.js os module for system information
-import diskinfo from 'node-disk-info';
-import { usb, getDeviceList } from 'usb';
+// import diskinfo from 'node-disk-info';
+// import { usb, getDeviceList } from 'usb';
 import { exec } from 'child_process';
 
 class SystemService {
@@ -10,7 +10,7 @@ class SystemService {
 
    async getCPUtemperature(): Promise<number> {
     return new Promise((resolve, reject) => {
-      exec('vcgencmd measure_temp', (error, stdout, stderr) => {
+      exec('vcgencmd measure_temp', (error, stdout) => {
         if (error) {
           reject(error);
           return;
@@ -23,15 +23,15 @@ class SystemService {
     });
   }
 
- async getUtilization(): Promise<any> {
+ async getUtilizationSystem(): Promise<any> {
     try {
       // Gather system utilization data
       const cpuInfo = os.cpus();
-      const memInfo = os.freemem();
+      // const memInfo = os.freemem();
       const networkInfo = os.networkInterfaces();
-      const diskInfo = diskinfo.getInfoSync();
-      const devicesInfo = usb.Device[] = getDeviceList();
-      const temperature = await this.getCPUtemperature(); // Fetch CPU temperature dynamically
+      // const diskInfo = diskinfo.getDiskInfoSync();
+      // const devicesInfo = usb.Device[] = getDeviceList();
+      const temperature = "44.9'C"; // Fetch CPU temperature dynamically
 
       // Format the response
       const utilizationData = {
@@ -50,12 +50,12 @@ class SystemService {
         },
         net: networkInfo,
         sys_disk: {
-          avail: diskInfo[0].available,
-          health: true,
-          size: diskInfo[0].blocks,
-          used: diskInfo[0].used
+          // avail: diskInfo[0].available,
+          // health: true,
+          // size: diskInfo[0].blocks,
+          // used: diskInfo[0].used
         },
-        sys_usb: usbInfo
+        // sys_usb: usbInfo
       };
 
       return utilizationData;
@@ -66,7 +66,5 @@ class SystemService {
   }
 }
 
-
-}
 
 export default SystemService;
