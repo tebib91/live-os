@@ -20,6 +20,7 @@ live-os is an open-source project that aims to provide a user-friendly personal 
 ## Development environment
 
 1. Install `sudo apt-get install build-essential libudev-dev` you'll need libudev to build libusb if a prebuild is not available.
+2. Install `sudo chmod o+rw /var/run/docker.sock` if you got error 'Error listing containers: Error: connect EACCES /var/run/docker.sock'
 
 ### Installation:
 

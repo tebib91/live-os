@@ -17,8 +17,8 @@ log_message() {
 log_message "Updating system packages..."
 sudo apt update > /dev/null 2>&1 && log_message "System packages updated successfully." || { log_message "Failed to update system packages."; exit 1; }
 
-log_message "Installing build-essential and libudev..."
-sudo apt-get install build-essential libudev-dev 2>&1 && log_message "Build-essential and libudev installed successfully." || { log_message "Failed to install Build-essential and libudev."; exit 1; }
+log_message "Installing build-essential and libssl..."
+sudo apt-get install build-essential checkinstall libssl-dev 2>&1 && log_message "Build-essential and libssl installed successfully." || { log_message "Failed to install Build-essential and libssl."; exit 1; }
 
 log_message "Installing Node.js and npm packages..."
 sudo apt install -y nodejs npm > /dev/null 2>&1 && log_message "Node.js and npm packages installed successfully." || { log_message "Failed to install Node.js and npm packages."; exit 1; }

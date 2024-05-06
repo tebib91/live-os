@@ -1,64 +1,26 @@
-/*!
-  _   _  ___  ____  ___ ________  _   _   _   _ ___   
- | | | |/ _ \|  _ \|_ _|__  / _ \| \ | | | | | |_ _| 
- | |_| | | | | |_) || |  / / | | |  \| | | | | || | 
- |  _  | |_| |  _ < | | / /| |_| | |\  | | |_| || |
- |_| |_|\___/|_| \_\___/____\___/|_| \_|  \___/|___|
-                                                                                                                                                                                                                                                                                                                                       
-=========================================================
-* Horizon UI - v1.1.0
-=========================================================
-
-* Product Page: https://www.horizon-ui.com/
-* Copyright 2022 Horizon UI (https://www.horizon-ui.com/)
-
-* Designed and Coded by Simmmple
-
-=========================================================
-
-* The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-*/
-
 // Chakra imports
 import {
-  Avatar,
   Box,
   Flex,
-  FormLabel,
   Grid,
   Icon,
-  Select,
   SimpleGrid,
   useColorModeValue,
   Text,
 } from '@chakra-ui/react';
 // Assets
-import Usa from 'assets/img/dashboards/usa.png';
 // Custom components
-import MiniCalendar from 'components/calendar/MiniCalendar';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
 import {
   MdAddTask,
-  MdAttachMoney,
-  MdBarChart,
-  MdFileCopy,
 } from 'react-icons/md';
-import CheckTable from 'views/admin/rtl/components/CheckTable';
-import ComplexTable from 'views/admin/default/components/ComplexTable';
-import DailyTraffic from 'views/admin/default/components/DailyTraffic';
-import PieCard from 'views/admin/default/components/PieCard';
-import Tasks from 'views/admin/default/components/Tasks';
-import TotalSpent from 'views/admin/default/components/TotalSpent';
-import WeeklyRevenue from 'views/admin/default/components/WeeklyRevenue';
-import tableDataCheck from 'views/admin/default/variables/tableDataCheck';
-import tableDataComplex from 'views/admin/default/variables/tableDataComplex';
 import ContainersApi from 'api/containers';
 import Container from 'models/containers';
 import { useEffect, useState } from 'react';
 import Banner from '../marketplace/components/Banner';
 import Card from 'components/card/Card';
+import UtilizationCard from './components/UtilizationCard';
 
 export default function UserReports() {
   // Chakra Color Mode
@@ -139,30 +101,11 @@ export default function UserReports() {
           flexDirection="column"
           gridArea={{ xl: '1 / 3 / 2 / 4', '2xl': '1 / 2 / 2 / 3' }}
         >
-          <Card px="0px" mb="20px"></Card>
+          <Card px="0px" mb="20px">
+            <UtilizationCard />
+          </Card>
         </Flex>
       </Grid>
-    </Box>
+    </Box >
   );
 }
-// <SimpleGrid
-//   columns={{ base: 1, md: 2, lg: 3, '2xl': 6 }}
-//   gap="20px"
-//   mb="20px"
-// >
-//   {containers.map((container: Container) => (
-//     <MiniStatistics
-//       key={container.id}
-//       startContent={
-//         <IconBox
-//           w="42px"
-//           h="42px"
-//           bg="linear-gradient(90deg, #4481EB 0%, #04BEFE 100%)"
-//           icon={<Icon w="28px" h="28px" as={MdAddTask} color="white" />}
-//         />
-//       }
-//       name={container.names}
-//       value={container.status}
-//     />
-//   ))}
-// </SimpleGrid>;
