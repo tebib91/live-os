@@ -19,6 +19,9 @@ export default function Dashboard(props: { [x: string]: any }) {
   const getRoute = () => {
     return window.location.pathname !== '/admin/full-screen-maps';
   };
+  const handleRightClick = (event: React.MouseEvent) => {
+    event.preventDefault(); // This will prevent the default context menu
+  };
   const getActiveRoute = (routes: RoutesType[]): string => {
     let activeRoute = 'Default Brand Text';
     for (let i = 0; i < routes.length; i++) {
@@ -70,7 +73,8 @@ export default function Dashboard(props: { [x: string]: any }) {
   document.documentElement.dir = 'ltr';
   const { onOpen } = useDisclosure();
   return (
-    <Box display="flex" alignItems="center">
+    <Box display="flex" alignItems="center" onContextMenu={handleRightClick} bgImage="linear-gradient(to right top, #d16ba5, #c359a7, #b149ac, #993db3, #7935ba, #664dcf, #4962e2, #0074f2, #009dff, #00c0ff, #00dffc, #5ffbf1);"
+    >
       <SidebarContext.Provider
         value={{
           toggleSidebar,
@@ -120,6 +124,7 @@ export default function Dashboard(props: { [x: string]: any }) {
                 <Redirect from="/" to="/admin/default" />
               </Switch>
             </Box>
+
           ) : null}
           <Box>
             <Footer />

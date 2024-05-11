@@ -1,107 +1,75 @@
 /*eslint-disable*/
 
 import {
+  Box,
   Flex,
-  Link,
-  List,
-  ListItem,
-  Text,
+  Icon,
   useColorModeValue,
+  Image,
+  useDisclosure
 } from '@chakra-ui/react';
+import { useHistory } from 'react-router-dom';
+import MarketplaceModal from 'views/admin/marketplace';
+import OverviewModal from 'views/admin/profile';
 
 export default function Footer() {
-  const textColor = useColorModeValue('gray.400', 'white');
+  let menuBg = useColorModeValue('white', 'navy.800');
+  const textColor = useColorModeValue('secondaryGray.900', 'white');
+  const textColorBrand = useColorModeValue('brand.700', 'brand.400');
+  const ethColor = useColorModeValue('gray.700', 'white');
+  const borderColor = useColorModeValue('#E6ECFA', 'rgba(135, 140, 189, 0.3)');
+  const ethBg = useColorModeValue('secondaryGray.300', 'navy.900');
+  const ethBox = useColorModeValue('white', 'navy.800');
+  const shadow = useColorModeValue(
+    '14px 17px 40px 4px rgba(112, 144, 176, 0.18)',
+    '14px 17px 40px 4px rgba(112, 144, 176, 0.06)'
+  );
+  const { isOpen: isOverviewOpen, onOpen: onOverviewOpen, onClose: onOverviewClose } = useDisclosure();
+  const { isOpen: isMarketplaceOpen, onOpen: onMarketplaceOpen, onClose: onMarketplaceClose } = useDisclosure();
+  const history = useHistory();
+
   return (
-    <Flex
-      zIndex="3"
-      flexDirection={{
-        base: 'column',
-        xl: 'row',
-      }}
-      alignItems={{
-        base: 'center',
-        xl: 'start',
-      }}
-      justifyContent="space-between"
-      px={{ base: '30px', md: '50px' }}
-      pb="30px"
-    >
-      <Text
-        color={textColor}
-        textAlign={{
-          base: 'center',
-          xl: 'start',
-        }}
-        mb={{ base: '20px', xl: '0px' }}
-      >
-        {' '}
-        &copy; {new Date().getFullYear()}
-        <Text as="span" fontWeight="500" ms="4px">
-          Live OS. All Rights Reserved. Made with love by
-          <Link
-            mx="3px"
-            color={textColor}
-            href="https://www.liveos.io"
-            target="_blank"
-            fontWeight="700"
-          >
-            Simmmple!
-          </Link>
-        </Text>
-      </Text>
-      <List display="flex">
-        <ListItem
-          me={{
-            base: '20px',
-            md: '44px',
-          }}
-        >
-          <Link
-            fontWeight="500"
-            color={textColor}
-            href="mailto:contact@liveos.io"
-          >
-            Support
-          </Link>
-        </ListItem>
-        <ListItem
-          me={{
-            base: '20px',
-            md: '44px',
-          }}
-        >
-          <Link
-            fontWeight="500"
-            color={textColor}
-            href="https://www.liveos.io/licenses"
-          >
-            License
-          </Link>
-        </ListItem>
-        <ListItem
-          me={{
-            base: '20px',
-            md: '44px',
-          }}
-        >
-          <Link
-            fontWeight="500"
-            color={textColor}
-            href="https://simmmple.com/terms-of-service"
-          >
-            Terms of Use
-          </Link>
-        </ListItem>
-        <ListItem>
-          <Link
-            fontWeight="500"
-            color={textColor}
-            href="https://www.blog.liveos.io/"
-          >
-            Blog
-          </Link>
-        </ListItem>
-      </List>
-    </Flex>
+    <>
+      <Box as="footer" pos="fixed" bottom="1"
+        borderRadius='16px' left="0" right="0"
+        p={"6px"} color="white"
+        bg={menuBg}
+        mx={"auto"}
+
+        width="2xs">
+        <Flex justify="space-around" align="center">
+          <Image
+            src="/icons/icons8-live-photos-48.png"
+            boxSize="48px"
+            alt="Live Photos"
+            transition="0.3s"
+            _hover={{ transform: 'scale(1.1)' }}
+            onClick={() => history.push('/admin')}
+          />
+          <Image
+            src="/icons/icons8-market-square-48.png"
+            boxSize="48px"
+            alt="Market Square"
+            transition="0.3s"
+            _hover={{ transform: 'scale(1.1)' }}
+            onClick={onMarketplaceOpen}
+          />
+          <Image
+            src="/icons/icons8-settings.svg"
+            boxSize="48px"
+            alt="Settings"
+            transition="0.3s"
+            _hover={{
+              transform: 'scale(1.1)'
+            }}
+            onClick={onOverviewOpen}
+
+          />
+        </Flex>
+
+      </Box>
+      <MarketplaceModal isOpen={isMarketplaceOpen} onClose={onMarketplaceClose} />
+      <OverviewModal isOpen={isOverviewOpen} onClose={onOverviewClose} />
+    </>
   );
 }

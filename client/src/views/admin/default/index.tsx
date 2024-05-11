@@ -90,7 +90,7 @@ export default function UserReports() {
                       }
                     />
                   }
-                  name={container.names}
+                  name={`${container.labels.service}:${container.labels.project}`}
                   value={container.status}
                 />
               ))}
