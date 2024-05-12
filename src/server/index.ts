@@ -1,22 +1,22 @@
-import 'dotenv/config';
+import "dotenv/config";
 
-import compression from 'compression';
-import cors from 'cors';
+import compression from "compression";
+import cors from "cors";
 /*
 
 Copyright (c) 2024 - present liveos.io
 
 */
-import express from 'express';
-import passport from 'passport';
+import express from "express";
+import passport from "passport";
 
-import initPassport from '../config/passport';
-import routes from '../routes/users';
-import routesContainers from '../routes/containers';
-import routesSystem from '../routes/system';
-
-import sessionRoute from '../routes/session.route';
-import { connect } from './database';
+import initPassport from "../config/passport";
+import usersRoutes from "../routes/users";
+import containersRoutes from "../routes/containers";
+import systemRoutes from "../routes/system";
+import appStoreRoutes from "../routes/appstore";
+import sessionRoutes from "../routes/session.route";
+import { connect } from "./database";
 
 // Instantiate express
 const server = express();
@@ -27,7 +27,7 @@ initPassport(passport);
 server.use(passport.initialize());
 
 // Connect to sqlite
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== "test") {
   connect();
 }
 
@@ -35,9 +35,10 @@ server.use(cors());
 server.use(express.json());
 
 // Initialize routes middleware
-server.use('/api/users', routes);
-server.use('/api/containers', routesContainers);
-server.use('/api/sessions', sessionRoute);
-server.use('/api/system', routesSystem);
+server.use("/api/users", usersRoutes);
+server.use("/api/containers", containersRoutes);
+server.use("/api/sessions", sessionRoutes);
+server.use("/api/system", systemRoutes);
+server.use("/api/apps", appStoreRoutes);
 
 export default server;

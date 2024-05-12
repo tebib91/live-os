@@ -1,7 +1,6 @@
-import os from "os"; // Node.js os module for system information
+import os from "os";
 const nodeDiskInfo = require("node-disk-info");
 import { getDeviceList, usb } from "usb";
-// import { exec } from "child_process";
 import * as fs from "fs";
 
 class SystemService {
