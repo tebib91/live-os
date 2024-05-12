@@ -13,7 +13,7 @@ export default function Default(props: {
 	const { startContent, endContent, name, growth, value } = props;
 	const textColor = useColorModeValue('secondaryGray.900', 'white');
 	const textColorSecondary = 'secondaryGray.600';
-
+	const statusColorMap: Record<string|number, string> = {exited: 'red', running: 'green'};
 	return (
 		<Card py='15px'>
 			<Flex my='auto' h='100%' align={{ base: 'center', xl: 'start' }} justify={{ base: 'center', xl: 'center' }}>
@@ -49,6 +49,11 @@ export default function Default(props: {
 				<Flex ms='auto' w='max-content'>
 					{endContent}
 				</Flex>
+			</Flex>
+			<Flex align='end' justify='flex-end'>
+			<div style={{'borderRadius': '50%', 'backgroundColor': statusColorMap[value] ?? 'white', height: '8px', width: '8px'}}>
+			
+			</div>
 			</Flex>
 		</Card>
 	);
