@@ -3,18 +3,14 @@ import {
   Box,
   Flex,
   Grid,
-  Icon,
   SimpleGrid,
   useColorModeValue,
   Text,
+  useToast,
 } from '@chakra-ui/react';
 // Assets
 // Custom components
 import MiniStatistics from 'components/card/MiniStatistics';
-import IconBox from 'components/icons/IconBox';
-import {
-  MdAddTask,
-} from 'react-icons/md';
 import ContainersApi from 'api/containers';
 import Container from 'models/containers';
 import { useEffect, useState } from 'react';
@@ -29,16 +25,23 @@ export default function UserReports() {
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const textColorBrand = useColorModeValue('brand.500', 'white');
 
-  const [containers, setContainers] = useState([]);
+  const [containers, setContainers] = useState<Container[]>([]);
+  const toast = useToast();
 
   useEffect(() => {
     // Fetch containers when the component mounts
     const fetchContainers = async () => {
       try {
-        const response = await ContainersApi.All();
+        const response = await ContainersApi.getAllContainers();
         console.log({ res: response.data });
 
-        setContainers(response.data); // Assuming the response data is an array of container objects
+        // Ensure response is an array
+        if (Array.isArray(response)) {
+          setContainers(response);
+        } else {
+          console.error('Unexpected response format:', response);
+          throw new Error('Unexpected response format');
+        }
       } catch (error) {
         console.error('Error fetching containers:', error);
       }
@@ -46,6 +49,58 @@ export default function UserReports() {
 
     fetchContainers();
   }, []);
+
+  const handleStart = async (id: string) => {
+    try {
+      await ContainersApi.startContainer(id);
+      setContainers((prev) =>
+        prev.map((container) =>
+          container.id === id ? { ...container, status: 'running' } : container
+        )
+      );
+      toast({
+        title: 'Container started.',
+        description: `Container ${id} has been started.`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error starting container.',
+        description: `There was an error starting container ${id}.`,
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleStop = async (id: string) => {
+    try {
+      await ContainersApi.stopContainer(id);
+      setContainers((prev) =>
+        prev.map((container) =>
+          container.id === id ? { ...container, status: 'exited' } : container
+        )
+      );
+      toast({
+        title: 'Container stopped.',
+        description: `Container ${id} has been stopped.`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error stopping container.',
+        description: `There was an error stopping container ${id}.`,
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -80,18 +135,11 @@ export default function UserReports() {
               {containers.map((container: Container) => (
                 <MiniStatistics
                   key={container.id}
-                  startContent={
-                    <IconBox
-                      w="42px"
-                      h="42px"
-                      bg="linear-gradient(90deg, #4481EB 0%, #04BEFE 100%)"
-                      icon={
-                        <Icon w="28px" h="28px" as={MdAddTask} color="white" />
-                      }
-                    />
-                  }
+                  image={container.image}
                   name={`${container.labels.service}:${container.labels.project}`}
                   value={container.status}
+                  onStart={() => handleStart(container.id)}
+                  onStop={() => handleStop(container.id)}
                 />
               ))}
             </SimpleGrid>

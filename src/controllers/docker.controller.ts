@@ -20,6 +20,7 @@ export const startContainer = async (
 ): Promise<void> => {
   try {
     const containerId = req.params.id; // Assuming container ID comes from the request path
+
     await new DockerService().startContainer(containerId); // Create new service instance here
     res.json({ message: 'Container started successfully' });
   } catch (error) {
@@ -33,6 +34,8 @@ export const stopContainer = async (
 ): Promise<void> => {
   try {
     const containerId = req.params.id; // Assuming container ID comes from the request path
+    console.log({ containerId });
+
     await new DockerService().stopContainer(containerId); // Create new service instance here
     res.json({ message: 'Container stopped successfully' });
   } catch (error) {

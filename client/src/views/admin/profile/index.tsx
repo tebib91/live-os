@@ -54,15 +54,6 @@ const OverviewModal: React.FC<OverviewModalProps> = ({ isOpen, onClose }) => (
 							following='274' />
 						<Storage gridArea={{ base: '2 / 1 / 3 / 2', lg: '1 / 2 / 2 / 3' }} used={25.6} total={50} />
 						<Storage gridArea={{ base: '2 / 1 / 3 / 2', lg: '1 / 2 / 2 / 3' }} used={25.6} total={50} />
-
-						{/* <Upload
-							gridArea={{
-								base: '3 / 1 / 4 / 2',
-								lg: '1 / 3 / 2 / 4'
-							}}
-							minH={{ base: 'auto', lg: '420px', '2xl': '365px' }}
-							pe='20px'
-							pb={{ base: '100px', lg: '20px' }} /> */}
 					</Grid>
 
 				</Box>
