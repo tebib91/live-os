@@ -1,7 +1,7 @@
 {
-  "name": "api-server-nodejs",
+  "name": "live-os",
   "version": "1.0.0",
-  "description": "RESTful back-end for Node.js and Express.js",
+  "description": "Personal cloud application",
   "license": "Commercial",
   "author": "live-os",
   "main": "src/index",

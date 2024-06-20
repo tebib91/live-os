@@ -41,7 +41,7 @@ print_progress 60
 
 # Set up environment variables
 log_message "Setting up environment variables..."
-echo "PORT=5000" > .env
+echo "PORT=9998" > .env
 echo "SQLITE_PATH=./database.db" >> .env
 echo "SECRET=\"Whatever-STRONG\"" >> .env
 echo "GITHUB_OAUTH_CLIENT_ID=<your_github_oauth_client_id>" >> .env
