@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "pm2 start production.config.json",
-    "start:full": "npm run start:server & npm run start:client",
+    "start:full": "npm run start & npm run start:client",
     "start:client": "cd client && npm start",
     "start:server": "npm run dev",
     "start-no-daemon": "pm2 start production.config.json --no-daemon",

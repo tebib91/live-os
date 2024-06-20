@@ -12,7 +12,7 @@ live-os is an open-source project that aims to provide a user-friendly personal 
 
 ## Getting Started
 
-### Prerequisites:
+### Prerequisites
 
 - A spare computer or server with sufficient resources.
 - Basic understanding of Docker concepts (optional).
@@ -22,11 +22,11 @@ live-os is an open-source project that aims to provide a user-friendly personal 
 1. Install `sudo apt-get install build-essential libudev-dev` you'll need libudev to build libusb if a prebuild is not available.
 2. Install `sudo chmod o+rw /var/run/docker.sock` if you got error 'Error listing containers: Error: connect EACCES /var/run/docker.sock'
 
-### Installation:
+### Installation
 
 1. Download the live-os image for your system architecture from the [official website](https://live-os.io/).
 2. Follow the installation guide for your chosen platform (e.g., Raspberry Pi, x86-64 machine) to flash the image onto a storage device.
-3. Boot your system with the live-os image `curl -fsSL https://github.com/tebib91/live-os/blob/develop/install.sh | sudo bash`.
+3. Boot your system with the live-os image `curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash`.
 
 ## Usage
 
