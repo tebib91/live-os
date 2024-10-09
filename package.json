@@ -3,10 +3,12 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "start:prod": "nx run-many --target=build --projects=frontend,backend --prod --skip-nx-cache --parallel"
+    "start:prod": "nx run-many --target=build --projects=frontend,backend --prod --skip-nx-cache --parallel",
+    "start:dev": "nx run-many --target=serve --projects=frontend,backend"
   },
   "private": true,
   "dependencies": {
+    "@angular-architects/module-federation": "^18.0.6",
     "@angular/animations": "~18.2.0",
     "@angular/common": "~18.2.0",
     "@angular/compiler": "~18.2.0",

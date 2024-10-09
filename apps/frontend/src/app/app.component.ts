@@ -2,10 +2,11 @@ import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { NxWelcomeComponent } from './nx-welcome.component';
 import { HttpClient } from '@angular/common/http';
+import { CommonModule, NgOptimizedImage } from '@angular/common';
 
 @Component({
   standalone: true,
-  imports: [NxWelcomeComponent, RouterModule],
+  imports: [NxWelcomeComponent, RouterModule, CommonModule, NgOptimizedImage],
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
@@ -15,6 +16,7 @@ export class AppComponent {
   status: string = 'Fetching...';
   cpuUsage: number = 0;
   ramUsage: number = 0;
+  image: string = 'abstract-waving.webp';
 
   constructor(private http: HttpClient) {
     this.getStatus();
