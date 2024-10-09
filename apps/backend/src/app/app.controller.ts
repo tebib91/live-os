@@ -10,4 +10,13 @@ export class AppController {
   getData() {
     return this.appService.getData();
   }
+
+  @Get('status')
+  getStatus() {
+    return {
+      message: 'Backend is running',
+      cpu: 45, // Mocked CPU usage
+      ram: 70, // Mocked RAM usage
+    };
+  }
 }

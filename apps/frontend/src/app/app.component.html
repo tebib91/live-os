@@ -1,1 +1,13 @@
-<app-nx-welcome></app-nx-welcome> <router-outlet></router-outlet>
+
+<div class="dashboard">
+    <h1>System Dashboard</h1>
+    <div class="status">
+      <p>Status: {{ status }}</p>
+    </div>
+    <div class="system-info">
+      <p>CPU Usage: {{ cpuUsage }}%</p>
+      <p>RAM Usage: {{ ramUsage }}%</p>
+    </div>
+  </div>
+
+<router-outlet></router-outlet>
