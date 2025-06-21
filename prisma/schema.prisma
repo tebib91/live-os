@@ -1,0 +1,31 @@
+// Prisma schema for HomeOS Clone
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  GUEST
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  role      Role     @default(GUEST)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Plugin {
+  id        Int      @id @default(autoincrement())
+  name      String
+  image     String
+  installed Boolean  @default(false)
+}
