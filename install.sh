@@ -263,6 +263,9 @@ setup_liveos
 # Install and start service
 install_service
 
+# Created update.sh to check for updates and update the project
+# Usage: ./update.sh
+
 if [ "$DRY_RUN" -eq 1 ]; then
     print_status "Dry run complete. Above actions would be performed during actual installation."
 else
