@@ -62,7 +62,7 @@ git fetch origin "$REMOTE_BRANCH"
 git reset --hard origin/"$REMOTE_BRANCH"
 
 # Install dependencies
-npm install --production=false
+npm install --omit=dev --ignore-scripts
 
 # Build project
 npm run build
