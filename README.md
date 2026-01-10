@@ -1,6 +1,6 @@
 # LiveOS
 
-A self-hosted operating system for managing your infrastructure.
+A self-hosted operating system for managing your infrastructure, built with Next.js.
 
 ## Installation
 
@@ -10,51 +10,81 @@ Install LiveOS with a single command:
 curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash
 ```
 
+The script will:
+- Install Node.js 20.x and git (if not already installed)
+- Clone the repository
+- Install dependencies and build the project
+- Create and start a systemd service
+
 ### Installation Options
 
 ```bash
 # Dry run (preview changes without installing)
 curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --dry-run
 
-# Skip dependency installation
+# Skip dependency installation (Node.js/git)
 curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --no-dep
 
-# Skip Docker installation
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --no-docker
-
-# Install beta version
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --beta
+# Install specific branch
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --branch main
 ```
+
+### Custom Port
+
+By default, LiveOS runs on port 3000. To use a different port:
+
+```bash
+export LIVEOS_HTTP_PORT=8080
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo -E bash
+```
+
+Or enter it when prompted during installation.
 
 ## Quick Start
 
 After installation, access LiveOS at:
-- `http://setup-live-os.local` (via mDNS)
-- `http://localhost` 
-- `http://your-server-ip`
+- `http://localhost:3000` (or your custom port)
+- `http://your-server-ip:3000`
 
 ## Managing the Service
 
 ```bash
 # Start/stop/restart
-sudo systemctl [start|stop|restart] LiveOS
+sudo systemctl [start|stop|restart] liveos
 
 # View status
-sudo systemctl status LiveOS
+sudo systemctl status liveos
 
 # View logs
-sudo tail -f /var/lib/live-os/live-os.log
+sudo journalctl -u liveos -f
 ```
 
-## Configuration
-
-Set environment variables with the `LIVEOS_` prefix:
+## Updating LiveOS
 
 ```bash
-export LIVEOS_HTTP_PORT=8080
-export LIVEOS_HTTPS_PORT=8443
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo -E bash
+cd /opt/live-os
+sudo git pull
+sudo npm install
+sudo npm run build
+sudo systemctl restart liveos
 ```
+
+## Uninstalling LiveOS
+
+To completely remove LiveOS from your system:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/uninstall.sh | sudo bash
+```
+
+Or if you have the repository cloned locally:
+
+```bash
+cd /opt/live-os
+sudo bash uninstall.sh
+```
+
+This will stop the service, remove the systemd service file, and delete the installation directory.
 
 ## License
 

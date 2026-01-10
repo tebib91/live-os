@@ -1,13 +1,14 @@
 'use client';
 
+import { cn } from '@/lib/utils';
 import {
+  AnimatePresence,
   motion,
   MotionValue,
   useMotionValue,
   useSpring,
   useTransform,
   type SpringOptions,
-  AnimatePresence,
 } from 'framer-motion';
 import {
   Children,
@@ -19,7 +20,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { cn } from '@/lib/utils';
 
 const DOCK_HEIGHT = 128;
 const DEFAULT_MAGNIFICATION = 80;
@@ -108,7 +108,7 @@ function Dock({
           mouseX.set(Infinity);
         }}
         className={cn(
-          'mx-auto flex w-fit gap-4 rounded-2xl bg-gray-50 px-4 dark:bg-neutral-900',
+          'mx-auto flex w-fit gap-4 rounded-2xl bg-white/30 dark:bg-black/30 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-lg px-4',
           className
         )}
         style={{ height: panelHeight }}
