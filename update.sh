@@ -58,7 +58,8 @@ fi
 print_status "Updating LiveOS from version $LOCAL_VERSION to $REMOTE_VERSION..."
 
 # Pull latest changes
-git pull origin "$REMOTE_BRANCH"
+git fetch origin "$REMOTE_BRANCH"
+git reset --hard origin/"$REMOTE_BRANCH"
 
 # Install dependencies
 npm install --production=false

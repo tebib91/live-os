@@ -11,6 +11,7 @@ curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh 
 ```
 
 The script will:
+
 - Install Node.js 20.x and git (if not already installed)
 - Clone the repository
 - Install dependencies and build the project
@@ -43,6 +44,7 @@ Or enter it when prompted during installation.
 ## Quick Start
 
 After installation, access LiveOS at:
+
 - `http://localhost:3000` (or your custom port)
 - `http://your-server-ip:3000`
 
@@ -62,11 +64,7 @@ sudo journalctl -u liveos -f
 ## Updating LiveOS
 
 ```bash
-cd /opt/live-os
-sudo git pull
-sudo npm install
-sudo npm run build
-sudo systemctl restart liveos
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/update.sh | sudo bash
 ```
 
 ## Uninstalling LiveOS
