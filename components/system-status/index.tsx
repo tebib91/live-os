@@ -1,6 +1,6 @@
 'use client';
 
-import { getStorageInfo, getSystemStatus } from '@/actions/system-status';
+import { getStorageInfo, getSystemStatus } from '@/app/actions/system-status';
 import { Card } from '@/components/ui/card';
 import { ChevronRight, HardDrive, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';

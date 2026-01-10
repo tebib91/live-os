@@ -1,6 +1,6 @@
 'use client';
 
-import { installApp } from '@/actions/docker';
+import { installApp } from '@/app/actions/docker';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

@@ -1,6 +1,6 @@
 'use client';
 
-import { getSystemUsername } from '@/actions/system';
+import { getSystemUsername } from '@/app/actions/system';
 import { Card } from '@/components/ui/card';
 import { useEffect, useState } from 'react';
 import { LiveClock } from './live-clock';

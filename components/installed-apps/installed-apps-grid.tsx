@@ -1,6 +1,6 @@
 'use client';
 
-import { getInstalledApps } from '@/actions/docker';
+import { getInstalledApps } from '@/app/actions/docker';
 import type { InstalledApp } from '@/components/app-store/types';
 import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';

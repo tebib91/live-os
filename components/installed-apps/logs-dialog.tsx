@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Copy, RefreshCw } from 'lucide-react';
+import { getAppLogs } from '@/app/actions/docker';
+import type { InstalledApp } from '@/components/app-store/types';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -9,10 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { getAppLogs } from '@/actions/docker';
-import type { InstalledApp } from '@/components/app-store/types';
+import { Copy, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 interface LogsDialogProps {

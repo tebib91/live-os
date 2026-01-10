@@ -1,22 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  ExternalLink,
-  Square,
-  Play,
-  RotateCw,
-  Trash2,
-  FileText,
-  Loader2,
-} from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { getAppWebUI, restartApp, startApp, stopApp, uninstallApp } from '@/app/actions/docker';
+import type { InstalledApp } from '@/components/app-store/types';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -25,17 +11,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { LogsDialog } from './logs-dialog';
 import {
-  getAppWebUI,
-  stopApp,
-  startApp,
-  restartApp,
-  uninstallApp,
-} from '@/actions/docker';
-import type { InstalledApp } from '@/components/app-store/types';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  ExternalLink,
+  FileText,
+  Loader2,
+  Play,
+  RotateCw,
+  Square,
+  Trash2,
+} from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { LogsDialog } from './logs-dialog';
 
 interface AppContextMenuProps {
   app: InstalledApp;
