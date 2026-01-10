@@ -158,7 +158,7 @@ setup_liveos() {
     cd "$INSTALL_DIR"
     
     print_status "Installing dependencies..."
-    npm install --production=false
+    npm install
     
     print_status "Building project..."
     npm run build

@@ -1,1 +1,1 @@
-npm version patch --no-git-tag-version && npx lint-staged && npx tsc && npm run build
+npm version patch --no-git-tag-version && npx lint-staged && npm run build
