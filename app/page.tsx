@@ -1,5 +1,7 @@
 import { Footer } from "@/components/footer";
 import { GreetingCard } from "@/components/greeting-card";
+import { SystemStatusCard } from "@/components/system-status";
+import { InstalledAppsGrid } from "@/components/installed-apps/installed-apps-grid";
 import Image from "next/image";
 
 export default function Home() {
@@ -7,7 +9,9 @@ export default function Home() {
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
         <Image src="/pexels-philippedonn.jpg" alt="LiveOS" preload={true} fill={true} className="object-cover" />
+        <SystemStatusCard />
         <GreetingCard />
+        <InstalledAppsGrid />
         <Footer />
       </main>
     </div>
