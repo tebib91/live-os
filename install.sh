@@ -169,10 +169,10 @@ install_git() {
         print_dry "Install git"
         return
     fi
-    
+
     if ! command -v git >/dev/null 2>&1; then
         print_status "Installing git..."
-        
+
         if [ -x "$(command -v apt-get)" ]; then
             apt-get update
             apt-get install -y git
@@ -186,6 +186,39 @@ install_git() {
         fi
     else
         print_status "git is already installed"
+    fi
+}
+
+# Install build tools for native modules
+install_build_tools() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_dry "Install build tools (gcc, g++, make, python3)"
+        return
+    fi
+
+    print_status "Checking for build tools..."
+
+    # Check if build-essential or equivalent is installed
+    if [ -x "$(command -v apt-get)" ]; then
+        if ! dpkg -l | grep -q build-essential; then
+            print_status "Installing build tools (required for native modules)..."
+            apt-get update
+            apt-get install -y build-essential python3
+        else
+            print_status "Build tools already installed"
+        fi
+    elif [ -x "$(command -v dnf)" ]; then
+        print_status "Installing build tools (required for native modules)..."
+        dnf groupinstall -y "Development Tools"
+        dnf install -y python3
+    elif [ -x "$(command -v yum)" ]; then
+        print_status "Installing build tools (required for native modules)..."
+        yum groupinstall -y "Development Tools"
+        yum install -y python3
+    else
+        print_error "Unsupported package manager. Please install build tools manually."
+        print_error "Required: gcc, g++, make, python3"
+        exit 1
     fi
 }
 
@@ -297,10 +330,24 @@ setup_liveos() {
 
     cd "$INSTALL_DIR"
 
+    print_status "Initializing app store (umbrel-apps-ref submodule)..."
+    git submodule update --init --recursive || {
+        print_error "Warning: Failed to initialize umbrel-apps-ref submodule"
+        print_info "App store may not be available. Check your internet connection."
+    }
+
     print_status "Installing dependencies (skipping Husky for production)..."
     # Install all dependencies but skip Husky setup scripts
     # Note: TypeScript is needed for build even in production
     npm install --ignore-scripts
+
+    print_status "Building native modules (node-pty for terminal)..."
+    # node-pty requires compilation - rebuild it after install
+    npm rebuild node-pty 2>&1 | tee /tmp/node-pty-build.log || {
+        print_error "Warning: node-pty build failed. Terminal feature will not be available."
+        print_error "Check /tmp/node-pty-build.log for details"
+        print_info "The application will still work without terminal functionality"
+    }
 
     print_status "Creating environment configuration..."
     create_env_file
@@ -442,6 +489,7 @@ check_port
 # Install dependencies
 if [ "$NO_DEP" -eq 0 ]; then
     install_git
+    install_build_tools
     install_nodejs
     install_docker
 fi

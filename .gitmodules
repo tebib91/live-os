@@ -1,0 +1,3 @@
+[submodule "umbrel-apps-ref"]
+	path = umbrel-apps-ref
+	url = https://github.com/tebib91/umbrel-apps-ref.git

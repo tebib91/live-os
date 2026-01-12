@@ -1,7 +1,6 @@
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
-import { initializeWebSocketServer } from './lib/terminal/websocket-server.js';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -22,13 +21,18 @@ app.prepare().then(() => {
     }
   });
 
-  // Initialize WebSocket server for terminal
-  try {
-    initializeWebSocketServer(server);
-  } catch (err) {
-    console.error('Failed to initialize WebSocket server:', err);
-    console.log('Terminal feature may not be available');
-  }
+  // Initialize WebSocket server for terminal (optional feature)
+  // This will gracefully fail if node-pty is not available
+  import('./lib/terminal/websocket-server.js')
+    .then((module) => {
+      module.initializeWebSocketServer(server);
+      console.log('✓ Terminal WebSocket server initialized');
+    })
+    .catch((err) => {
+      console.warn('⚠ Terminal feature not available:', err.message);
+      console.log('  The application will work without terminal functionality');
+      console.log('  To enable terminal, run: npm rebuild node-pty');
+    });
 
   server.listen(port, (err?: Error) => {
     if (err) throw err;

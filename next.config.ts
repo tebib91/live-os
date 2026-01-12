@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
         hostname: 'cdn.jsdelivr.net',
         pathname: '/gh/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'img.icons8.com',
+        pathname: '/**',  // <-- allow all paths and query params
+      },
+      {
+        protocol: 'https',
+        hostname: 'getumbrel.github.io',
+        pathname: '/umbrel-apps-gallery/**',
+      },
     ],
   },
 };

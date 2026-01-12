@@ -67,6 +67,13 @@ fi
 git fetch origin "$REMOTE_BRANCH"
 git reset --hard origin/"$REMOTE_BRANCH"
 
+# Update submodules (umbrel-apps-ref)
+print_status "Updating app store (umbrel-apps-ref submodule)..."
+git submodule update --init --recursive || {
+    print_error "Warning: Failed to update umbrel-apps-ref submodule"
+    print_info "App store may not have latest updates"
+}
+
 # Restore .env file if it was backed up
 if [ -f "$INSTALL_DIR/.env" ]; then
     print_status "Preserving existing .env configuration"
@@ -88,6 +95,17 @@ fi
 # Install dependencies (skip Husky setup scripts)
 # Note: TypeScript is needed for build even in production
 npm install --ignore-scripts
+
+# Only rebuild node-pty if it's not already built
+if [ ! -f "node_modules/node-pty/build/Release/pty.node" ]; then
+    print_status "Rebuilding native modules (node-pty)..."
+    npm rebuild node-pty 2>&1 | tee /tmp/node-pty-build.log || {
+        print_error "Warning: node-pty build failed. Terminal feature will not be available."
+        print_info "The application will still work without terminal functionality"
+    }
+else
+    print_status "Native modules already built, skipping rebuild"
+fi
 
 # Restore .env if it was overwritten
 if [ -f "$INSTALL_DIR/.env.backup" ]; then

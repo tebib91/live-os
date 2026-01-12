@@ -60,6 +60,48 @@ Instead of converting TypeScript to JavaScript, we use **tsx** to execute TypeSc
 
 ---
 
+### 3. **node-pty Native Module Compilation**
+
+**Problem:**
+Service fails to start with:
+```
+Error: Failed to load native module: pty.node
+```
+
+**Root Cause:**
+- `node-pty` is a native C++ module that requires compilation
+- `npm install --ignore-scripts` skipped the build step
+- Missing build tools (gcc, g++, make, python3) on Ubuntu server
+
+**Solution: Install Build Tools & Rebuild ✅**
+
+#### What We Did:
+- **Added `install_build_tools()` function** to install.sh
+- **Runs `npm rebuild node-pty`** after installation
+- **Made terminal optional** - app won't crash if node-pty fails
+- **Graceful error handling** in server.ts
+
+#### Quick Fix on Server:
+```bash
+# Install build tools
+sudo apt-get install -y build-essential python3
+
+# Rebuild node-pty
+cd /opt/live-os
+sudo npm rebuild node-pty
+
+# Restart service
+sudo systemctl restart liveos
+```
+
+#### Build Tools Installed:
+- `build-essential` (gcc, g++, make)
+- `python3` (required by node-gyp)
+
+**Result:** Terminal WebSocket server works, or gracefully fails without crashing the app! 🎉
+
+---
+
 ## 📝 Files Modified
 
 ### 1. `install.sh`
