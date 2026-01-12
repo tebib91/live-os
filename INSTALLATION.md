@@ -33,7 +33,7 @@ Choose the port where LiveOS will be accessible. Default is 3000.
 - `8080` - Alternative port
 - `80` - Standard HTTP (requires root)
 
-### 2. Domain Configuration (NEW!)
+### 2. Domain Configuration (Optional)
 
 ```
 Domain Configuration
@@ -41,42 +41,54 @@ Domain Configuration
 
 You can access LiveOS via:
   • Local IP:   http://192.168.1.100:3000
-  • localhost:  http://localhost:3000
-  • Custom domain (optional)
+  • localhost:  http://localhost:3000 (on server only)
+  • Custom hostname (optional)
 
-Examples of custom domains:
-  - home.local
-  - server.local
-  - liveos.home
-  - myserver.lan
+Examples of hostnames (auto .local domain):
+  - home      → http://home.local:3000
+  - server    → http://server.local:3000
+  - liveos    → http://liveos.local:3000
+  - myserver  → http://myserver.local:3000
 
-Note: You'll need to configure your DNS/hosts file
-      to point the domain to this server's IP.
+Note: With Avahi/mDNS, .local domains work automatically
+      on all devices in your network (no hosts file needed!)
 
-Enter custom domain (leave empty to skip):
+Enter hostname (leave empty for default):
 ```
 
-**Setting up a custom domain:**
+**How Custom Domain Works (Like Umbrel!):**
 
-1. **Enter your preferred domain** (e.g., `home.local`)
-2. **Add DNS/hosts entry:**
+1. **During installation**, enter a hostname (e.g., `home`)
+2. **The installer**:
+   - Appends `.local` → `home.local`
+   - Sets the system hostname
+   - Installs and configures **Avahi** (mDNS daemon)
+3. **mDNS automatically broadcasts** the hostname on your local network
+4. **All devices can access it** without any configuration!
 
-   ```bash
-   # Linux/Mac: Edit /etc/hosts
-   sudo nano /etc/hosts
+**✅ Works automatically on:**
+- ✅ **Mac, iPhone, iPad** (built-in Bonjour/mDNS)
+- ✅ **Linux** (with Avahi - installed automatically)
+- ✅ **Windows 10+** (usually built-in)
+- ✅ **Android** (with mDNS support)
 
-   # Add this line:
-   192.168.1.100  home.local
+**🎯 Just type in browser:**
+```
+http://home.local:3000
+```
 
-   # Windows: Edit C:\Windows\System32\drivers\etc\hosts
-   # (Open Notepad as Administrator)
-   192.168.1.100  home.local
-   ```
+**No hosts file editing needed!** The `.local` domain is resolved automatically via mDNS/Avahi across your entire network.
 
-3. **Access LiveOS via your domain:**
-   ```
-   http://home.local:3000
-   ```
+**📝 If it doesn't work on older Windows:**
+
+Some older Windows versions need Bonjour Print Services:
+- Download: [Bonjour Print Services](https://support.apple.com/kb/DL999)
+- Or manually add to `C:\Windows\System32\drivers\etc\hosts`:
+  ```
+  192.168.1.100  home.local
+  ```
+
+**How it works:** Avahi implements mDNS (Multicast DNS), the same technology Apple uses for Bonjour. When you access `home.local`, your device sends a multicast query, and the server responds with its IP address. This is exactly how Umbrel makes `umbrel.local` work!
 
 ---
 

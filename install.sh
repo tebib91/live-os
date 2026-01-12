@@ -125,6 +125,45 @@ update_hosts_entry() {
     print_status "Updated $hosts_file with: $ip $hostname"
 }
 
+# Set system hostname for mDNS
+set_hostname() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_dry "Set system hostname"
+        return
+    fi
+
+    local hostname_only="${1%.local}"  # Remove .local if present
+
+    if [ -z "$hostname_only" ]; then
+        return
+    fi
+
+    print_status "Setting system hostname to: $hostname_only"
+
+    # Set hostname using hostnamectl (modern method)
+    if command -v hostnamectl >/dev/null 2>&1; then
+        hostnamectl set-hostname "$hostname_only"
+    else
+        # Fallback for older systems
+        echo "$hostname_only" > /etc/hostname
+        hostname "$hostname_only"
+    fi
+
+    # Update /etc/hosts to include the new hostname
+    local primary_ip
+    primary_ip="$(hostname -I | awk '{print $1}')"
+
+    if [ -n "$primary_ip" ]; then
+        # Remove old hostname entries
+        sed -i "/127.0.1.1/d" /etc/hosts 2>/dev/null || true
+
+        # Add new hostname
+        echo "127.0.1.1 $hostname_only.local $hostname_only" >> /etc/hosts
+    fi
+
+    print_status "Hostname set to: $hostname_only (accessible as ${hostname_only}.local)"
+}
+
 # Prompt for domain
 prompt_domain() {
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -145,36 +184,56 @@ prompt_domain() {
         echo -e "  • localhost:  ${GREEN}http://localhost:$HTTP_PORT${NC}"
         echo -e "  • Custom hostname (optional)"
         echo ""
-        echo -e "  ${BLUE}Examples of hostnames (we add .local):${NC}"
-        echo -e "    - home"
-        echo -e "    - server"
-        echo -e "    - liveos"
-        echo -e "    - myserver"
+        echo -e "  ${BLUE}Examples of hostnames (auto .local domain):${NC}"
+        echo -e "    - home      → ${GREEN}http://home.local:$HTTP_PORT${NC}"
+        echo -e "    - server    → ${GREEN}http://server.local:$HTTP_PORT${NC}"
+        echo -e "    - liveos    → ${GREEN}http://liveos.local:$HTTP_PORT${NC}"
+        echo -e "    - myserver  → ${GREEN}http://myserver.local:$HTTP_PORT${NC}"
         echo ""
-        echo -e "  ${BLUE}Note:${NC} We'll append .local and add it to /etc/hosts."
+        echo -e "  ${BLUE}Note:${NC} With Avahi/mDNS, .local domains work automatically"
+        echo -e "        on all devices in your network (no hosts file needed!)"
         echo ""
-        echo -n -e "${BLUE}Enter hostname (leave empty to skip):${NC} "
+        echo -n -e "${BLUE}Enter hostname (leave empty for default):${NC} "
         read -r user_host < /dev/tty
 
         if [ -n "$user_host" ]; then
             DOMAIN="${user_host}.local"
-            print_status "Custom domain set: $DOMAIN"
-            update_hosts_entry "$DOMAIN" "$primary_ip"
+
+            # Set system hostname for mDNS
+            set_hostname "$user_host"
+
+            print_status "Hostname set: $DOMAIN"
             echo ""
             echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-            echo -e "  ${GREEN}✓${NC} Added to /etc/hosts:"
+            echo -e "  ${GREEN}✓${NC} mDNS enabled: ${GREEN}http://$DOMAIN:$HTTP_PORT${NC}"
             echo ""
-            echo -e "    ${GREEN}$primary_ip  $DOMAIN${NC}"
+            echo -e "  ${GREEN}🎉 Works automatically on:${NC}"
+            echo -e "     • Mac, iPhone, iPad (built-in)"
+            echo -e "     • Linux (with Avahi)"
+            echo -e "     • Windows 10+ (usually built-in)"
+            echo -e "     • Android (with mDNS support)"
+            echo ""
+            echo -e "  ${BLUE}If it doesn't work on Windows:${NC}"
+            echo -e "     Install: ${GREEN}Bonjour Print Services${NC}"
+            echo -e "     Or add to C:\\Windows\\System32\\drivers\\etc\\hosts:"
+            echo -e "     ${GREEN}$primary_ip  $DOMAIN${NC}"
             echo ""
             echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
             echo ""
         else
-            print_status "Skipping custom domain configuration"
+            print_status "Using default hostname: $(hostname)"
+            DOMAIN="$(hostname).local"
         fi
     else
         DOMAIN=$LIVEOS_DOMAIN
+        hostname_only="${DOMAIN%.local}"
+
+        set_hostname "$hostname_only"
+
         print_status "Using domain from environment: $DOMAIN"
-        update_hosts_entry "$DOMAIN" "$primary_ip"
+        echo ""
+        echo -e "${GREEN}✓${NC} mDNS enabled: ${GREEN}http://$DOMAIN:$HTTP_PORT${NC}"
+        echo ""
     fi
 }
 
@@ -329,6 +388,52 @@ install_build_tools() {
         print_error "Unsupported package manager. Please install build tools manually."
         print_error "Required: gcc, g++, make, python3"
         exit 1
+    fi
+}
+
+# Install Avahi for mDNS/.local domain support
+install_avahi() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_dry "Install and configure Avahi (mDNS) for .local domain support"
+        return
+    fi
+
+    print_status "Checking for Avahi (mDNS daemon)..."
+
+    if command -v avahi-daemon >/dev/null 2>&1; then
+        print_status "Avahi already installed"
+    else
+        print_status "Installing Avahi for automatic .local domain resolution..."
+
+        if [ -x "$(command -v apt-get)" ]; then
+            apt-get update
+            apt-get install -y avahi-daemon avahi-utils
+        elif [ -x "$(command -v dnf)" ]; then
+            dnf install -y avahi avahi-tools
+        elif [ -x "$(command -v yum)" ]; then
+            yum install -y avahi avahi-tools
+        else
+            print_error "Unsupported package manager. Avahi not installed."
+            print_error "You'll need to manually edit /etc/hosts on client devices."
+            return
+        fi
+    fi
+
+    # Ensure Avahi is running
+    if systemctl is-active --quiet avahi-daemon 2>/dev/null; then
+        print_status "Avahi daemon is running"
+    else
+        print_status "Starting Avahi daemon..."
+        systemctl start avahi-daemon 2>/dev/null || service avahi-daemon start
+        systemctl enable avahi-daemon 2>/dev/null || true
+    fi
+
+    # Verify Avahi is working
+    if systemctl is-active --quiet avahi-daemon 2>/dev/null || service avahi-daemon status >/dev/null 2>&1; then
+        print_status "Avahi daemon configured successfully"
+        print_status "mDNS/.local domains will work automatically on your network"
+    else
+        print_error "Warning: Avahi daemon not running. .local domains may not work."
     fi
 }
 
@@ -605,6 +710,7 @@ if [ "$NO_DEP" -eq 0 ]; then
     install_build_tools
     install_nodejs
     install_docker
+    install_avahi
 fi
 
 # Setup the application
@@ -640,10 +746,11 @@ else
     echo ""
 
     if [ -n "$DOMAIN" ]; then
-        echo -e "${BLUE}📝 Hosts entry added:${NC}"
-        echo -e "   Added to /etc/hosts:"
+        echo -e "${BLUE}🌐 Access LiveOS:${NC}"
+        echo -e "   ${GREEN}http://$DOMAIN:$HTTP_PORT${NC}"
         echo ""
-        echo -e "   ${GREEN}$(hostname -I | awk '{print $1}')  $DOMAIN${NC}"
+        echo -e "   Works automatically on most devices!"
+        echo -e "   ${BLUE}(mDNS/.local domain via Avahi)${NC}"
         echo ""
     fi
 

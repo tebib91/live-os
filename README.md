@@ -30,16 +30,35 @@ curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh 
 curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --branch main
 ```
 
-### Custom Port
+### Custom Port & Domain
 
-By default, LiveOS runs on port 3000. To use a different port:
+By default, LiveOS runs on port 3000. To customize:
 
 ```bash
+# Custom port
 export LIVEOS_HTTP_PORT=8080
+
+# Custom domain (like umbrel.local)
+export LIVEOS_DOMAIN=home.local
+
 curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo -E bash
 ```
 
-Or enter it when prompted during installation.
+Or enter them when prompted during installation.
+
+**🌐 Custom Domain with mDNS (Like Umbrel!):**
+
+During installation, you can set a hostname (e.g., "home") and LiveOS will:
+- Install **Avahi** (mDNS daemon)
+- Set system hostname
+- Make it accessible as `home.local` across your entire network
+- **No hosts file editing needed!**
+
+Works automatically on:
+- ✅ Mac, iPhone, iPad
+- ✅ Linux (with Avahi)
+- ✅ Windows 10+
+- ✅ Android
 
 ## Quick Start
 
@@ -47,6 +66,7 @@ After installation, access LiveOS at:
 
 - `http://localhost:3000` (or your custom port)
 - `http://your-server-ip:3000`
+- `http://home.local:3000` (if you set a custom domain)
 
 ## Managing the Service
 
