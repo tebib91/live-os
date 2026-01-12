@@ -52,6 +52,18 @@ function getContainerName(appId: string): string {
   return `${CONTAINER_PREFIX}${appId.toLowerCase()}`;
 }
 
+function getAppIdFromContainerName(name: string): string {
+  return CONTAINER_PREFIX ? name.replace(new RegExp(`^${CONTAINER_PREFIX}`), '') : name;
+}
+
+type RunningAppUsage = {
+  id: string;
+  appId: string;
+  name: string;
+  icon: string;
+  cpuUsage: number;
+};
+
 /**
  * Install an app with docker-compose
  */
@@ -79,7 +91,7 @@ export async function installApp(
       }
     }
 
-    const appStorePath = path.join(process.cwd(), 'AppStore', appId);
+    const appStorePath = path.join(process.cwd(), 'umbrel-apps-ref', appId);
 
     // Check if app exists
     try {
@@ -144,6 +156,49 @@ export async function installApp(
 }
 
 /**
+ * Get running app CPU usage from Docker stats
+ */
+export async function getRunningAppUsage(): Promise<RunningAppUsage[]> {
+  try {
+    const { stdout } = await execAsync(
+      'docker stats --no-stream --format "{{.Name}}\t{{.CPUPerc}}"'
+    );
+
+    if (!stdout.trim()) return [];
+
+    const apps = stdout
+      .trim()
+      .split('\n')
+      .map((line) => {
+        const [name, cpuPercentRaw] = line.split('\t');
+        if (!name || !cpuPercentRaw) return null;
+
+        if (CONTAINER_PREFIX && !name.startsWith(CONTAINER_PREFIX)) {
+          return null;
+        }
+
+        const cpuUsage = parseFloat(cpuPercentRaw.replace('%', '').trim());
+        const appId = getAppIdFromContainerName(name);
+
+        return {
+          id: name,
+          appId,
+          name: appId,
+          icon: `/umbrel-apps-ref/${appId}/icon.png`,
+          cpuUsage: Number.isNaN(cpuUsage) ? 0 : cpuUsage,
+        };
+      })
+      .filter((app): app is RunningAppUsage => Boolean(app))
+      .sort((a, b) => b.cpuUsage - a.cpuUsage);
+
+    return apps;
+  } catch (error) {
+    console.error('Get running app usage error:', error);
+    return [];
+  }
+}
+
+/**
  * Get list of installed LiveOS apps
  */
 /**
@@ -194,7 +249,7 @@ export async function getInstalledApps(): Promise<InstalledApp[]> {
         id: name,
         appId,
         name: appId,
-        icon: `/AppStore/${appId}/icon.png`,
+        icon: `/umbrel-apps-ref/${appId}/icon.png`,
         status,
         webUIPort,
         containerName: name,
@@ -323,7 +378,7 @@ export async function uninstallApp(appId: string): Promise<boolean> {
       return false;
     }
 
-    const appStorePath = path.join(process.cwd(), 'AppStore', appId);
+    const appStorePath = path.join(process.cwd(), 'umbrel-apps-ref', appId);
 
     // Find compose file
     let composeFile = 'docker-compose.yml';

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getSystemStatus, getStorageInfo } from '@/app/actions/system-status';
+import { getRunningAppUsage } from '@/app/actions/docker';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 
 interface SystemMonitorDialogProps {
@@ -58,32 +59,24 @@ export function SystemMonitorDialog({ open, onOpenChange }: SystemMonitorDialogP
 
   const [gpuUsage] = useState(15); // Mock GPU usage
 
-  // Mock app usage data (replace with real Docker container stats later)
-  const [apps] = useState<AppUsage[]>([
-    { id: 'system', name: 'System', icon: '💻', cpuUsage: 3.41 },
-    { id: 'tailscale', name: 'Tailscale', icon: '🔒', cpuUsage: 0.00 },
-    { id: 'jellyfin', name: 'Jellyfin', icon: '🎬', cpuUsage: 0.00 },
-    { id: 'adguard', name: 'AdGuard Home', icon: '🛡️', cpuUsage: 0.00 },
-    { id: 'homeassistant', name: 'Home Assistant', icon: '🏠', cpuUsage: 0.00 },
-    { id: 'dockge', name: 'Dockge', icon: '🐳', cpuUsage: 0.00 },
-    { id: 'codeserver', name: 'code-server', icon: '💻', cpuUsage: 0.00 },
-    { id: 'portainer', name: 'Portainer', icon: '📦', cpuUsage: 0.00 },
-    { id: 'cloudflare', name: 'Cloudflare Tunnel', icon: '☁️', cpuUsage: 0.00 },
-    { id: 'myspeed', name: 'MySpeed', icon: '📡', cpuUsage: 0.00 },
-  ]);
+  const [apps, setApps] = useState<AppUsage[]>([]);
+  const [appsLoaded, setAppsLoaded] = useState(false);
 
   useEffect(() => {
     if (!open) return;
 
     const updateStats = async () => {
       try {
-        const [stats, storage] = await Promise.all([
+        const [stats, storage, runningApps] = await Promise.all([
           getSystemStatus(),
           getStorageInfo(),
+          getRunningAppUsage(),
         ]);
 
         setSystemStats(stats);
         setStorageStats(storage);
+        setApps(runningApps);
+        setAppsLoaded(true);
 
         // Update CPU history
         setCpuHistory((prev) => {
@@ -121,6 +114,8 @@ export function SystemMonitorDialog({ open, onOpenChange }: SystemMonitorDialogP
         });
       } catch (error) {
         console.error('Failed to fetch system stats:', error);
+        setApps([]);
+        setAppsLoaded(true);
       }
     };
 
@@ -396,14 +391,27 @@ export function SystemMonitorDialog({ open, onOpenChange }: SystemMonitorDialogP
                 <p className="text-xs text-white/40">Resource usage by app</p>
               </div>
               <div className="space-y-1">
+                {!appsLoaded && (
+                  <div className="text-xs text-white/40 py-2">Loading running apps...</div>
+                )}
+                {appsLoaded && apps.length === 0 && (
+                  <div className="text-xs text-white/40 py-2">No running apps detected.</div>
+                )}
                 {apps.map((app) => (
                   <div
                     key={app.id}
                     className="flex items-center justify-between py-2 hover:bg-white/5 rounded-lg px-2 -mx-2 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-base">
-                        {app.icon}
+                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden">
+                        <img
+                          src={app.icon || '/default-application-icon.png'}
+                          alt={app.name}
+                          className="w-6 h-6 object-contain"
+                          onError={(event) => {
+                            event.currentTarget.src = '/default-application-icon.png';
+                          }}
+                        />
                       </div>
                       <span className="text-sm font-medium text-white/90 -tracking-[0.01em]">
                         {app.name}

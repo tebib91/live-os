@@ -1,51 +1,140 @@
 'use client';
 
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
-  X,
-  Home,
-  Clock,
-  Grid3x3,
+  createDirectory,
+  deleteItem,
+  readDirectory,
+  renameItem,
+  type DirectoryContent,
+  type FileSystemItem,
+} from '@/app/actions/filesystem';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  ArrowUpDown,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  FileIcon,
   FolderPlus,
-  Upload,
-  Search,
   Grid2x2,
+  Grid3x3,
+  Home,
   List,
-  ArrowUpDown,
-  HardDrive,
+  Loader2,
   Plus,
-  Trash2,
+  Search,
+  X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 interface FilesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-interface FileItem {
-  id: string;
-  name: string;
-  type: 'folder' | 'file';
-  icon?: string;
-}
-
 export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
-  const [currentPath, setCurrentPath] = useState('Home');
+  const [currentPath, setCurrentPath] = useState('/home');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [content, setContent] = useState<DirectoryContent | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [history, setHistory] = useState<string[]>(['/home']);
+  const [historyIndex, setHistoryIndex] = useState(0);
 
-  // Mock data - replace with real file system data later
-  const folders: FileItem[] = [
-    { id: '1', name: 'Documents', type: 'folder' },
-    { id: '2', name: 'Downloads', type: 'folder' },
-    { id: '3', name: 'Photos', type: 'folder' },
-    { id: '4', name: 'Videos', type: 'folder' },
-  ];
+  useEffect(() => {
+    if (open) {
+      loadDirectory(currentPath);
+    }
+  }, [open, currentPath]);
+
+  const loadDirectory = async (path: string) => {
+    setLoading(true);
+    try {
+      const result = await readDirectory(path);
+      setContent(result);
+      setCurrentPath(result.currentPath);
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to load directory');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNavigate = (path: string) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(path);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    setCurrentPath(path);
+  };
+
+  const handleBack = () => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      setCurrentPath(history[historyIndex - 1]);
+    }
+  };
+
+  const handleForward = () => {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      setCurrentPath(history[historyIndex + 1]);
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) {
+      toast.error('Please enter a folder name');
+      return;
+    }
+
+    const result = await createDirectory(currentPath, newFolderName);
+    if (result.success) {
+      toast.success('Folder created successfully');
+      setNewFolderName('');
+      setCreatingFolder(false);
+      loadDirectory(currentPath);
+    } else {
+      toast.error(result.error || 'Failed to create folder');
+    }
+  };
+
+  const handleDelete = async (item: FileSystemItem) => {
+    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) {
+      return;
+    }
+
+    const result = await deleteItem(item.path);
+    if (result.success) {
+      toast.success('Item deleted successfully');
+      loadDirectory(currentPath);
+    } else {
+      toast.error(result.error || 'Failed to delete item');
+    }
+  };
+
+  const handleRename = async (item: FileSystemItem) => {
+    const newName = prompt(`Rename "${item.name}" to:`, item.name);
+    if (!newName || newName === item.name) {
+      return;
+    }
+
+    const result = await renameItem(item.path, newName);
+    if (result.success) {
+      toast.success('Item renamed successfully');
+      loadDirectory(currentPath);
+    } else {
+      toast.error(result.error || 'Failed to rename item');
+    }
+  };
+
+  const filteredItems = content?.items.filter((item) => showHidden || !item.isHidden) || [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -177,14 +266,18 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-lg hover:bg-white/5 text-white/60 hover:text-white/90"
+                    onClick={handleBack}
+                    disabled={historyIndex === 0 || loading}
+                    className="h-8 w-8 rounded-lg hover:bg-white/5 text-white/60 hover:text-white/90 disabled:opacity-30"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-lg hover:bg-white/5 text-white/60 hover:text-white/90"
+                    onClick={handleForward}
+                    disabled={historyIndex >= history.length - 1 || loading}
+                    className="h-8 w-8 rounded-lg hover:bg-white/5 text-white/60 hover:text-white/90 disabled:opacity-30"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
@@ -200,19 +293,23 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
+                  onClick={() => setCreatingFolder(!creatingFolder)}
+                  disabled={loading}
                   className="h-9 px-4 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 text-white/90 text-sm"
                 >
                   <FolderPlus className="h-4 w-4 mr-2" />
                   Folder
                 </Button>
 
-                <Button
-                  variant="ghost"
-                  className="h-9 px-4 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 text-white/90 text-sm"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload
-                </Button>
+                <label className="flex items-center gap-2 text-xs text-white/60">
+                  <input
+                    type="checkbox"
+                    checked={showHidden}
+                    onChange={(e) => setShowHidden(e.target.checked)}
+                    className="rounded"
+                  />
+                  Hidden
+                </label>
 
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
@@ -267,60 +364,131 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
               </div>
             </div>
 
+            {/* New Folder Input */}
+            {creatingFolder && (
+              <div className="px-6 py-3 border-b border-zinc-800 flex items-center gap-2">
+                <Input
+                  placeholder="Folder name"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateFolder();
+                    if (e.key === 'Escape') setCreatingFolder(false);
+                  }}
+                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  autoFocus
+                />
+                <Button
+                  onClick={handleCreateFolder}
+                  size="sm"
+                  className="bg-orange-500 hover:bg-orange-600"
+                >
+                  Create
+                </Button>
+                <Button
+                  onClick={() => setCreatingFolder(false)}
+                  size="sm"
+                  variant="ghost"
+                  className="hover:bg-white/5"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+
             {/* Content Area */}
             <ScrollArea className="flex-1">
               <div className="p-6">
-                {viewMode === 'grid' ? (
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                  </div>
+                ) : filteredItems.length === 0 ? (
+                  <div className="text-center py-12 text-white/40">
+                    Empty directory
+                  </div>
+                ) : viewMode === 'grid' ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                    {folders.map((folder) => (
+                    {filteredItems.map((item) => (
                       <button
-                        key={folder.id}
+                        key={item.path}
+                        onClick={() => {
+                          if (item.type === 'directory') {
+                            handleNavigate(item.path);
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          const action = confirm(`Delete "${item.name}"?`);
+                          if (action) handleDelete(item);
+                        }}
                         className="flex flex-col items-center gap-3 group"
                       >
-                        {/* 3D Folder Icon */}
-                        <div className="relative w-20 h-16 transition-transform group-hover:scale-105">
-                          {/* Folder Tab */}
-                          <div className="absolute top-0 left-0 w-10 h-4 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded-t-md shadow-sm"></div>
-
-                          {/* Folder Body */}
-                          <div className="absolute top-3 left-0 w-full h-12 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded-lg shadow-xl">
-                            {/* Inner shadow for depth */}
-                            <div className="absolute inset-0 rounded-lg bg-gradient-to-b from-black/0 via-black/0 to-black/20"></div>
-                            {/* Highlight */}
-                            <div className="absolute top-1 left-1 right-1 h-5 bg-gradient-to-b from-white/25 to-transparent rounded-t-lg"></div>
+                        {item.type === 'directory' ? (
+                          <div className="relative w-20 h-16 transition-transform group-hover:scale-105">
+                            <div className="absolute top-0 left-0 w-10 h-4 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded-t-md shadow-sm"></div>
+                            <div className="absolute top-3 left-0 w-full h-12 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded-lg shadow-xl">
+                              <div className="absolute inset-0 rounded-lg bg-gradient-to-b from-black/0 via-black/0 to-black/20"></div>
+                              <div className="absolute top-1 left-1 right-1 h-5 bg-gradient-to-b from-white/25 to-transparent rounded-t-lg"></div>
+                            </div>
                           </div>
-                        </div>
-
-                        <div className="text-center">
-                          <div className="text-sm font-medium text-white/90 -tracking-[0.01em]">
-                            {folder.name}
+                        ) : (
+                          <div className="w-20 h-16 flex items-center justify-center">
+                            <FileIcon className="w-12 h-12 text-blue-400" />
                           </div>
-                          <div className="text-xs text-white/40 -tracking-[0.01em]">Folder</div>
+                        )}
+
+                        <div className="text-center max-w-full">
+                          <div className="text-sm font-medium text-white/90 -tracking-[0.01em] truncate">
+                            {item.name}
+                          </div>
+                          <div className="text-xs text-white/40 -tracking-[0.01em]">
+                            {item.type === 'directory'
+                              ? 'Folder'
+                              : `${(item.size / 1024).toFixed(1)} KB`}
+                          </div>
                         </div>
                       </button>
                     ))}
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {folders.map((folder) => (
+                    {filteredItems.map((item) => (
                       <button
-                        key={folder.id}
+                        key={item.path}
+                        onClick={() => {
+                          if (item.type === 'directory') {
+                            handleNavigate(item.path);
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          const action = confirm(`Delete "${item.name}"?`);
+                          if (action) handleDelete(item);
+                        }}
                         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
                       >
-                        {/* Compact Folder Icon */}
-                        <div className="relative w-8 h-7 flex-shrink-0">
-                          {/* Tab */}
-                          <div className="absolute top-0 left-0 w-3.5 h-2 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
-                          {/* Body */}
-                          <div className="absolute top-1.5 left-0 w-full h-5 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded shadow">
-                            <div className="absolute inset-0 rounded bg-gradient-to-b from-white/20 to-transparent"></div>
+                        {item.type === 'directory' ? (
+                          <div className="relative w-8 h-7 flex-shrink-0">
+                            <div className="absolute top-0 left-0 w-3.5 h-2 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
+                            <div className="absolute top-1.5 left-0 w-full h-5 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded shadow">
+                              <div className="absolute inset-0 rounded bg-gradient-to-b from-white/20 to-transparent"></div>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <FileIcon className="w-8 h-8 text-blue-400 flex-shrink-0" />
+                        )}
                         <div className="flex-1 text-left">
                           <div className="text-sm font-medium text-white/90 -tracking-[0.01em]">
-                            {folder.name}
+                            {item.name}
                           </div>
-                          <div className="text-xs text-white/40 -tracking-[0.01em]">Folder</div>
+                          <div className="text-xs text-white/40 -tracking-[0.01em]">
+                            {item.type === 'directory'
+                              ? 'Folder'
+                              : `${(item.size / 1024).toFixed(1)} KB • ${new Date(
+                                  item.modified
+                                ).toLocaleDateString()}`}
+                          </div>
                         </div>
                       </button>
                     ))}
@@ -332,7 +500,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
             {/* Footer */}
             <div className="px-6 py-3 border-t border-zinc-800">
               <div className="text-xs text-white/40 text-right -tracking-[0.01em]">
-                {folders.length} items
+                {filteredItems.length} items {showHidden && `(${content?.items.length} total)`}
               </div>
             </div>
           </div>
