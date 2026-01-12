@@ -25,34 +25,38 @@ Added `install_docker()` function that:
 
 ---
 
-### 2. **TypeScript Missing in Production Build**
+### 2. **TypeScript Execution in Production**
 
 **Problem:**
-```bash
-npm install --omit=dev --ignore-scripts
+Node.js cannot execute TypeScript files directly. When trying to run `server.ts` or import `.ts` files:
 ```
-This command skipped dev dependencies, which excluded TypeScript. But Next.js needs TypeScript to transpile `next.config.ts` even in production builds.
-
-**Error:**
-```
-⨯ Failed to load next.config.ts
-Error: Cannot find module 'typescript'
+TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"
 ```
 
-**Solutions Applied:**
+**Solution: Use tsx Runtime ✅**
 
-#### Solution A: Converted next.config.ts to next.config.js ✅
-- **File:** `next.config.ts` → `next.config.js`
-- **Why:** JavaScript config doesn't need TypeScript to run
-- **Result:** No TypeScript needed for config file
+Instead of converting TypeScript to JavaScript, we use **tsx** to execute TypeScript in production.
 
-#### Solution B: Changed npm install command ✅
-- **Old:** `npm install --omit=dev --ignore-scripts`
-- **New:** `npm install --ignore-scripts`
-- **Why:** Includes TypeScript but still skips Husky scripts
-- **Result:** TypeScript available for build process
+#### What We Did:
+- **Added `tsx` package** to dependencies
+- **Created `server.ts`** (TypeScript entry point)
+- **Kept all files as TypeScript** - no .js conversion needed
+- **Updated scripts** to use `tsx server.ts`
+- **Updated systemd service** to use `tsx`
 
-Both solutions applied for maximum compatibility!
+#### Why tsx?
+- ✅ Execute TypeScript directly in Node.js
+- ✅ No compilation step needed
+- ✅ Keep entire codebase as TypeScript
+- ✅ Simpler deployment
+- ✅ Better developer experience
+
+#### Previous Attempts (what we DON'T do):
+- ❌ Converting files to JavaScript (breaks type safety)
+- ❌ Compiling TypeScript separately (extra complexity)
+- ❌ Using ts-node (slower, not production-optimized)
+
+**Result:** All files remain TypeScript, and everything works in production! 🎉
 
 ---
 
@@ -68,32 +72,50 @@ install_docker() {
 }
 
 # Updated npm install command
-npm install --ignore-scripts  # Includes TypeScript now
+npm install --ignore-scripts
+
+# Updated systemd service to use tsx
+ExecStart=$INSTALL_DIR/node_modules/.bin/tsx server.ts
 ```
 
 ### 2. `update.sh`
 ```bash
 # Updated npm install command
-npm install --ignore-scripts  # Includes TypeScript now
+npm install --ignore-scripts
 ```
 
-### 3. `next.config.ts` → `next.config.js`
-```javascript
-// Converted from TypeScript to JavaScript
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'cdn.jsdelivr.net',
-        pathname: '/gh/**',
-      },
-    ],
+### 3. `package.json`
+```json
+{
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "start": "tsx server.ts"
   },
-};
+  "dependencies": {
+    "tsx": "^4.19.2"
+  }
+}
+```
 
-export default nextConfig;
+### 4. `server.js` → `server.ts`
+```typescript
+// Converted to TypeScript with proper types
+import { createServer } from 'http';
+import { parse } from 'url';
+import next from 'next';
+import { initializeWebSocketServer } from './lib/terminal/websocket-server.js';
+
+// Full TypeScript implementation with type safety
+```
+
+### 5. `lib/terminal/websocket-server.ts`
+```typescript
+// Kept as TypeScript (no conversion to .js)
+import { WebSocketServer } from 'ws';
+import * as pty from 'node-pty';
+
+// Proper TypeScript types throughout
 ```
 
 ---

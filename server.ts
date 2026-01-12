@@ -1,7 +1,7 @@
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
-import { initializeWebSocketServer } from './lib/terminal/websocket-server.ts';
+import { initializeWebSocketServer } from './lib/terminal/websocket-server.js';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -13,7 +13,7 @@ const handle = app.getRequestHandler();
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
     try {
-      const parsedUrl = parse(req.url, true);
+      const parsedUrl = parse(req.url || '', true);
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
@@ -27,9 +27,10 @@ app.prepare().then(() => {
     initializeWebSocketServer(server);
   } catch (err) {
     console.error('Failed to initialize WebSocket server:', err);
+    console.log('Terminal feature may not be available');
   }
 
-  server.listen(port, (err) => {
+  server.listen(port, (err?: Error) => {
     if (err) throw err;
     console.log(`> Ready on http://${hostname}:${port}`);
   });
