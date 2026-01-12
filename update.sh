@@ -85,8 +85,9 @@ if [ -f "$INSTALL_DIR/.env" ]; then
     print_status "Backed up .env file"
 fi
 
-# Install dependencies (skip Husky in production)
-npm install --omit=dev --ignore-scripts
+# Install dependencies (skip Husky setup scripts)
+# Note: TypeScript is needed for build even in production
+npm install --ignore-scripts
 
 # Restore .env if it was overwritten
 if [ -f "$INSTALL_DIR/.env.backup" ]; then

@@ -189,6 +189,93 @@ install_git() {
     fi
 }
 
+# Install Docker if needed
+install_docker() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_dry "Check and install Docker"
+        return
+    fi
+
+    print_status "Checking for Docker..."
+
+    if command -v docker >/dev/null 2>&1; then
+        DOCKER_VERSION=$(docker --version)
+        print_status "Docker already installed: $DOCKER_VERSION"
+
+        # Check if docker service is running
+        if systemctl is-active --quiet docker 2>/dev/null || service docker status >/dev/null 2>&1; then
+            print_status "Docker service is running"
+        else
+            print_status "Starting Docker service..."
+            if command -v systemctl >/dev/null 2>&1; then
+                systemctl start docker
+                systemctl enable docker
+            else
+                service docker start
+            fi
+        fi
+    else
+        print_status "Installing Docker..."
+
+        if [ -x "$(command -v apt-get)" ]; then
+            # Debian/Ubuntu installation using official Docker repository
+            print_status "Installing Docker from official repository..."
+
+            # Install prerequisites
+            apt-get update
+            apt-get install -y ca-certificates curl gnupg lsb-release
+
+            # Add Docker's official GPG key
+            install -m 0755 -d /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            chmod a+r /etc/apt/keyrings/docker.gpg
+
+            # Set up Docker repository
+            echo \
+              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+              $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+            # Install Docker Engine
+            apt-get update
+            apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+            # Start and enable Docker
+            systemctl start docker
+            systemctl enable docker
+
+        elif [ -x "$(command -v dnf)" ]; then
+            # Fedora installation
+            dnf -y install dnf-plugins-core
+            dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+            dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            systemctl start docker
+            systemctl enable docker
+
+        elif [ -x "$(command -v yum)" ]; then
+            # CentOS/RHEL installation
+            yum install -y yum-utils
+            yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            systemctl start docker
+            systemctl enable docker
+
+        else
+            print_error "Unsupported package manager. Please install Docker manually:"
+            print_error "Visit: https://docs.docker.com/engine/install/"
+            exit 1
+        fi
+
+        # Verify Docker installation
+        if command -v docker >/dev/null 2>&1; then
+            print_status "Docker installed successfully: $(docker --version)"
+            print_status "Docker Compose installed: $(docker compose version)"
+        else
+            print_error "Docker installation failed"
+            exit 1
+        fi
+    fi
+}
+
 # Clone and setup the project
 setup_liveos() {
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -211,8 +298,9 @@ setup_liveos() {
     cd "$INSTALL_DIR"
 
     print_status "Installing dependencies (skipping Husky for production)..."
-    # Skip Husky and other dev scripts to avoid issues on server
-    npm install --omit=dev --ignore-scripts
+    # Install all dependencies but skip Husky setup scripts
+    # Note: TypeScript is needed for build even in production
+    npm install --ignore-scripts
 
     print_status "Creating environment configuration..."
     create_env_file
@@ -355,6 +443,7 @@ check_port
 if [ "$NO_DEP" -eq 0 ]; then
     install_git
     install_nodejs
+    install_docker
 fi
 
 # Setup the application
