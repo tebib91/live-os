@@ -66,11 +66,73 @@ prompt_port() {
     print_status "Using HTTP port: $HTTP_PORT"
 }
 
+# Update /etc/hosts with hostname (overrides existing entries)
+update_hosts_entry() {
+    local hostname="$1"
+    local ip="$2"
+    local hosts_file="/etc/hosts"
+
+    if [ -z "$hostname" ] || [ -z "$ip" ]; then
+        print_error "Unable to update $hosts_file: missing hostname or IP."
+        return
+    fi
+
+    if [ ! -w "$hosts_file" ]; then
+        print_error "Cannot write to $hosts_file. Please add: $ip $hostname"
+        return
+    fi
+
+    local tmp_file
+    tmp_file="$(mktemp)" || {
+        print_error "Failed to create temporary file. Hosts update skipped."
+        return
+    }
+
+    awk -v host="$hostname" '
+        /^[[:space:]]*#/ { print; next }
+        {
+            line = $0
+            comment = ""
+            hash = index(line, "#")
+            if (hash > 0) {
+                comment = substr(line, hash)
+                line = substr(line, 1, hash - 1)
+            }
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line == "") { print $0; next }
+            n = split(line, fields, /[[:space:]]+/)
+            ip = fields[1]
+            out = ""
+            for (i = 2; i <= n; i++) {
+                if (fields[i] != host) {
+                    out = out " " fields[i]
+                }
+            }
+            if (out != "") {
+                if (comment != "") {
+                    print ip out " " comment
+                } else {
+                    print ip out
+                }
+            }
+        }
+    ' "$hosts_file" > "$tmp_file"
+
+    echo "$ip $hostname" >> "$tmp_file"
+    cat "$tmp_file" > "$hosts_file"
+    rm -f "$tmp_file"
+    print_status "Updated $hosts_file with: $ip $hostname"
+}
+
 # Prompt for domain
 prompt_domain() {
     if [ "$DRY_RUN" -eq 1 ]; then
         return
     fi
+
+    local primary_ip
+    primary_ip="$(hostname -I | awk '{print $1}')"
 
     # Only prompt if environment variable is not set
     if [ -z "$LIVEOS_DOMAIN" ]; then
@@ -79,33 +141,31 @@ prompt_domain() {
         echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
         echo ""
         echo -e "  You can access LiveOS via:"
-        echo -e "  • Local IP:   ${GREEN}http://$(hostname -I | awk '{print $1}'):$HTTP_PORT${NC}"
+        echo -e "  • Local IP:   ${GREEN}http://$primary_ip:$HTTP_PORT${NC}"
         echo -e "  • localhost:  ${GREEN}http://localhost:$HTTP_PORT${NC}"
-        echo -e "  • Custom domain (optional)"
+        echo -e "  • Custom hostname (optional)"
         echo ""
-        echo -e "  ${BLUE}Examples of custom domains:${NC}"
-        echo -e "    - home.local"
-        echo -e "    - server.local"
-        echo -e "    - liveos.home"
-        echo -e "    - myserver.lan"
+        echo -e "  ${BLUE}Examples of hostnames (we add .local):${NC}"
+        echo -e "    - home"
+        echo -e "    - server"
+        echo -e "    - liveos"
+        echo -e "    - myserver"
         echo ""
-        echo -e "  ${BLUE}Note:${NC} You'll need to configure your DNS/hosts file"
-        echo -e "        to point the domain to this server's IP."
+        echo -e "  ${BLUE}Note:${NC} We'll append .local and add it to /etc/hosts."
         echo ""
-        echo -n -e "${BLUE}Enter custom domain (leave empty to skip):${NC} "
-        read -r user_domain < /dev/tty
+        echo -n -e "${BLUE}Enter hostname (leave empty to skip):${NC} "
+        read -r user_host < /dev/tty
 
-        if [ -n "$user_domain" ]; then
-            DOMAIN=$user_domain
+        if [ -n "$user_host" ]; then
+            DOMAIN="${user_host}.local"
             print_status "Custom domain set: $DOMAIN"
+            update_hosts_entry "$DOMAIN" "$primary_ip"
             echo ""
             echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-            echo -e "  ${GREEN}✓${NC} To use this domain, add to your DNS or hosts file:"
+            echo -e "  ${GREEN}✓${NC} Added to /etc/hosts:"
             echo ""
-            echo -e "    ${GREEN}$(hostname -I | awk '{print $1}')  $DOMAIN${NC}"
+            echo -e "    ${GREEN}$primary_ip  $DOMAIN${NC}"
             echo ""
-            echo -e "  ${BLUE}On Linux/Mac:${NC} /etc/hosts"
-            echo -e "  ${BLUE}On Windows:${NC}   C:\\Windows\\System32\\drivers\\etc\\hosts"
             echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
             echo ""
         else
@@ -114,8 +174,58 @@ prompt_domain() {
     else
         DOMAIN=$LIVEOS_DOMAIN
         print_status "Using domain from environment: $DOMAIN"
+        update_hosts_entry "$DOMAIN" "$primary_ip"
     fi
 }
+
+# Prompt user to connect to Wi-Fi
+# prompt_wifi() {
+#     if [ "$DRY_RUN" -eq 1 ]; then
+#         print_dry "Scan and connect to Wi-Fi"
+#         return
+#     fi
+
+#     # Check if nmcli is available
+#     if ! command -v nmcli >/dev/null 2>&1; then
+#         print_error "nmcli not found. Wi-Fi setup skipped."
+#         return
+#     fi
+
+#     print_status "Scanning for Wi-Fi networks..."
+#     # List networks
+#     mapfile -t SSIDS < <(nmcli -t -f SSID dev wifi list | grep -v '^$' | sort -u)
+
+#     if [ "${#SSIDS[@]}" -eq 0 ]; then
+#         print_error "No Wi-Fi networks detected"
+#         return
+#     fi
+
+#     echo ""
+#     echo -e "${BLUE}Available Wi-Fi Networks:${NC}"
+#     for i in "${!SSIDS[@]}"; do
+#         echo "  [$i] ${SSIDS[$i]}"
+#     done
+
+#     echo -n -e "${BLUE}Select Wi-Fi network by number:${NC} "
+#     read -r choice
+#     if [[ ! $choice =~ ^[0-9]+$ ]] || [ "$choice" -ge "${#SSIDS[@]}" ]; then
+#         print_error "Invalid selection. Skipping Wi-Fi setup."
+#         return
+#     fi
+
+#     SSID="${SSIDS[$choice]}"
+#     echo -n -e "${BLUE}Enter password for \"$SSID\":${NC} "
+#     read -rs PASSWORD
+#     echo ""
+
+#     print_status "Connecting to Wi-Fi \"$SSID\"..."
+#     if nmcli dev wifi connect "$SSID" password "$PASSWORD"; then
+#         print_status "Connected to $SSID successfully!"
+#     else
+#         print_error "Failed to connect to $SSID. Check password and try manually."
+#     fi
+# }
+
 
 # Check if script is run as root
 if [ "$EUID" -ne 0 ] && [ "$DRY_RUN" -eq 0 ]; then 
@@ -480,6 +590,9 @@ fi
 # Prompt for port if not set via environment variables
 prompt_port
 
+# Prompt for Wi-Fi connection (optional)
+# prompt_wifi
+
 # Prompt for domain
 prompt_domain
 
@@ -512,25 +625,25 @@ else
     echo -e "${GREEN}├────────────────────────────────────────────────────┤${NC}"
     echo -e "${GREEN}│${NC}  LiveOS is now running and accessible via:      ${GREEN}│${NC}"
     echo -e "${GREEN}│${NC}                                                  ${GREEN}│${NC}"
-    echo -e "${GREEN}│${NC}  ${BLUE}✓${NC} Local:      ${BLUE}http://localhost:$HTTP_PORT${NC}"
-    echo -e "${GREEN}│${NC}  ${BLUE}✓${NC} Network:    ${BLUE}http://$(hostname -I | awk '{print $1}'):$HTTP_PORT${NC}"
-
     if [ -n "$DOMAIN" ]; then
-        echo -e "${GREEN}│${NC}  ${BLUE}✓${NC} Domain:     ${BLUE}http://$DOMAIN:$HTTP_PORT${NC}"
+        LOCAL_URL="http://$DOMAIN:$HTTP_PORT"
+        LOCAL_LABEL="Hostname"
+    else
+        LOCAL_URL="http://localhost:$HTTP_PORT"
+        LOCAL_LABEL="Local"
     fi
+    echo -e "${GREEN}│${NC}  ${BLUE}✓${NC} ${LOCAL_LABEL}:   ${BLUE}$LOCAL_URL${NC}"
+    echo -e "${GREEN}│${NC}  ${BLUE}✓${NC} Network:    ${BLUE}http://$(hostname -I | awk '{print $1}'):$HTTP_PORT${NC}"
 
     echo -e "${GREEN}│${NC}                                                  ${GREEN}│${NC}"
     echo -e "${GREEN}╰────────────────────────────────────────────────────╯${NC}"
     echo ""
 
     if [ -n "$DOMAIN" ]; then
-        echo -e "${BLUE}📝 Domain Setup Reminder:${NC}"
-        echo -e "   Add this line to your DNS or hosts file:"
+        echo -e "${BLUE}📝 Hosts entry added:${NC}"
+        echo -e "   Added to /etc/hosts:"
         echo ""
         echo -e "   ${GREEN}$(hostname -I | awk '{print $1}')  $DOMAIN${NC}"
-        echo ""
-        echo -e "   ${BLUE}Linux/Mac:${NC}  /etc/hosts"
-        echo -e "   ${BLUE}Windows:${NC}    C:\\Windows\\System32\\drivers\\etc\\hosts"
         echo ""
     fi
 
