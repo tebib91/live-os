@@ -57,12 +57,42 @@ fi
 
 print_status "Updating LiveOS from version $LOCAL_VERSION to $REMOTE_VERSION..."
 
+# Backup .env file if it exists
+if [ -f "$INSTALL_DIR/.env" ]; then
+    print_info "Backing up .env file..."
+    cp "$INSTALL_DIR/.env" "$INSTALL_DIR/.env.backup"
+fi
+
 # Pull latest changes
 git fetch origin "$REMOTE_BRANCH"
 git reset --hard origin/"$REMOTE_BRANCH"
 
-# Install dependencies
+# Restore .env file if it was backed up
+if [ -f "$INSTALL_DIR/.env" ]; then
+    print_status "Preserving existing .env configuration"
+else
+    if [ -f "$INSTALL_DIR/.env.backup" ]; then
+        print_status "Restoring .env from backup"
+        cp "$INSTALL_DIR/.env.backup" "$INSTALL_DIR/.env"
+    else
+        print_info "No .env file found. You may need to reconfigure."
+    fi
+fi
+
+# Backup .env before operations
+if [ -f "$INSTALL_DIR/.env" ]; then
+    cp "$INSTALL_DIR/.env" "$INSTALL_DIR/.env.backup"
+    print_status "Backed up .env file"
+fi
+
+# Install dependencies (skip Husky in production)
 npm install --omit=dev --ignore-scripts
+
+# Restore .env if it was overwritten
+if [ -f "$INSTALL_DIR/.env.backup" ]; then
+    cp "$INSTALL_DIR/.env.backup" "$INSTALL_DIR/.env"
+    print_status "Restored .env configuration"
+fi
 
 # Build project
 npm run build
@@ -72,3 +102,4 @@ systemctl restart "$SERVICE_NAME"
 
 print_status "Update complete! LiveOS is now at version $REMOTE_VERSION"
 print_status "View logs with: sudo journalctl -u $SERVICE_NAME -f"
+

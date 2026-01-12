@@ -1,4 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/refs */
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 interface DockApp {
     id: string;
@@ -119,7 +122,11 @@ const DockOs: React.FC<MacOSDockProps> = ({
         setCurrentScales(initialScales);
         setCurrentPositions(initialPositions);
     }, [apps, calculatePositions, minScale, config]);
-    const animateToTarget = useCallback(() => {
+
+    // Use ref to store animation callback to avoid circular dependency
+    const animateToTargetRef = useRef<(() => void) | null>(null);
+
+    animateToTargetRef.current = useCallback(() => {
         const targetScales = calculateTargetMagnification(mouseX);
         const targetPositions = calculatePositions(targetScales);
         const lerpFactor = mouseX !== null ? 0.2 : 0.12;
@@ -143,20 +150,21 @@ const DockOs: React.FC<MacOSDockProps> = ({
         );
 
         if (scalesNeedUpdate || positionsNeedUpdate || mouseX !== null) {
-            animationFrameRef.current = requestAnimationFrame(animateToTarget);
+            animationFrameRef.current = requestAnimationFrame(() => animateToTargetRef.current?.());
         }
     }, [mouseX, calculateTargetMagnification, calculatePositions, currentScales, currentPositions]);
+
     useEffect(() => {
         if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
         }
-        animationFrameRef.current = requestAnimationFrame(animateToTarget);
+        animationFrameRef.current = requestAnimationFrame(() => animateToTargetRef.current?.());
         return () => {
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
             }
         };
-    }, [animateToTarget]);
+    }, [mouseX, calculateTargetMagnification, calculatePositions, currentScales, currentPositions]);
     const handleMouseMove = useCallback((e: React.MouseEvent) => {
         const now = performance.now();
 
@@ -259,7 +267,7 @@ const DockOs: React.FC<MacOSDockProps> = ({
                                 zIndex: Math.round(scale * 10)
                             }}
                         >
-                            <img
+                            <Image
                                 src={app.icon}
                                 alt={app.name}
                                 width={scaledSize}

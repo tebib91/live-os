@@ -6,25 +6,20 @@ import path from 'path';
 import YAML from 'yaml';
 
 /**
- * Main function to get all apps from the AppStore directory
+ * Main function to get all apps from the umbrel-apps-ref directory
  */
 export async function getAppStoreApps(): Promise<App[]> {
   try {
-    const appStorePath = path.join(process.cwd(), 'store');
+    const appStorePath = path.join(process.cwd(), 'umbrel-apps-ref');
 
-    // Read all folders in AppStore directory
+    // Read all folders in umbrel-apps-ref directory
     const entries = await fs.readdir(appStorePath, { withFileTypes: true });
-    const appFolders = entries.filter(entry => entry.isDirectory());
+    const appFolders = entries.filter(entry => entry.isDirectory() && !entry.name.startsWith('.'));
 
     // Parse each app folder
     const appPromises = appFolders.map(async (folder) => {
       const appPath = path.join(appStorePath, folder.name);
-
-      // Try to parse appfile.json first, then fallback to docker-compose.yml
-      const app = await parseAppFile(appPath, folder.name)
-        || await parseDockerCompose(appPath, folder.name);
-
-      return app;
+      return await parseUmbrelApp(appPath, folder.name);
     });
 
     const apps = await Promise.all(appPromises);
@@ -39,130 +34,107 @@ export async function getAppStoreApps(): Promise<App[]> {
 }
 
 /**
- * Parse appfile.json format (51 apps have this)
+ * Parse Umbrel app format (umbrel-app.yml)
  */
-async function parseAppFile(appPath: string, folderName: string): Promise<App | null> {
+async function parseUmbrelApp(appPath: string, folderName: string): Promise<App | null> {
   try {
-    const appfilePath = path.join(appPath, 'appfile.json');
+    const umbrelAppPath = path.join(appPath, 'umbrel-app.yml');
 
-    // Check if appfile.json exists
+    // Check if umbrel-app.yml exists
     try {
-      await fs.access(appfilePath);
+      await fs.access(umbrelAppPath);
     } catch {
       return null; // File doesn't exist
     }
 
-    const content = await fs.readFile(appfilePath, 'utf-8');
-    const appfile = JSON.parse(content);
+    const content = await fs.readFile(umbrelAppPath, 'utf-8');
+    const umbrelApp = YAML.parse(content);
+
+    // Parse category - handle both string and array
+    let categories: string[] = ['Other'];
+    if (umbrelApp.category) {
+      categories = Array.isArray(umbrelApp.category)
+        ? umbrelApp.category
+        : [umbrelApp.category];
+    }
+
+    // Get icon from Umbrel CDN or fallback
+    const icon = await getAppIcon(folderName, umbrelApp.id || folderName);
+
+    // Get gallery images from Umbrel CDN if available
+    const screenshots = await getGalleryImages(folderName, umbrelApp.gallery || []);
 
     const app: App = {
-      id: folderName,
-      title: appfile.title || folderName,
-      name: appfile.name || folderName.toLowerCase(),
-      icon: await getAppIcon(appPath, appfile.icon),
-      tagline: appfile.tagline || '',
-      overview: appfile.overview || '',
-      category: Array.isArray(appfile.category)
-        ? appfile.category
-        : (appfile.category ? [appfile.category] : ['Other']),
-      developer: appfile.developer?.name || appfile.developer || 'Unknown',
-      screenshots: appfile.screenshots || [],
-      version: appfile.version,
-      container: appfile.container ? {
-        image: appfile.container.image,
-        ports: appfile.container.ports || [],
-        volumes: appfile.container.volumes || []
-      } : undefined
+      id: umbrelApp.id || folderName,
+      title: umbrelApp.name || folderName,
+      name: umbrelApp.id || folderName.toLowerCase(),
+      icon: icon,
+      tagline: umbrelApp.tagline || '',
+      overview: cleanDescription(umbrelApp.description || ''),
+      category: categories,
+      developer: umbrelApp.developer || 'Unknown',
+      screenshots: screenshots,
+      version: umbrelApp.version || '1.0.0',
+      port: umbrelApp.port,
+      path: umbrelApp.path || '',
+      website: umbrelApp.website,
+      repo: umbrelApp.repo,
     };
 
     return app;
   } catch (error) {
-    console.error(`Failed to parse appfile.json for ${folderName}:`, error);
+    console.error(`Failed to parse umbrel-app.yml for ${folderName}:`, error);
     return null;
   }
 }
 
 /**
- * Parse docker-compose.yml with x-casaos metadata (107 apps use this)
+ * Get app icon from Umbrel CDN or fallback sources
+ * Umbrel hosts icons at: https://getumbrel.github.io/umbrel-apps-gallery/[app-id]/icon.svg
  */
-async function parseDockerCompose(appPath: string, folderName: string): Promise<App | null> {
-  try {
-    // Try both .yml and .yaml extensions
-    let dockerComposePath = path.join(appPath, 'docker-compose.yml');
-    try {
-      await fs.access(dockerComposePath);
-    } catch {
-      dockerComposePath = path.join(appPath, 'docker-compose.yaml');
-      await fs.access(dockerComposePath);
-    }
+async function getAppIcon(folderName: string, appId: string): Promise<string> {
+  // Try Umbrel CDN first (their official gallery)
+  const umbrelCdnUrls = [
+    `https://getumbrel.github.io/umbrel-apps-gallery/${appId}/icon.svg`,
+    `https://getumbrel.github.io/umbrel-apps-gallery/${appId}/icon.png`,
+    `https://raw.githubusercontent.com/getumbrel/umbrel-apps/master/${appId}/icon.svg`,
+    `https://raw.githubusercontent.com/getumbrel/umbrel-apps/master/${appId}/icon.png`,
+  ];
 
-    const content = await fs.readFile(dockerComposePath, 'utf-8');
-    const parsed = YAML.parse(content);
-
-    // Extract x-casaos metadata from root or services
-    const xCasaOS = parsed['x-casaos'] || {};
-
-    // Get title with language fallback
-    const title = typeof xCasaOS.title === 'object'
-      ? (xCasaOS.title.en_us || xCasaOS.title.en_US || Object.values(xCasaOS.title)[0])
-      : (xCasaOS.title || folderName);
-
-    // Get description with language fallback
-    const description = typeof xCasaOS.description === 'object'
-      ? (xCasaOS.description.en_us || xCasaOS.description.en_US || Object.values(xCasaOS.description)[0])
-      : (xCasaOS.description || '');
-
-    // Get tagline with language fallback
-    const tagline = typeof xCasaOS.tagline === 'object'
-      ? (xCasaOS.tagline.en_us || xCasaOS.tagline.en_US || Object.values(xCasaOS.tagline)[0])
-      : (xCasaOS.tagline || (description ? description.slice(0, 100) + '...' : ''));
-
-    const app: App = {
-      id: folderName,
-      title: title as string,
-      name: parsed.name || folderName.toLowerCase(),
-      icon: await getAppIcon(appPath, xCasaOS.icon),
-      tagline: tagline as string,
-      overview: description as string,
-      category: Array.isArray(xCasaOS.category)
-        ? xCasaOS.category
-        : (xCasaOS.category ? [xCasaOS.category] : ['Other']),
-      developer: xCasaOS.developer || xCasaOS.author || 'Unknown',
-      screenshots: xCasaOS.screenshot_link || [],
-      version: xCasaOS.version
-    };
-
-    return app;
-  } catch (error) {
-    console.error(`Failed to parse docker-compose.yml for ${folderName}:`, error);
-    return null;
-  }
+  // Return first CDN URL (we'll validate it client-side or in future implementation)
+  return umbrelCdnUrls[0];
 }
 
 /**
- * Get app icon - prioritize local file, fallback to URL
+ * Get gallery/screenshot images from Umbrel CDN
  */
-async function getAppIcon(appPath: string, iconUrl?: string): Promise<string> {
-  // Check for local icon files
-  const iconExtensions = ['png', 'jpg', 'jpeg', 'svg', 'webp'];
-
-  for (const ext of iconExtensions) {
-    const localIconPath = path.join(appPath, `icon.${ext}`);
-    try {
-      await fs.access(localIconPath);
-      // Return path relative to AppStore folder for public access
-      const folderName = path.basename(appPath);
-      return `/AppStore/${folderName}/icon.${ext}`;
-    } catch {
-      // File doesn't exist, try next extension
-    }
+async function getGalleryImages(folderName: string, galleryFiles: string[]): Promise<string[]> {
+  if (!galleryFiles || galleryFiles.length === 0) {
+    return [];
   }
 
-  // If no local icon found, use URL from metadata
-  if (iconUrl) {
-    return iconUrl;
-  }
+  // Umbrel hosts gallery images at: https://getumbrel.github.io/umbrel-apps-gallery/[app-id]/[1-5].jpg
+  return galleryFiles.map(fileName => {
+    return `https://getumbrel.github.io/umbrel-apps-gallery/${folderName}/${fileName}`;
+  });
+}
 
-  // Fallback to placeholder
-  return '/icons/default-app-icon.png';
+/**
+ * Clean up description text (remove excessive newlines, format properly)
+ */
+function cleanDescription(description: string): string {
+  if (!description) return '';
+
+  return description
+    .replace(/\n{3,}/g, '\n\n') // Replace 3+ newlines with 2
+    .trim();
+}
+
+/**
+ * Get installed apps (apps currently running via Docker)
+ */
+export async function getInstalledApps(): Promise<App[]> {
+  // TODO: Implement Docker integration to check running containers
+  // For now, return empty array
+  return [];
 }

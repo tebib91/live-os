@@ -18,7 +18,7 @@ export async function getSystemStatus() {
         let totalTick = 0;
 
         cpus.forEach(cpu => {
-            for (let type in cpu.times) {
+            for (const type in cpu.times) {
                 totalTick += cpu.times[type as keyof typeof cpu.times];
             }
             totalIdle += cpu.times.idle;

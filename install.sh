@@ -38,8 +38,9 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-# Default ports
+# Default configuration
 HTTP_PORT=${LIVEOS_HTTP_PORT:-3000}
+DOMAIN=${LIVEOS_DOMAIN:-""}
 
 # Installation directory
 INSTALL_DIR="/opt/live-os"
@@ -52,7 +53,7 @@ prompt_port() {
     if [ "$DRY_RUN" -eq 1 ]; then
         return
     fi
-    
+
     # Only prompt if environment variable is not set
     if [ -z "$LIVEOS_HTTP_PORT" ]; then
         echo -n -e "${BLUE}Enter HTTP port (default: 3000):${NC} "
@@ -61,8 +62,59 @@ prompt_port() {
             HTTP_PORT=$user_http_port
         fi
     fi
-    
+
     print_status "Using HTTP port: $HTTP_PORT"
+}
+
+# Prompt for domain
+prompt_domain() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        return
+    fi
+
+    # Only prompt if environment variable is not set
+    if [ -z "$LIVEOS_DOMAIN" ]; then
+        echo ""
+        print_status "Domain Configuration"
+        echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+        echo -e "  You can access LiveOS via:"
+        echo -e "  • Local IP:   ${GREEN}http://$(hostname -I | awk '{print $1}'):$HTTP_PORT${NC}"
+        echo -e "  • localhost:  ${GREEN}http://localhost:$HTTP_PORT${NC}"
+        echo -e "  • Custom domain (optional)"
+        echo ""
+        echo -e "  ${BLUE}Examples of custom domains:${NC}"
+        echo -e "    - home.local"
+        echo -e "    - server.local"
+        echo -e "    - liveos.home"
+        echo -e "    - myserver.lan"
+        echo ""
+        echo -e "  ${BLUE}Note:${NC} You'll need to configure your DNS/hosts file"
+        echo -e "        to point the domain to this server's IP."
+        echo ""
+        echo -n -e "${BLUE}Enter custom domain (leave empty to skip):${NC} "
+        read -r user_domain < /dev/tty
+
+        if [ -n "$user_domain" ]; then
+            DOMAIN=$user_domain
+            print_status "Custom domain set: $DOMAIN"
+            echo ""
+            echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo -e "  ${GREEN}✓${NC} To use this domain, add to your DNS or hosts file:"
+            echo ""
+            echo -e "    ${GREEN}$(hostname -I | awk '{print $1}')  $DOMAIN${NC}"
+            echo ""
+            echo -e "  ${BLUE}On Linux/Mac:${NC} /etc/hosts"
+            echo -e "  ${BLUE}On Windows:${NC}   C:\\Windows\\System32\\drivers\\etc\\hosts"
+            echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo ""
+        else
+            print_status "Skipping custom domain configuration"
+        fi
+    else
+        DOMAIN=$LIVEOS_DOMAIN
+        print_status "Using domain from environment: $DOMAIN"
+    fi
 }
 
 # Check if script is run as root
@@ -141,29 +193,75 @@ install_git() {
 setup_liveos() {
     if [ "$DRY_RUN" -eq 1 ]; then
         print_dry "Clone repository from $REPO_URL (branch: $BRANCH)"
-        print_dry "Install dependencies with npm install"
+        print_dry "Install dependencies with npm install (skipping Husky)"
         print_dry "Build project with npm run build"
+        print_dry "Create .env configuration file"
         return
     fi
-    
+
     # Remove existing installation if present
     if [ -d "$INSTALL_DIR" ]; then
         print_status "Removing existing installation..."
         rm -rf "$INSTALL_DIR"
     fi
-    
+
     print_status "Cloning LiveOS repository (branch: $BRANCH)..."
     git clone -b "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
-    
+
     cd "$INSTALL_DIR"
-    
-    print_status "Installing dependencies..."
-    npm install
-    
+
+    print_status "Installing dependencies (skipping Husky for production)..."
+    # Skip Husky and other dev scripts to avoid issues on server
+    npm install --omit=dev --ignore-scripts
+
+    print_status "Creating environment configuration..."
+    create_env_file
+
     print_status "Building project..."
     npm run build
-    
+
     print_status "Build completed successfully!"
+}
+
+# Create .env file with configuration
+create_env_file() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_dry "Create .env file with configuration"
+        return
+    fi
+
+    print_status "Creating .env file..."
+
+    cat > "$INSTALL_DIR/.env" <<EOF
+# LiveOS Configuration
+# Generated on $(date)
+
+# Server Configuration
+PORT=$HTTP_PORT
+LIVEOS_HTTP_PORT=$HTTP_PORT
+NODE_ENV=production
+
+# Domain Configuration
+EOF
+
+    if [ -n "$DOMAIN" ]; then
+        echo "LIVEOS_DOMAIN=$DOMAIN" >> "$INSTALL_DIR/.env"
+        echo "# Access URL: http://$DOMAIN:$HTTP_PORT" >> "$INSTALL_DIR/.env"
+    else
+        echo "# LIVEOS_DOMAIN=home.local" >> "$INSTALL_DIR/.env"
+        echo "# Uncomment and set your custom domain above" >> "$INSTALL_DIR/.env"
+    fi
+
+    cat >> "$INSTALL_DIR/.env" <<EOF
+
+# Docker Configuration (for future use)
+# DOCKER_SOCKET=/var/run/docker.sock
+
+# App Data Directory
+# APP_DATA_DIR=/opt/live-os/app-data
+EOF
+
+    print_status ".env file created successfully"
 }
 
 # Create systemd service
@@ -173,9 +271,9 @@ install_service() {
         print_dry "Enable and start LiveOS service"
         return
     fi
-    
+
     print_status "Creating systemd service..."
-    
+
     cat > /etc/systemd/system/liveos.service <<EOF
 [Unit]
 Description=LiveOS - Self-hosted Operating System
@@ -185,8 +283,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=$INSTALL_DIR
-Environment="PORT=$HTTP_PORT"
-Environment="NODE_ENV=production"
+EnvironmentFile=$INSTALL_DIR/.env
 ExecStart=/usr/bin/npm start
 Restart=always
 RestartSec=10
@@ -200,16 +297,16 @@ EOF
 
     print_status "Reloading systemd daemon..."
     systemctl daemon-reload
-    
+
     print_status "Enabling LiveOS service..."
     systemctl enable liveos
-    
+
     print_status "Starting LiveOS service..."
     systemctl start liveos
-    
+
     # Wait a moment for service to start
     sleep 2
-    
+
     # Check service status
     if systemctl is-active --quiet liveos; then
         print_status "LiveOS service started successfully!"
@@ -248,6 +345,9 @@ fi
 # Prompt for port if not set via environment variables
 prompt_port
 
+# Prompt for domain
+prompt_domain
+
 # Check if port is available
 check_port
 
@@ -269,26 +369,44 @@ install_service
 if [ "$DRY_RUN" -eq 1 ]; then
     print_status "Dry run complete. Above actions would be performed during actual installation."
 else
-    print_status "\n"
-    print_status "╭─────────────────────────────────────────╮"
-    print_status "│       Installation Complete! 🎉         │"
-    print_status "├─────────────────────────────────────────┤"
-    print_status "│  LiveOS is now running on:              │"
-    print_status "│                                         │"
-    if [ "$HTTP_PORT" -ne 3000 ]; then
-        print_status "│  ${BLUE}http://localhost:$HTTP_PORT${NC}                 │"
-    else
-        print_status "│  ${BLUE}http://localhost:3000${NC}                   │"
+    echo ""
+    echo -e "${GREEN}╭────────────────────────────────────────────────────╮${NC}"
+    echo -e "${GREEN}│         Installation Complete! 🎉                  │${NC}"
+    echo -e "${GREEN}├────────────────────────────────────────────────────┤${NC}"
+    echo -e "${GREEN}│${NC}  LiveOS is now running and accessible via:      ${GREEN}│${NC}"
+    echo -e "${GREEN}│${NC}                                                  ${GREEN}│${NC}"
+    echo -e "${GREEN}│${NC}  ${BLUE}✓${NC} Local:      ${BLUE}http://localhost:$HTTP_PORT${NC}"
+    echo -e "${GREEN}│${NC}  ${BLUE}✓${NC} Network:    ${BLUE}http://$(hostname -I | awk '{print $1}'):$HTTP_PORT${NC}"
+
+    if [ -n "$DOMAIN" ]; then
+        echo -e "${GREEN}│${NC}  ${BLUE}✓${NC} Domain:     ${BLUE}http://$DOMAIN:$HTTP_PORT${NC}"
     fi
-    print_status "│  ${BLUE}http://$(hostname -I | awk '{print $1}'):$HTTP_PORT${NC}      │"
-    print_status "╰─────────────────────────────────────────╯"
-    print_status "\n"
-    print_status "Manage the service with:"
-    print_status "  sudo systemctl [start|stop|restart|status] liveos"
-    print_status "\n"
-    print_status "View logs with:"
-    print_status "  sudo journalctl -u liveos -f"
-    print_status "\n"
-    print_status "Update LiveOS:"
-    print_status "  cd $INSTALL_DIR && sudo git pull && sudo npm install && sudo npm run build && sudo systemctl restart liveos"
+
+    echo -e "${GREEN}│${NC}                                                  ${GREEN}│${NC}"
+    echo -e "${GREEN}╰────────────────────────────────────────────────────╯${NC}"
+    echo ""
+
+    if [ -n "$DOMAIN" ]; then
+        echo -e "${BLUE}📝 Domain Setup Reminder:${NC}"
+        echo -e "   Add this line to your DNS or hosts file:"
+        echo ""
+        echo -e "   ${GREEN}$(hostname -I | awk '{print $1}')  $DOMAIN${NC}"
+        echo ""
+        echo -e "   ${BLUE}Linux/Mac:${NC}  /etc/hosts"
+        echo -e "   ${BLUE}Windows:${NC}    C:\\Windows\\System32\\drivers\\etc\\hosts"
+        echo ""
+    fi
+
+    echo -e "${BLUE}🔧 Manage the service:${NC}"
+    echo -e "   sudo systemctl [start|stop|restart|status] liveos"
+    echo ""
+    echo -e "${BLUE}📋 View logs:${NC}"
+    echo -e "   sudo journalctl -u liveos -f"
+    echo ""
+    echo -e "${BLUE}⚙️  Configuration:${NC}"
+    echo -e "   Edit: $INSTALL_DIR/.env"
+    echo ""
+    echo -e "${BLUE}🔄 Update LiveOS:${NC}"
+    echo -e "   cd $INSTALL_DIR && sudo bash update.sh"
+    echo ""
 fi

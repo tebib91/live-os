@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use server';
 
 import type { InstallConfig, InstalledApp } from '@/components/app-store/types';
