@@ -5,6 +5,7 @@
 import { getWallpapers, updateSettings } from "@/app/actions/settings";
 import { getSystemInfo } from "@/app/actions/system";
 import { getStorageInfo, getSystemStatus } from "@/app/actions/system-status";
+import { WifiDialog } from "./wifi-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -56,6 +57,7 @@ export function SettingsDialog({
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [wallpapers, setWallpapers] = useState<WallpaperOption[]>([]);
   const [wallpapersLoading, setWallpapersLoading] = useState(false);
+  const [wifiDialogOpen, setWifiDialogOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -408,6 +410,7 @@ export function SettingsDialog({
                     variant="ghost"
                     size="sm"
                     className="bg-zinc-800 hover:bg-zinc-700 text-white"
+                    onClick={() => setWifiDialogOpen(true)}
                   >
                     <Wifi className="h-4 w-4 mr-2" />
                     View networks
@@ -513,6 +516,7 @@ export function SettingsDialog({
             </div>
           </div>
         </ScrollArea>
+        <WifiDialog open={wifiDialogOpen} onOpenChange={setWifiDialogOpen} />
       </DialogContent>
     </Dialog>
   );

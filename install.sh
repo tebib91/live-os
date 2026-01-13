@@ -437,6 +437,43 @@ install_avahi() {
     fi
 }
 
+install_nmcli() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_dry "Install nmcli (NetworkManager CLI)"
+        return
+    fi
+
+    if command -v nmcli >/dev/null 2>&1; then
+        print_status "nmcli already installed"
+        return
+    fi
+
+    print_status "Installing nmcli / NetworkManager..."
+
+    if [ -x "$(command -v apt-get)" ]; then
+        apt-get update
+        apt-get install -y network-manager
+    elif [ -x "$(command -v dnf)" ]; then
+        dnf install -y NetworkManager
+    elif [ -x "$(command -v yum)" ]; then
+        yum install -y NetworkManager
+    else
+        print_error "Unsupported package manager. Please install NetworkManager (nmcli) manually."
+        return
+    fi
+
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl enable NetworkManager 2>/dev/null || true
+        systemctl start NetworkManager 2>/dev/null || true
+    fi
+
+    if command -v nmcli >/dev/null 2>&1; then
+        print_status "nmcli installed successfully"
+    else
+        print_error "nmcli installation failed. Wi-Fi dialog may not work."
+    fi
+}
+
 # Install Docker if needed
 install_docker() {
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -567,6 +604,13 @@ setup_liveos() {
     print_status "Creating environment configuration..."
     create_env_file
 
+    print_status "Running database migrations (Prisma)..."
+    if ! npx prisma migrate deploy --schema=prisma/schema.prisma; then
+        print_error "Prisma migrations failed. Check DATABASE_URL in .env and rerun:"
+        print_error "  npx prisma migrate deploy --schema=prisma/schema.prisma"
+        exit 1
+    fi
+
     print_status "Building project..."
     npm run build
 
@@ -578,6 +622,20 @@ create_env_file() {
     if [ "$DRY_RUN" -eq 1 ]; then
         print_dry "Create .env file with configuration"
         return
+    fi
+
+    # Generate a stable Server Actions encryption key if not provided
+    if [ -z "$NEXT_SERVER_ACTIONS_ENCRYPTION_KEY" ]; then
+        if command -v openssl >/dev/null 2>&1; then
+            NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+            print_status "Generated NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"
+        else
+            print_error "openssl not found; unable to auto-generate NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"
+            print_error "Set NEXT_SERVER_ACTIONS_ENCRYPTION_KEY manually in the environment before rerunning install.sh"
+            exit 1
+        fi
+    else
+        print_status "Using provided NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"
     fi
 
     print_status "Creating .env file..."
@@ -609,6 +667,12 @@ EOF
 
 # App Data Directory
 # APP_DATA_DIR=/opt/live-os/app-data
+
+# Database (Prisma/SQLite)
+DATABASE_URL="file:./dev.db"
+
+# Next.js Server Actions (keep stable across builds)
+NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"
 EOF
 
     print_status ".env file created successfully"
@@ -711,6 +775,7 @@ if [ "$NO_DEP" -eq 0 ]; then
     install_nodejs
     install_docker
     install_avahi
+    install_nmcli
 fi
 
 # Setup the application

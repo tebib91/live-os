@@ -1,9 +1,9 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import { Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
+import { Role } from '../generated/prisma/enums';
 
 const SESSION_COOKIE_NAME = 'liveos_session';
 const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -24,8 +24,14 @@ export interface AuthResult {
  * Check if any users exist in the system
  */
 export async function hasUsers(): Promise<boolean> {
-  const count = await prisma.user.count();
-  return count > 0;
+  try {
+    const count = await prisma.user.count();
+    return count > 0;
+  } catch (error) {
+    // If database/table doesn't exist, return false (no users)
+    console.error('hasUsers error (database may not be initialized):', error);
+    return false;
+  }
 }
 
 /**
@@ -39,6 +45,7 @@ export async function registerUser(
     // Check if users already exist
     const userExists = await hasUsers();
     if (userExists) {
+      console.info('[auth] registerUser blocked: users already exist');
       return {
         success: false,
         error: 'Users already exist. Registration is disabled.',
@@ -47,6 +54,7 @@ export async function registerUser(
 
     // Validate input
     if (!username || username.length < 3) {
+      console.warn('[auth] registerUser validation failed: username too short');
       return {
         success: false,
         error: 'Username must be at least 3 characters long',
@@ -54,6 +62,7 @@ export async function registerUser(
     }
 
     if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+      console.warn('[auth] registerUser validation failed: invalid PIN format');
       return {
         success: false,
         error: 'PIN must be exactly 4 digits',
@@ -94,7 +103,7 @@ export async function registerUser(
       },
     };
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('[auth] registerUser error:', error);
     return {
       success: false,
       error: 'An error occurred during registration',
@@ -110,12 +119,27 @@ export async function login(
   pin: string
 ): Promise<AuthResult> {
   try {
+    const normalizedUsername = username.trim();
+    const normalizedPin = pin.replace(/\D/g, '').slice(0, 4);
+
+    if (!normalizedUsername || normalizedPin.length !== 4) {
+      console.warn('[auth] login validation failed: invalid input', {
+        username: normalizedUsername,
+        pinLength: normalizedPin.length,
+      });
+      return {
+        success: false,
+        error: 'Invalid username or PIN',
+      };
+    }
+
     // Find user
     const user = await prisma.user.findUnique({
-      where: { username },
+      where: { username: normalizedUsername },
     });
 
     if (!user) {
+      console.warn('[auth] login failed: user not found', { username: normalizedUsername });
       return {
         success: false,
         error: 'Invalid username or PIN',
@@ -123,8 +147,9 @@ export async function login(
     }
 
     // Verify PIN
-    const validPin = await bcrypt.compare(pin, user.pin);
+    const validPin = await bcrypt.compare(normalizedPin, user.pin);
     if (!validPin) {
+      console.warn('[auth] login failed: invalid PIN', { username: normalizedUsername });
       return {
         success: false,
         error: 'Invalid username or PIN',
@@ -153,7 +178,7 @@ export async function login(
       },
     };
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('[auth] login error:', error);
     return {
       success: false,
       error: 'An error occurred during login',

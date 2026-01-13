@@ -422,3 +422,153 @@ export async function getAppLogs(
     return `Error retrieving logs: ${error.message}`;
   }
 }
+
+/**
+ * Deploy custom Docker Compose configuration
+ */
+export async function deployCustomCompose(
+  appName: string,
+  dockerCompose: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Validate app name
+    if (!validateAppId(appName)) {
+      return { success: false, error: 'Invalid app name. Use only lowercase letters, numbers, and hyphens.' };
+    }
+
+    // Create custom apps directory if it doesn't exist
+    const customAppsPath = path.join(process.cwd(), 'custom-apps');
+    await fs.mkdir(customAppsPath, { recursive: true });
+
+    // Create app directory
+    const appPath = path.join(customAppsPath, appName);
+    try {
+      await fs.access(appPath);
+      return { success: false, error: 'An app with this name already exists' };
+    } catch {
+      // App doesn't exist, continue
+    }
+
+    await fs.mkdir(appPath, { recursive: true });
+
+    // Save docker-compose.yml
+    const composePath = path.join(appPath, 'docker-compose.yml');
+    await fs.writeFile(composePath, dockerCompose, 'utf-8');
+
+    // Set container name prefix
+    const containerEnv = {
+      ...process.env,
+      CONTAINER_NAME: getContainerName(appName)
+    };
+
+    // Execute docker compose up
+    const command = `cd "${appPath}" && docker compose up -d`;
+    const { stdout, stderr } = await execAsync(command, { env: containerEnv });
+
+    if (stderr && !stderr.includes('Creating') && !stderr.includes('Starting') && !stderr.includes('Running')) {
+      console.error('Docker compose stderr:', stderr);
+      return { success: false, error: stderr };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Deploy custom compose error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to deploy application'
+    };
+  }
+}
+
+/**
+ * Deploy custom Docker Run configuration
+ */
+export async function deployCustomRun(
+  appName: string,
+  imageName: string,
+  containerName?: string,
+  ports?: string,
+  volumes?: string,
+  envVars?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Validate app name
+    if (!validateAppId(appName)) {
+      return { success: false, error: 'Invalid app name. Use only lowercase letters, numbers, and hyphens.' };
+    }
+
+    if (!imageName.trim()) {
+      return { success: false, error: 'Docker image name is required' };
+    }
+
+    // Build docker run command
+    const finalContainerName = containerName?.trim() || getContainerName(appName);
+    let command = `docker run -d --name "${finalContainerName}" --restart unless-stopped`;
+
+    // Parse and add port mappings
+    if (ports?.trim()) {
+      const portMappings = ports.split(',').map(p => p.trim()).filter(Boolean);
+      for (const portMapping of portMappings) {
+        if (!portMapping.includes(':')) {
+          return { success: false, error: `Invalid port mapping: ${portMapping}. Use format host:container` };
+        }
+        const [hostPort, containerPort] = portMapping.split(':');
+        if (!validatePort(hostPort) || !validatePort(containerPort)) {
+          return { success: false, error: `Invalid port in mapping: ${portMapping}` };
+        }
+        command += ` -p ${portMapping}`;
+      }
+    }
+
+    // Parse and add volume mounts
+    if (volumes?.trim()) {
+      const volumeMounts = volumes.split('\n').map(v => v.trim()).filter(Boolean);
+      for (const volumeMount of volumeMounts) {
+        if (!volumeMount.includes(':')) {
+          return { success: false, error: `Invalid volume mount: ${volumeMount}. Use format host:container` };
+        }
+        command += ` -v "${volumeMount}"`;
+      }
+    }
+
+    // Parse and add environment variables
+    if (envVars?.trim()) {
+      const envLines = envVars.split('\n').map(e => e.trim()).filter(Boolean);
+      for (const envLine of envLines) {
+        if (!envLine.includes('=')) {
+          return { success: false, error: `Invalid environment variable: ${envLine}. Use format KEY=value` };
+        }
+        const [key, ...valueParts] = envLine.split('=');
+        const value = valueParts.join('='); // Handle values with = in them
+        command += ` -e "${key}=${value}"`;
+      }
+    }
+
+    // Add image name
+    command += ` ${imageName}`;
+
+    // Execute docker run
+    const { stdout, stderr } = await execAsync(command);
+
+    if (stderr && !stderr.toLowerCase().includes('pulling') && !stderr.toLowerCase().includes('downloaded')) {
+      console.error('Docker run stderr:', stderr);
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Deploy custom run error:', error);
+
+    // Check if error is about container name already in use
+    if (error.message.includes('already in use')) {
+      return {
+        success: false,
+        error: 'A container with this name already exists. Please choose a different name or remove the existing container.'
+      };
+    }
+
+    return {
+      success: false,
+      error: error.message || 'Failed to deploy application'
+    };
+  }
+}

@@ -8,9 +8,10 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
-import { Loader2, Search, X } from 'lucide-react';
+import { Loader2, Search, X, FileCode } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import { AppCard } from './app-card';
+import { CustomDeployDialog } from './custom-deploy-dialog';
 import type { App } from './types';
 import { Button } from '@/components/ui/button';
 
@@ -25,6 +26,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [customDeployOpen, setCustomDeployOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -73,41 +75,94 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[95vw] sm:max-w-6xl max-h-[95vh] bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-2xl p-0 gap-0"
+        className="max-w-[95vw] sm:max-w-6xl max-h-[95vh] backdrop-blur-md p-0 gap-0 overflow-hidden"
+        style={{
+          background: 'rgba(45, 45, 45, 0.75)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          boxShadow: `
+            0 4px 16px rgba(0, 0, 0, 0.4),
+            0 2px 8px rgba(0, 0, 0, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.2)
+          `
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200 dark:border-zinc-800">
-          <div>
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">App Store</h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-              {filteredApps.length} {filteredApps.length === 1 ? 'app' : 'apps'} available
-            </p>
+        <div className="relative px-6 py-5 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.15)' }}>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-white">App Store</h2>
+              <p className="text-sm text-zinc-300 mt-1">
+                {filteredApps.length} {filteredApps.length === 1 ? 'app' : 'apps'} available
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCustomDeployOpen(true)}
+                className="h-9 text-white hover:text-white transition-all"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                }}
+              >
+                <FileCode className="h-4 w-4 mr-2" />
+                Custom Deploy
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onOpenChange(false)}
+                className="h-9 w-9 rounded-full text-white transition-all"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                }}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onOpenChange(false)}
-            className="h-9 w-9 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </Button>
         </div>
 
+        {/* Custom Deploy Dialog */}
+        <CustomDeployDialog
+          open={customDeployOpen}
+          onOpenChange={setCustomDeployOpen}
+        />
+
         {/* Search Bar */}
-        <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="px-6 py-4 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.15)' }}>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
             <Input
               placeholder="Search apps..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 focus-visible:ring-zinc-400"
+              className="pl-10 text-white placeholder:text-zinc-500 focus-visible:ring-white/30"
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+              }}
             />
           </div>
         </div>
 
         {/* Category Pills */}
-        <div className="px-6 py-3 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="px-6 py-3 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.15)' }}>
           <ScrollArea className="w-full">
             <div className="flex gap-2">
               {categories.map((category) => (
@@ -115,12 +170,28 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                   key={category}
                   onClick={() => setSelectedCategory(category)}
                   className={`
-                    px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors
+                    px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all
                     ${selectedCategory === category
-                      ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                      ? 'text-zinc-900'
+                      : 'text-white'
                     }
                   `}
+                  style={{
+                    background: selectedCategory === category
+                      ? 'rgba(255, 255, 255, 0.95)'
+                      : 'rgba(255, 255, 255, 0.1)',
+                    border: `1px solid ${selectedCategory === category ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.15)'}`,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selectedCategory !== category) {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedCategory !== category) {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                    }
+                  }}
                 >
                   {category.charAt(0).toUpperCase() + category.slice(1)}
                 </button>
@@ -133,24 +204,24 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
         <ScrollArea className="h-[calc(95vh-240px)] px-6 py-4">
           {loading && (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
-              <span className="text-sm text-zinc-500">Loading applications...</span>
+              <Loader2 className="w-8 h-8 animate-spin text-white" />
+              <span className="text-sm text-zinc-300">Loading applications...</span>
             </div>
           )}
 
           {error && (
             <div className="flex items-center justify-center py-20">
-              <p className="text-red-500">{error}</p>
+              <p className="text-red-300">{error}</p>
             </div>
           )}
 
           {!loading && !error && filteredApps.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 gap-2">
-              <p className="text-zinc-500">No applications found</p>
+              <p className="text-zinc-300">No applications found</p>
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="text-sm text-blue-500 hover:text-blue-600"
+                  className="text-sm text-blue-200 hover:text-blue-100"
                 >
                   Clear search
                 </button>

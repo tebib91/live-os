@@ -10,6 +10,8 @@ import { SystemMonitorDialog } from "@/components/system-monitor";
 import { TerminalDialog } from "@/components/terminal/terminal-dialog";
 import { useEffect, useState } from "react";
 import { LockScreen } from "@/components/lock-screen";
+import { GreetingCard } from "@/components/greeting-card";
+import { SystemStatusCard } from "@/components/system-status";
 
 export default function Home() {
   const sampleApps = [
@@ -110,6 +112,10 @@ export default function Home() {
       wallpaper={wallpaper}
       onWallpaperLoaded={setWallpaper}
     >
+      {/* Widgets */}
+      <GreetingCard />
+      <SystemStatusCard />
+
       {/* User Menu - Top Right */}
       <div className="fixed top-4 right-4 z-50">
         <UserMenu />

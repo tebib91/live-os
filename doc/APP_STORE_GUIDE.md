@@ -233,6 +233,159 @@ async function getAppIcon(folderName: string, appId: string): Promise<string> {
 }
 ```
 
+## Custom Docker Deployments
+
+LiveOS now supports deploying your own Docker containers directly from the App Store interface, without needing to create Umbrel app manifests.
+
+### Features
+
+- **Docker Compose**: Upload or paste `docker-compose.yml` files
+- **Docker Run**: Configure containers through a simple form interface
+- **Automatic Management**: Custom deployments appear in the installed apps grid
+- **Full Control**: Configure ports, volumes, and environment variables
+
+### Deploying with Docker Compose
+
+1. Click the **"Custom Deploy"** button in the App Store header
+2. Select the **"Docker Compose"** tab
+3. Enter an app name (lowercase with hyphens, e.g., `my-app`)
+4. Either:
+   - Paste your `docker-compose.yml` content directly
+   - Or click "Upload File" to select a file
+5. Click **"Deploy Application"**
+
+**Example docker-compose.yml:**
+
+```yaml
+version: '3.8'
+services:
+  myapp:
+    image: nginx:latest
+    ports:
+      - '8080:80'
+    volumes:
+      - ./data:/usr/share/nginx/html
+    environment:
+      - NGINX_HOST=localhost
+      - NGINX_PORT=80
+    restart: unless-stopped
+```
+
+### Deploying with Docker Run
+
+1. Click the **"Custom Deploy"** button in the App Store header
+2. Select the **"Docker Run"** tab
+3. Fill in the configuration:
+   - **App Name**: Unique identifier (e.g., `my-custom-app`)
+   - **Docker Image**: Image name and tag (e.g., `nginx:latest`)
+   - **Container Name** (optional): Custom container name
+   - **Port Mappings**: Format `host:container`, comma-separated (e.g., `8080:80, 8443:443`)
+   - **Volume Mounts**: One per line, format `host:container` (e.g., `/host/data:/app/data`)
+   - **Environment Variables**: One per line, format `KEY=value`
+4. Click **"Deploy Application"**
+
+**Example Configuration:**
+
+```
+App Name: my-web-server
+Docker Image: nginx:latest
+Port Mappings: 8080:80
+Volume Mounts:
+  /opt/nginx/html:/usr/share/nginx/html
+  /opt/nginx/conf:/etc/nginx
+Environment Variables:
+  NGINX_HOST=localhost
+  NGINX_PORT=80
+```
+
+### File Storage
+
+Custom deployments are stored in the `custom-apps/` directory:
+
+```
+custom-apps/
+├── my-app/
+│   └── docker-compose.yml
+├── another-app/
+│   └── docker-compose.yml
+└── ...
+```
+
+This directory is automatically added to `.gitignore` to prevent accidental commits.
+
+### Managing Custom Deployments
+
+Custom deployments appear in the **Installed Applications** grid alongside Umbrel apps. You can:
+
+- **Start/Stop**: Right-click and select from context menu
+- **Restart**: Right-click and select restart
+- **View Logs**: Access container logs from the context menu
+- **Uninstall**: Remove the container and volumes
+
+### Naming Rules
+
+App names must follow these rules:
+- Lowercase letters only
+- Numbers allowed
+- Hyphens allowed (for word separation)
+- No spaces or special characters
+- Examples:
+  - ✅ `my-app`
+  - ✅ `web-server-01`
+  - ✅ `nginx-proxy`
+  - ❌ `My App`
+  - ❌ `web_server`
+  - ❌ `app@123`
+
+### Port Management
+
+**Important:** Ensure ports don't conflict with:
+- LiveOS itself (default: 3000)
+- Other installed apps
+- System services
+
+**Check port availability:**
+
+```bash
+# See all used ports
+sudo netstat -tulpn | grep LISTEN
+
+# Or with ss
+ss -tulpn
+```
+
+### Troubleshooting Custom Deployments
+
+**"App name already exists"**
+- Choose a different name
+- Or remove the existing app first
+
+**"Container name already in use"**
+- The container name conflicts with an existing container
+- Choose a different container name
+- Or remove the conflicting container: `docker rm <name>`
+
+**"Invalid port mapping"**
+- Ensure format is `host:container` (e.g., `8080:80`)
+- Ports must be between 1024-65535
+- Separate multiple ports with commas
+
+**"Failed to deploy"**
+- Check Docker is running: `docker ps`
+- Verify image name is correct
+- Check logs: `docker logs <container-name>`
+- Ensure no port conflicts
+
+**View deployment files:**
+
+```bash
+# List custom apps
+ls -la custom-apps/
+
+# View docker-compose file
+cat custom-apps/my-app/docker-compose.yml
+```
+
 ## Troubleshooting
 
 ### "No apps showing in App Store"

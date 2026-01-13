@@ -17,8 +17,8 @@ export function WeatherInfo() {
 
     return (
         <div className="flex items-center gap-2 mt-1.5">
-            <Cloud className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-200 drop-shadow-sm">
+            <Cloud className="w-4 h-4 text-white/80" />
+            <span className="text-sm font-medium text-white drop-shadow-sm">
                 {Math.round(currentTemp)}°C · {weatherInfo.label}
             </span>
         </div>
