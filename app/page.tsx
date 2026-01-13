@@ -3,11 +3,13 @@ import { AppStoreDialog } from "@/components/app-store/app-store-dialog";
 import { FilesDialog } from "@/components/file-manager";
 import { InstalledAppsGrid } from "@/components/installed-apps/installed-apps-grid";
 import { DockOs } from "@/components/layout/dock";
+import { UserMenu } from "@/components/layout/user-menu";
+import { WallpaperLayout } from "@/components/layout/wallpaper-layout";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { SystemMonitorDialog } from "@/components/system-monitor";
 import { TerminalDialog } from "@/components/terminal/terminal-dialog";
-import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { LockScreen } from "@/components/lock-screen";
 
 export default function Home() {
   const sampleApps = [
@@ -43,7 +45,8 @@ export default function Home() {
   const [monitorOpen, setMonitorOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
-  const [wallpaper, setWallpaper] = useState('/pexels-philippedonn.jpg');
+  const [wallpaper, setWallpaper] = useState('/wallpapers/pexels-philippedonn.jpg');
+  const [locked, setLocked] = useState(false);
 
   const handleAppClick = (appId: string) => {
     console.log('App clicked:', appId);
@@ -84,18 +87,32 @@ export default function Home() {
         : [...prev, appId]
     );
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey && event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        setLocked(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleUnlock = () => {
+    setLocked(false);
+  };
+
   return (
-    <div className="relative flex min-h-screen items-center justify-center font-sans overflow-hidden">
-      {/* Dynamic Background Image */}
-      <div className="fixed inset-0 -z-10">
-        <Image
-          src={wallpaper}
-          alt="LiveOS Background"
-          priority
-          fill
-          className="object-cover"
-          quality={100}
-        />
+    <WallpaperLayout
+      className="flex items-center justify-center font-sans"
+      wallpaper={wallpaper}
+      onWallpaperLoaded={setWallpaper}
+    >
+      {/* User Menu - Top Right */}
+      <div className="fixed top-4 right-4 z-50">
+        <UserMenu />
       </div>
 
       {/* Main Content */}
@@ -145,6 +162,8 @@ export default function Home() {
           onOpenChange={setTerminalOpen}
         />
       </main>
-    </div>
+
+      <LockScreen open={locked} onUnlock={handleUnlock} />
+    </WallpaperLayout>
   );
 }

@@ -134,8 +134,8 @@ export async function installApp(
     // Set container name
     env.CONTAINER_NAME = getContainerName(appId);
 
-    // Execute docker-compose up
-    const command = `cd "${appStorePath}" && docker-compose -f ${composeFile} up -d`;
+    // Execute docker compose up (using Compose V2 syntax)
+    const command = `cd "${appStorePath}" && docker compose -f ${composeFile} up -d`;
     const { stdout, stderr } = await execAsync(command, { env });
 
     if (stderr && !stderr.includes('Creating') && !stderr.includes('Starting')) {
@@ -388,8 +388,8 @@ export async function uninstallApp(appId: string): Promise<boolean> {
       composeFile = 'docker-compose.yaml';
     }
 
-    // Run docker-compose down with volume removal
-    const command = `cd "${appStorePath}" && docker-compose -f ${composeFile} down -v`;
+    // Run docker compose down with volume removal (using Compose V2 syntax)
+    const command = `cd "${appStorePath}" && docker compose -f ${composeFile} down -v`;
     await execAsync(command);
 
     return true;

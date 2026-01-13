@@ -23,7 +23,7 @@ app.prepare().then(() => {
 
   // Initialize WebSocket server for terminal (optional feature)
   // This will gracefully fail if node-pty is not available
-  import('./lib/terminal/websocket-server.js')
+  import('./lib/terminal/websocket-server')
     .then((module) => {
       module.initializeWebSocketServer(server);
       console.log('✓ Terminal WebSocket server initialized');
@@ -31,7 +31,7 @@ app.prepare().then(() => {
     .catch((err) => {
       console.warn('⚠ Terminal feature not available:', err.message);
       console.log('  The application will work without terminal functionality');
-      console.log('  To enable terminal, run: npm rebuild node-pty');
+      console.log('  To enable terminal, run: npm install node-pty && npm rebuild node-pty');
     });
 
   server.listen(port, (err?: Error) => {

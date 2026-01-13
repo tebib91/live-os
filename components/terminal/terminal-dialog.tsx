@@ -1,6 +1,6 @@
 'use client';
 
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { X, Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -167,6 +167,7 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
             ? 'max-w-[98vw] max-h-[98vh]'
             : 'max-w-[95vw] sm:max-w-[1200px] max-h-[90vh]'
         } bg-black border-zinc-800 shadow-2xl p-0 gap-0 overflow-hidden transition-all`}
+        aria-describedby="terminal-description"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/50">
@@ -176,7 +177,10 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
               <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
               <div className="w-3 h-3 rounded-full bg-green-500"></div>
             </div>
-            <h2 className="text-lg font-bold text-white/90 -tracking-[0.01em]">Terminal</h2>
+            <DialogTitle className="text-lg font-bold text-white/90 -tracking-[0.01em]">Terminal</DialogTitle>
+            <DialogDescription id="terminal-description" className="sr-only">
+              Interactive terminal for executing shell commands
+            </DialogDescription>
           </div>
 
           <div className="flex items-center gap-2">

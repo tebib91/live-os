@@ -1,17 +1,35 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/immutability */
-'use client';
 
-import { getSystemInfo } from '@/app/actions/system';
-import { getStorageInfo, getSystemStatus } from '@/app/actions/system-status';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Switch } from '@/components/ui/switch';
-import { ArrowRightLeft, Database, Globe, Key, LogOut, Power, RotateCw, Shield, User, Wifi, X } from 'lucide-react';
-import Image from 'next/image';
-import { useEffect, useState } from 'react';
-import { MetricCard } from './metric-card';
+"use client";
+
+import { getWallpapers, updateSettings } from "@/app/actions/settings";
+import { getSystemInfo } from "@/app/actions/system";
+import { getStorageInfo, getSystemStatus } from "@/app/actions/system-status";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import {
+  ArrowRightLeft,
+  Database,
+  Globe,
+  Key,
+  LogOut,
+  Power,
+  RotateCw,
+  Shield,
+  User,
+  Wifi,
+  X,
+} from "lucide-react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
+import { MetricCard } from "./metric-card";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -20,27 +38,31 @@ interface SettingsDialogProps {
   currentWallpaper?: string;
 }
 
-const wallpapers = [
-  { id: '1', name: 'Sunset', path: '/pexels-philippedonn.jpg' },
-  { id: '2', name: 'Mountain', path: '/pexels-philippedonn.jpg' },
-  { id: '3', name: 'Desert', path: '/pexels-philippedonn.jpg' },
-  { id: '4', name: 'Ocean', path: '/pexels-philippedonn.jpg' },
-  { id: '5', name: 'City', path: '/pexels-philippedonn.jpg' },
-  { id: '6', name: 'Forest', path: '/pexels-philippedonn.jpg' },
-  { id: '7', name: 'Space', path: '/pexels-philippedonn.jpg' },
-];
+type WallpaperOption = {
+  id: string;
+  name: string;
+  path: string;
+};
 
-export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentWallpaper }: SettingsDialogProps) {
+export function SettingsDialog({
+  open,
+  onOpenChange,
+  onWallpaperChange,
+  currentWallpaper,
+}: SettingsDialogProps) {
   const [systemStatus, setSystemStatus] = useState<any>(null);
   const [storageInfo, setStorageInfo] = useState<any>(null);
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [wallpapers, setWallpapers] = useState<WallpaperOption[]>([]);
+  const [wallpapersLoading, setWallpapersLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       // Fetch initial data
       fetchSystemData();
       fetchSystemInfo();
+      fetchWallpapers();
 
       // Poll every 3 seconds
       const interval = setInterval(fetchSystemData, 3000);
@@ -62,19 +84,43 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
     setSystemInfo(info);
   };
 
-  const formatBytes = (bytes: number, decimals = 1) => {
-    if (bytes === 0) return '0 GB';
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  const fetchWallpapers = async () => {
+    setWallpapersLoading(true);
+    try {
+      const availableWallpapers = await getWallpapers();
+      setWallpapers(availableWallpapers);
+    } catch (error) {
+      console.error("Failed to load wallpapers:", error);
+      setWallpapers([]);
+    } finally {
+      setWallpapersLoading(false);
+    }
   };
 
-  const getMetricColor = (percentage: number): 'cyan' | 'green' | 'yellow' | 'red' => {
-    if (percentage < 80) return 'cyan';
-    if (percentage < 90) return 'yellow';
-    return 'red';
+  const handleWallpaperSelect = async (path: string) => {
+    onWallpaperChange?.(path);
+    try {
+      await updateSettings({ currentWallpaper: path });
+    } catch (error) {
+      console.error("Failed to update wallpaper:", error);
+    }
+  };
+
+  const formatBytes = (bytes: number, decimals = 1) => {
+    if (bytes === 0) return "0 GB";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  };
+
+  const getMetricColor = (
+    percentage: number
+  ): "cyan" | "green" | "yellow" | "red" => {
+    if (percentage < 80) return "cyan";
+    if (percentage < 90) return "yellow";
+    return "red";
   };
 
   return (
@@ -82,10 +128,16 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
       <DialogContent
         showCloseButton={false}
         className="max-w-[95vw] sm:max-w-[1200px] max-h-[90vh] bg-zinc-900 border-zinc-800 shadow-2xl p-0 gap-0 overflow-hidden"
+        aria-describedby="settings-description"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-6">
-          <h2 className="text-5xl font-bold text-white/90 -tracking-[0.02em]">Settings</h2>
+          <DialogTitle className="text-5xl font-bold text-white/90 -tracking-[0.02em]">
+            Settings
+          </DialogTitle>
+          <DialogDescription id="settings-description" className="sr-only">
+            System settings and configuration
+          </DialogDescription>
           <Button
             variant="ghost"
             size="icon"
@@ -98,93 +150,117 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
 
         <ScrollArea className="h-[calc(90vh-120px)]">
           <div className="flex">
-          {/* Left Sidebar - System Metrics */}
+            {/* Left Sidebar - System Metrics */}
             <div className="w-80 p-6 space-y-4">
-            {/* System Preview Card */}
-            <div className="relative aspect-video rounded-xl overflow-hidden border-[3px] border-white/20 bg-zinc-950">
-              {currentWallpaper && (
-                <Image
-                  src={currentWallpaper}
-                  alt="System preview"
-                  className="w-full h-full object-cover opacity-30"
-                />
-              )}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <p className="text-xs text-white/40 -tracking-[0.01em]">Good evening, {systemInfo?.username || 'User'}</p>
-              </div>
-            </div>
-
-            {/* Storage Card */}
-            {storageInfo && (
-              <div className="bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10">
-                <MetricCard
-                  label="Storage"
-                  value={`${storageInfo.used} GB`}
-                  total={`${storageInfo.total} GB`}
-                  percentage={storageInfo.usagePercent}
-                  detail={`${Math.round((storageInfo.total - storageInfo.used) * 10) / 10} GB left`}
-                  color={getMetricColor(storageInfo.usagePercent)}
-                />
-              </div>
-            )}
-
-            {/* Memory Card */}
-            {systemStatus && (
-              <div className="bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10">
-                <MetricCard
-                  label="Memory"
-                  value={formatBytes(systemStatus.memory.used).replace(' ', ' ')}
-                  total={formatBytes(systemStatus.memory.total).replace(' ', ' ')}
-                  percentage={systemStatus.memory.usage}
-                  detail={`${formatBytes(systemStatus.memory.total - systemStatus.memory.used)} left`}
-                  color={getMetricColor(systemStatus.memory.usage)}
-                />
-              </div>
-            )}
-
-            {/* CPU Card */}
-            {systemStatus && (
-              <div className="bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10">
-                <MetricCard
-                  label="CPU"
-                  value={`${systemStatus.cpu.usage}%`}
-                  percentage={systemStatus.cpu.usage}
-                  detail="8 threads"
-                  color={getMetricColor(systemStatus.cpu.usage)}
-                />
-              </div>
-            )}
-
-            {/* Temperature Card */}
-            {systemStatus && systemStatus.cpu.temperature && (
-              <div className="bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10">
-                <div className="space-y-1.5">
-                  <div className="text-xs text-white/40 -tracking-[0.01em]">Temperature</div>
-                  <div className="flex items-end justify-between">
-                    <div className="text-2xl font-bold text-white/90 -tracking-[0.02em]">
-                      {systemStatus.cpu.temperature}°C
-                    </div>
-                    <div className="flex gap-1">
-                      <button className="px-2 py-1 text-xs rounded bg-white/10 text-white/90">°C</button>
-                      <button className="px-2 py-1 text-xs rounded bg-white/5 text-white/40">°F</button>
-                    </div>
-                  </div>
-                  <div className="flex justify-end mt-1">
-                    <span className="text-xs text-white/40 -tracking-[0.01em]">Normal</span>
-                  </div>
+              {/* System Preview Card */}
+              <div className="relative aspect-video rounded-xl overflow-hidden border-[3px] border-white/20 bg-zinc-950">
+                {currentWallpaper && (
+                  <Image
+                    src={currentWallpaper}
+                    alt="System preview"
+                    className="w-full h-full object-cover opacity-30"
+                    width={500}
+                    height={500}
+                  />
+                )}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className="text-xs text-white/40 -tracking-[0.01em]">
+                    Good evening, {systemInfo?.username || "User"}
+                  </p>
                 </div>
               </div>
-            )}
+
+              {/* Storage Card */}
+              {storageInfo && (
+                <div className="bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10">
+                  <MetricCard
+                    label="Storage"
+                    value={`${storageInfo.used} GB`}
+                    total={`${storageInfo.total} GB`}
+                    percentage={storageInfo.usagePercent}
+                    detail={`${
+                      Math.round((storageInfo.total - storageInfo.used) * 10) /
+                      10
+                    } GB left`}
+                    color={getMetricColor(storageInfo.usagePercent)}
+                  />
+                </div>
+              )}
+
+              {/* Memory Card */}
+              {systemStatus && (
+                <div className="bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10">
+                  <MetricCard
+                    label="Memory"
+                    value={formatBytes(systemStatus.memory.used).replace(
+                      " ",
+                      " "
+                    )}
+                    total={formatBytes(systemStatus.memory.total).replace(
+                      " ",
+                      " "
+                    )}
+                    percentage={systemStatus.memory.usage}
+                    detail={`${formatBytes(
+                      systemStatus.memory.total - systemStatus.memory.used
+                    )} left`}
+                    color={getMetricColor(systemStatus.memory.usage)}
+                  />
+                </div>
+              )}
+
+              {/* CPU Card */}
+              {systemStatus && (
+                <div className="bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10">
+                  <MetricCard
+                    label="CPU"
+                    value={`${systemStatus.cpu.usage}%`}
+                    percentage={systemStatus.cpu.usage}
+                    detail="8 threads"
+                    color={getMetricColor(systemStatus.cpu.usage)}
+                  />
+                </div>
+              )}
+
+              {/* Temperature Card */}
+              {systemStatus && systemStatus.cpu.temperature && (
+                <div className="bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10">
+                  <div className="space-y-1.5">
+                    <div className="text-xs text-white/40 -tracking-[0.01em]">
+                      Temperature
+                    </div>
+                    <div className="flex items-end justify-between">
+                      <div className="text-2xl font-bold text-white/90 -tracking-[0.02em]">
+                        {systemStatus.cpu.temperature}°C
+                      </div>
+                      <div className="flex gap-1">
+                        <button className="px-2 py-1 text-xs rounded bg-white/10 text-white/90">
+                          °C
+                        </button>
+                        <button className="px-2 py-1 text-xs rounded bg-white/5 text-white/40">
+                          °F
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-1">
+                      <span className="text-xs text-white/40 -tracking-[0.01em]">
+                        Normal
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-          {/* Right Content Area - Settings Sections */}
+            {/* Right Content Area - Settings Sections */}
             <div className="flex-1 bg-zinc-900/50 p-6 space-y-4">
               {/* Device Info Section */}
               <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
                 <div className="flex items-start justify-between mb-6">
                   <div>
                     <h3 className="text-lg font-semibold text-white/90 -tracking-[0.01em]">
-                      {systemInfo?.username || 'User'}&apos;s <span className="text-white/40">LiveOS</span>
+                      {systemInfo?.username || "User"}&apos;s{" "}
+                      <span className="text-white/40">LiveOS</span>
                     </h3>
                   </div>
                   <div className="flex gap-3">
@@ -218,7 +294,9 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
                 <div className="space-y-3 text-sm">
                   <div className="flex">
                     <span className="w-32 text-white/40">Device</span>
-                    <span className="text-white/90">{systemInfo?.hostname || 'LiveOS Server'}</span>
+                    <span className="text-white/90">
+                      {systemInfo?.hostname || "LiveOS Server"}
+                    </span>
                   </div>
                   <div className="flex">
                     <span className="w-32 text-white/40">LiveOS</span>
@@ -239,8 +317,12 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
               <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">Account</h4>
-                    <p className="text-xs text-white/40">Your name and password</p>
+                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">
+                      Account
+                    </h4>
+                    <p className="text-xs text-white/40">
+                      Your name and password
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -266,19 +348,34 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
               {/* Wallpaper Section */}
               <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
                 <div className="mb-4">
-                  <h4 className="text-lg font-bold text-white mb-1">Wallpaper</h4>
-                  <p className="text-sm text-zinc-400">Your LiveOS wallpaper and theme</p>
+                  <h4 className="text-lg font-bold text-white mb-1">
+                    Wallpaper
+                  </h4>
+                  <p className="text-sm text-zinc-400">
+                    Your LiveOS wallpaper and theme
+                  </p>
                 </div>
                 <div className="flex gap-3 overflow-x-auto pb-2">
+                  {wallpapersLoading && (
+                    <div className="text-xs text-white/40 py-2">
+                      Loading wallpapers...
+                    </div>
+                  )}
+                  {!wallpapersLoading && wallpapers.length === 0 && (
+                    <div className="text-xs text-white/40 py-2">
+                      No wallpapers found in `public/wallpapers`.
+                    </div>
+                  )}
                   {wallpapers.map((wallpaper) => (
                     <button
                       key={wallpaper.id}
-                      onClick={() => onWallpaperChange?.(wallpaper.path)}
+                      onClick={() => handleWallpaperSelect(wallpaper.path)}
                       className={`
                         relative flex-shrink-0 w-24 h-16 rounded-lg overflow-hidden border-2 transition-all
-                        ${currentWallpaper === wallpaper.path
-                          ? 'border-cyan-500 ring-2 ring-cyan-500/20'
-                          : 'border-zinc-700 hover:border-zinc-600'
+                        ${
+                          currentWallpaper === wallpaper.path
+                            ? "border-cyan-500 ring-2 ring-cyan-500/20"
+                            : "border-zinc-700 hover:border-zinc-600"
                         }
                       `}
                     >
@@ -286,6 +383,8 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
                         src={wallpaper.path}
                         alt={wallpaper.name}
                         className="w-full h-full object-cover"
+                        width={500}
+                        height={500}
                       />
                     </button>
                   ))}
@@ -296,7 +395,9 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
               <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">Wi-Fi</h4>
+                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">
+                      Wi-Fi
+                    </h4>
                     <div className="flex items-center gap-2 text-xs text-white/40">
                       <Wifi className="h-3.5 w-3.5" />
                       <span>HOMEAIJot</span>
@@ -318,12 +419,17 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
               <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">2FA</h4>
+                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">
+                      2FA
+                    </h4>
                     <p className="text-xs text-white/40">
                       A second layer of security for your LiveOS login and apps
                     </p>
                   </div>
-                  <Switch checked={twoFactorEnabled} onCheckedChange={setTwoFactorEnabled} />
+                  <Switch
+                    checked={twoFactorEnabled}
+                    onCheckedChange={setTwoFactorEnabled}
+                  />
                 </div>
               </div>
 
@@ -331,9 +437,12 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
               <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">Backups</h4>
+                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">
+                      Backups
+                    </h4>
                     <p className="text-xs text-white/40">
-                      Back up your files, apps, and data to another LiveOS, NAS, or external drive
+                      Back up your files, apps, and data to another LiveOS, NAS,
+                      or external drive
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -361,9 +470,12 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
               <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">Migration Assistant</h4>
+                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">
+                      Migration Assistant
+                    </h4>
                     <p className="text-xs text-white/40">
-                      Transfer all your apps and data from a Raspberry Pi to LiveOS
+                      Transfer all your apps and data from a Raspberry Pi to
+                      LiveOS
                     </p>
                   </div>
                   <Button
@@ -381,8 +493,12 @@ export function SettingsDialog({ open, onOpenChange, onWallpaperChange, currentW
               <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">Language</h4>
-                    <p className="text-xs text-white/40">Your preferred language</p>
+                    <h4 className="text-sm font-semibold text-white/90 -tracking-[0.01em] mb-1">
+                      Language
+                    </h4>
+                    <p className="text-xs text-white/40">
+                      Your preferred language
+                    </p>
                   </div>
                   <Button
                     variant="ghost"

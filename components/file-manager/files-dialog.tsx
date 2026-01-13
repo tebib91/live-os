@@ -9,7 +9,7 @@ import {
   type FileSystemItem,
 } from '@/app/actions/filesystem';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -141,13 +141,17 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
       <DialogContent
         showCloseButton={false}
         className="max-w-[95vw] sm:max-w-[1400px] max-h-[90vh] bg-black border-zinc-800 shadow-2xl p-0 gap-0 overflow-hidden"
+        aria-describedby="files-description"
       >
         <div className="flex h-[90vh]">
           {/* Left Sidebar */}
           <div className="w-52 bg-zinc-900/50 border-r border-zinc-800 flex flex-col">
             {/* Sidebar Header */}
             <div className="p-6">
-              <h1 className="text-5xl font-bold text-white/90 -tracking-[0.02em]">Files</h1>
+              <DialogTitle className="text-5xl font-bold text-white/90 -tracking-[0.02em]">Files</DialogTitle>
+              <DialogDescription id="files-description" className="sr-only">
+                File manager for browsing and managing your files
+              </DialogDescription>
             </div>
 
             <ScrollArea className="flex-1 px-3">
