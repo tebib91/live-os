@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { hasUsers } from '@/app/actions/auth';
+import { hasUsers, getCurrentUser } from '@/app/actions/auth';
 
 // Simple in-memory cache to avoid database calls on every request
 let usersExistCache: { value: boolean; timestamp: number } | null = null;
@@ -29,16 +29,10 @@ export async function proxy(request: NextRequest) {
   const isPublicRoute = publicRoutes.includes(pathname);
   console.log(`[Proxy] Path: ${pathname}, isPublicRoute: ${isPublicRoute}`);
 
-  // Get the session token from cookies
-  const cookieStore = await cookies();
-  const allCookies = cookieStore.getAll();
-  console.log(`[Proxy] All cookies received: ${allCookies.map(c => c.name).join(', ') || 'none'}`);
-
-  const sessionToken = cookieStore.get('liveos_session')?.value;
-
-  // Check if user is authenticated
-  const isAuthenticated = !!sessionToken;
-  console.log(`[Proxy] Session token exists: ${!!sessionToken}, isAuthenticated: ${isAuthenticated}`);
+  // Check if user is authenticated by validating the session
+  const currentUser = await getCurrentUser();
+  const isAuthenticated = currentUser !== null;
+  console.log(`[Proxy] isAuthenticated: ${isAuthenticated}${isAuthenticated ? ` (user: ${currentUser.username})` : ''}`);
 
   // Check if users exist with caching
   let usersExist = false;
