@@ -1,7 +1,7 @@
-import { cookies } from 'next/headers';
+import { getCurrentUser, hasUsers } from '@/app/actions/auth';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { hasUsers, getCurrentUser } from '@/app/actions/auth';
+import { SESSION_COOKIE_NAME } from './lib/config';
 
 // Simple in-memory cache to avoid database calls on every request
 let usersExistCache: { value: boolean; timestamp: number } | null = null;
@@ -30,7 +30,9 @@ export async function proxy(request: NextRequest) {
   console.log(`[Proxy] Path: ${pathname}, isPublicRoute: ${isPublicRoute}`);
 
   // Check if user is authenticated by validating the session
-  const currentUser = await getCurrentUser();
+  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+
+  const currentUser = await getCurrentUser(sessionToken);
   const isAuthenticated = currentUser !== null;
   console.log(`[Proxy] isAuthenticated: ${isAuthenticated}${isAuthenticated ? ` (user: ${currentUser.username})` : ''}`);
 

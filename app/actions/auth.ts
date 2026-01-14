@@ -1,12 +1,11 @@
 'use server';
 
+import { SESSION_COOKIE_NAME, SESSION_DURATION } from '@/lib/config';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { Role } from '../generated/prisma/enums';
 
-const SESSION_COOKIE_NAME = 'liveos_session';
-const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export interface AuthUser {
   id: string;
@@ -319,24 +318,24 @@ export async function logout(): Promise<{ success: boolean }> {
 /**
  * Get current authenticated user
  */
-export async function getCurrentUser(): Promise<AuthUser | null> {
+export async function getCurrentUser(sessionToken?: string): Promise<AuthUser | null> {
   console.log('[Auth] getCurrentUser: Checking current user session...');
 
   try {
     const cookieStore = await cookies();
-    const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    const token = sessionToken || cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
-    if (!sessionToken) {
+    if (!token) {
       console.log('[Auth] getCurrentUser: No session token found');
       return null;
     }
-    console.log(`[Auth] getCurrentUser: Session token found - ${sessionToken.substring(0, 10)}...`);
+    console.log(`[Auth] getCurrentUser: Session token found - ${token.substring(0, 10)}...`);
 
     // Find valid session
     console.log('[Auth] getCurrentUser: Looking up session in database...');
     const session = await prisma.session.findUnique({
       where: {
-        token: sessionToken,
+        token: token,
         expiresAt: {
           gt: new Date(),
         },
