@@ -601,6 +601,13 @@ setup_liveos() {
         print_info "The application will still work without terminal functionality"
     }
 
+    print_status "Building native modules (better-sqlite3 for database)..."
+    npm rebuild better-sqlite3 2>&1 | tee /tmp/better-sqlite3-build.log || {
+        print_error "Error: better-sqlite3 build failed. Database will not work."
+        print_error "Check /tmp/better-sqlite3-build.log for details"
+        exit 1
+    }
+
     print_status "Creating environment configuration..."
     create_env_file
 
