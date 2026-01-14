@@ -136,18 +136,31 @@ fi
 
 # Install dependencies (skip Husky setup scripts)
 # Note: TypeScript is needed for build even in production
+print_status "Installing dependencies..."
 npm install --ignore-scripts
 
-# Only rebuild node-pty if it's not already built
+# Rebuild native modules
+print_status "Rebuilding native modules..."
+
+# Rebuild node-pty (for terminal feature)
 if [ ! -f "node_modules/node-pty/build/Release/pty.node" ]; then
-    print_status "Rebuilding native modules (node-pty)..."
+    print_status "Building node-pty..."
     npm rebuild node-pty 2>&1 | tee /tmp/node-pty-build.log || {
         print_error "Warning: node-pty build failed. Terminal feature will not be available."
         print_info "The application will still work without terminal functionality"
     }
 else
-    print_status "Native modules already built, skipping rebuild"
+    print_status "node-pty already built"
 fi
+
+# Rebuild better-sqlite3 (CRITICAL for database)
+print_status "Building better-sqlite3 for database..."
+npm rebuild better-sqlite3 2>&1 | tee /tmp/better-sqlite3-build.log || {
+    print_error "Error: better-sqlite3 build failed. Database will not work."
+    print_error "Check /tmp/better-sqlite3-build.log for details"
+    exit 1
+}
+print_status "better-sqlite3 built successfully"
 
 # Restore .env if it was overwritten
 if [ -f "$INSTALL_DIR/.env.backup" ]; then
@@ -155,11 +168,33 @@ if [ -f "$INSTALL_DIR/.env.backup" ]; then
     print_status "Restored .env configuration"
 fi
 
+# Run database migrations
+print_status "Running database migrations..."
+if ! npx prisma migrate deploy --schema=prisma/schema.prisma; then
+    print_error "Prisma migrations failed. Database may be out of sync."
+    print_info "The application will attempt to continue, but some features may not work."
+fi
+
 # Build project
+print_status "Building project..."
 npm run build
 
 # Restart service
+print_status "Restarting LiveOS service..."
 systemctl restart "$SERVICE_NAME"
 
-print_status "Update complete! LiveOS is now at version $REMOTE_VERSION"
-print_status "View logs with: sudo journalctl -u $SERVICE_NAME -f"
+# Wait for service to start
+sleep 3
+
+# Check service status
+if systemctl is-active --quiet "$SERVICE_NAME"; then
+    print_status "✅ Update complete! LiveOS is now at version $REMOTE_VERSION"
+    print_status "Service is running successfully"
+    echo ""
+    print_info "View logs with: sudo journalctl -u $SERVICE_NAME -f"
+    print_info "Check status with: sudo systemctl status $SERVICE_NAME"
+else
+    print_error "⚠️  Service failed to start after update"
+    print_error "Check logs with: sudo journalctl -u $SERVICE_NAME -n 50"
+    exit 1
+fi

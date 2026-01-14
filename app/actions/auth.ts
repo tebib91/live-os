@@ -24,12 +24,14 @@ export interface AuthResult {
  * Check if any users exist in the system
  */
 export async function hasUsers(): Promise<boolean> {
+  console.log('[Auth] hasUsers: Checking if users exist...');
   try {
     const count = await prisma.user.count();
+    console.log(`[Auth] hasUsers: Found ${count} users in database`);
     return count > 0;
   } catch (error) {
     // If database/table doesn't exist, return false (no users)
-    console.error('hasUsers error (database may not be initialized):', error);
+    console.error('[Auth] hasUsers error (database may not be initialized):', error);
     return false;
   }
 }
@@ -41,11 +43,15 @@ export async function registerUser(
   username: string,
   pin: string
 ): Promise<AuthResult> {
+  console.log('[Auth] registerUser: Starting registration process...');
+  console.log(`[Auth] registerUser: Username = "${username}"`);
+
   try {
     // Check if users already exist
+    console.log('[Auth] registerUser: Checking if users already exist...');
     const userExists = await hasUsers();
     if (userExists) {
-      console.info('[auth] registerUser blocked: users already exist');
+      console.warn('[Auth] registerUser: BLOCKED - users already exist');
       return {
         success: false,
         error: 'Users already exist. Registration is disabled.',
@@ -53,8 +59,9 @@ export async function registerUser(
     }
 
     // Validate input
+    console.log('[Auth] registerUser: Validating input...');
     if (!username || username.length < 3) {
-      console.warn('[auth] registerUser validation failed: username too short');
+      console.warn('[Auth] registerUser: Validation failed - username too short');
       return {
         success: false,
         error: 'Username must be at least 3 characters long',
@@ -62,7 +69,7 @@ export async function registerUser(
     }
 
     if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-      console.warn('[auth] registerUser validation failed: invalid PIN format');
+      console.warn('[Auth] registerUser: Validation failed - invalid PIN format');
       return {
         success: false,
         error: 'PIN must be exactly 4 digits',
@@ -70,9 +77,11 @@ export async function registerUser(
     }
 
     // Hash the PIN
+    console.log('[Auth] registerUser: Hashing PIN...');
     const hashedPin = await bcrypt.hash(pin, 10);
 
     // Create user
+    console.log('[Auth] registerUser: Creating user in database...');
     const user = await prisma.user.create({
       data: {
         username,
@@ -80,11 +89,15 @@ export async function registerUser(
         role: 'ADMIN',
       },
     });
+    console.log(`[Auth] registerUser: User created successfully - ID: ${user.id}, Role: ${user.role}`);
 
     // Create session
+    console.log('[Auth] registerUser: Creating session...');
     const session = await createSession(user.id);
+    console.log(`[Auth] registerUser: Session created - Token length: ${session.token.length}`);
 
     // Set cookie
+    console.log('[Auth] registerUser: Setting session cookie...');
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE_NAME, session.token, {
       httpOnly: true,
@@ -93,7 +106,9 @@ export async function registerUser(
       maxAge: SESSION_DURATION / 1000,
       path: '/',
     });
+    console.log('[Auth] registerUser: Cookie set successfully');
 
+    console.log('[Auth] registerUser: ✅ Registration completed successfully');
     return {
       success: true,
       user: {
@@ -103,7 +118,7 @@ export async function registerUser(
       },
     };
   } catch (error) {
-    console.error('[auth] registerUser error:', error);
+    console.error('[Auth] registerUser: ❌ Error during registration:', error);
     return {
       success: false,
       error: 'An error occurred during registration',
@@ -118,12 +133,16 @@ export async function login(
   username: string,
   pin: string
 ): Promise<AuthResult> {
+  console.log('[Auth] login: Starting login process...');
+  console.log(`[Auth] login: Username = "${username}"`);
+
   try {
     const normalizedUsername = username.trim();
     const normalizedPin = pin.replace(/\D/g, '').slice(0, 4);
 
+    console.log('[Auth] login: Validating input...');
     if (!normalizedUsername || normalizedPin.length !== 4) {
-      console.warn('[auth] login validation failed: invalid input', {
+      console.warn('[Auth] login: Validation failed - invalid input', {
         username: normalizedUsername,
         pinLength: normalizedPin.length,
       });
@@ -134,32 +153,39 @@ export async function login(
     }
 
     // Find user
+    console.log(`[Auth] login: Looking up user "${normalizedUsername}" in database...`);
     const user = await prisma.user.findUnique({
       where: { username: normalizedUsername },
     });
 
     if (!user) {
-      console.warn('[auth] login failed: user not found', { username: normalizedUsername });
+      console.warn(`[Auth] login: ❌ User not found - "${normalizedUsername}"`);
       return {
         success: false,
         error: 'Invalid username or PIN',
       };
     }
+    console.log(`[Auth] login: ✅ User found - ID: ${user.id}, Role: ${user.role}`);
 
     // Verify PIN
+    console.log('[Auth] login: Verifying PIN...');
     const validPin = await bcrypt.compare(normalizedPin, user.pin);
     if (!validPin) {
-      console.warn('[auth] login failed: invalid PIN', { username: normalizedUsername });
+      console.warn(`[Auth] login: ❌ Invalid PIN for user "${normalizedUsername}"`);
       return {
         success: false,
         error: 'Invalid username or PIN',
       };
     }
+    console.log('[Auth] login: ✅ PIN verified successfully');
 
     // Create session
+    console.log('[Auth] login: Creating session...');
     const session = await createSession(user.id);
+    console.log(`[Auth] login: Session created - Token: ${session.token.substring(0, 10)}...`);
 
     // Set cookie
+    console.log('[Auth] login: Setting session cookie...');
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE_NAME, session.token, {
       httpOnly: true,
@@ -168,7 +194,9 @@ export async function login(
       maxAge: SESSION_DURATION / 1000,
       path: '/',
     });
+    console.log(`[Auth] login: Cookie set - Name: ${SESSION_COOKIE_NAME}, HttpOnly: true, Secure: ${process.env.NODE_ENV === 'production'}`);
 
+    console.log(`[Auth] login: ✅ Login successful for user "${normalizedUsername}"`);
     return {
       success: true,
       user: {
@@ -178,7 +206,7 @@ export async function login(
       },
     };
   } catch (error) {
-    console.error('[auth] login error:', error);
+    console.error('[Auth] login: ❌ Error during login:', error);
     return {
       success: false,
       error: 'An error occurred during login',
@@ -247,25 +275,34 @@ export async function verifyPin(pin: string): Promise<AuthResult> {
  * Logout and invalidate session
  */
 export async function logout(): Promise<{ success: boolean }> {
+  console.log('[Auth] logout: Starting logout process...');
+
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
     if (sessionToken) {
+      console.log(`[Auth] logout: Found session token, deleting from database...`);
       // Delete session from database
       await prisma.session.delete({
         where: { token: sessionToken },
-      }).catch(() => {
+      }).catch((err) => {
         // Session might not exist, ignore error
+        console.warn('[Auth] logout: Session not found in database (already deleted?)');
       });
+      console.log('[Auth] logout: Session deleted from database');
+    } else {
+      console.log('[Auth] logout: No session token found');
     }
 
     // Clear cookie
+    console.log('[Auth] logout: Clearing session cookie...');
     cookieStore.delete(SESSION_COOKIE_NAME);
+    console.log('[Auth] logout: ✅ Logout completed successfully');
 
     return { success: true };
   } catch (error) {
-    console.error('Logout error:', error);
+    console.error('[Auth] logout: ❌ Error during logout:', error);
     return { success: false };
   }
 }
@@ -274,15 +311,20 @@ export async function logout(): Promise<{ success: boolean }> {
  * Get current authenticated user
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
+  console.log('[Auth] getCurrentUser: Checking current user session...');
+
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
     if (!sessionToken) {
+      console.log('[Auth] getCurrentUser: No session token found');
       return null;
     }
+    console.log(`[Auth] getCurrentUser: Session token found - ${sessionToken.substring(0, 10)}...`);
 
     // Find valid session
+    console.log('[Auth] getCurrentUser: Looking up session in database...');
     const session = await prisma.session.findUnique({
       where: {
         token: sessionToken,
@@ -296,18 +338,20 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     });
 
     if (!session) {
+      console.warn('[Auth] getCurrentUser: Session not found or expired, clearing cookie');
       // Clear invalid cookie
       cookieStore.delete(SESSION_COOKIE_NAME);
       return null;
     }
 
+    console.log(`[Auth] getCurrentUser: ✅ Valid session found for user "${session.user.username}" (ID: ${session.user.id})`);
     return {
       id: session.user.id,
       username: session.user.username,
       role: session.user.role,
     };
   } catch (error) {
-    console.error('Get current user error:', error);
+    console.error('[Auth] getCurrentUser: ❌ Error getting current user:', error);
     return null;
   }
 }
@@ -324,11 +368,15 @@ export async function verifySession(): Promise<boolean> {
  * Create a new session for a user
  */
 async function createSession(userId: string) {
+  console.log(`[Auth] createSession: Creating session for user ID: ${userId}`);
+
   // Generate random token
   const token = generateSessionToken();
   const expiresAt = new Date(Date.now() + SESSION_DURATION);
+  console.log(`[Auth] createSession: Generated token, expires at: ${expiresAt.toISOString()}`);
 
   // Clean up old sessions for this user (keep only last 5)
+  console.log('[Auth] createSession: Cleaning up old sessions...');
   const oldSessions = await prisma.session.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
@@ -336,6 +384,7 @@ async function createSession(userId: string) {
   });
 
   if (oldSessions.length > 0) {
+    console.log(`[Auth] createSession: Deleting ${oldSessions.length} old sessions`);
     await prisma.session.deleteMany({
       where: {
         id: {
@@ -343,16 +392,22 @@ async function createSession(userId: string) {
         },
       },
     });
+  } else {
+    console.log('[Auth] createSession: No old sessions to clean up');
   }
 
   // Create new session
-  return prisma.session.create({
+  console.log('[Auth] createSession: Creating new session in database...');
+  const session = await prisma.session.create({
     data: {
       token,
       userId,
       expiresAt,
     },
   });
+  console.log(`[Auth] createSession: ✅ Session created - ID: ${session.id}`);
+
+  return session;
 }
 
 /**
