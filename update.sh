@@ -99,7 +99,7 @@ fi
 
 print_status "Updating LiveOS from version $LOCAL_VERSION to $REMOTE_VERSION..."
 
-# Backup .env file if it exists
+# Backup .env file once before all operations
 if [ -f "$INSTALL_DIR/.env" ]; then
     print_info "Backing up .env file..."
     cp "$INSTALL_DIR/.env" "$INSTALL_DIR/.env.backup"
@@ -115,24 +115,6 @@ git submodule update --init --recursive || {
     print_error "Warning: Failed to update umbrel-apps-ref submodule"
     print_info "App store may not have latest updates"
 }
-
-# Restore .env file if it was backed up
-if [ -f "$INSTALL_DIR/.env" ]; then
-    print_status "Preserving existing .env configuration"
-else
-    if [ -f "$INSTALL_DIR/.env.backup" ]; then
-        print_status "Restoring .env from backup"
-        cp "$INSTALL_DIR/.env.backup" "$INSTALL_DIR/.env"
-    else
-        print_info "No .env file found. You may need to reconfigure."
-    fi
-fi
-
-# Backup .env before operations
-if [ -f "$INSTALL_DIR/.env" ]; then
-    cp "$INSTALL_DIR/.env" "$INSTALL_DIR/.env.backup"
-    print_status "Backed up .env file"
-fi
 
 # Install dependencies (skip Husky setup scripts)
 # Note: TypeScript is needed for build even in production
@@ -162,12 +144,6 @@ npm rebuild better-sqlite3 2>&1 | tee /tmp/better-sqlite3-build.log || {
 }
 print_status "better-sqlite3 built successfully"
 
-# Restore .env if it was overwritten
-if [ -f "$INSTALL_DIR/.env.backup" ]; then
-    cp "$INSTALL_DIR/.env.backup" "$INSTALL_DIR/.env"
-    print_status "Restored .env configuration"
-fi
-
 # Run database migrations
 print_status "Running database migrations..."
 if ! npx prisma migrate deploy --schema=prisma/schema.prisma; then
@@ -178,6 +154,16 @@ fi
 # Build project
 print_status "Building project..."
 npm run build
+
+# Restore .env configuration from backup
+if [ -f "$INSTALL_DIR/.env.backup" ]; then
+    cp "$INSTALL_DIR/.env.backup" "$INSTALL_DIR/.env"
+    print_status "Restored .env configuration"
+    # Clean up backup file
+    rm -f "$INSTALL_DIR/.env.backup"
+else
+    print_info "No .env backup found - using default or git version"
+fi
 
 # Restart service
 print_status "Restarting LiveOS service..."

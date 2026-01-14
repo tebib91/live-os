@@ -78,6 +78,9 @@ else
     print_status "Service file not found, skipping"
 fi
 
+# Change to safe directory before removing installation
+cd /tmp || cd /
+
 # Remove installation directory
 if [ -d "$INSTALL_DIR" ]; then
     print_status "Removing installation directory..."
