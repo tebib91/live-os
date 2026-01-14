@@ -562,6 +562,9 @@ setup_liveos() {
         return
     fi
 
+    # Change to a safe directory before removing installation
+    cd /tmp || cd /
+
     # Remove existing installation if present
     if [ -d "$INSTALL_DIR" ]; then
         print_status "Removing existing installation..."
