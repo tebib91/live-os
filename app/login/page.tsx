@@ -41,8 +41,8 @@ export default function LoginPage() {
       const result = await login(username, pin);
       console.log("Login result:", result);
       if (result.success) {
-        router.push("/");
-        router.refresh();
+        // Use full page reload to ensure cookie is sent with next request
+        window.location.href = "/";
       } else {
         setError(result.error || "Login failed");
         setPin(""); // Clear PIN on error

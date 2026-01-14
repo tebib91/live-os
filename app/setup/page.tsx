@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { WallpaperLayout } from '@/components/layout/wallpaper-layout';
 import { Loader2, CheckCircle2 } from 'lucide-react';
+import packageJson from '../../package.json';
 
 export default function SetupPage() {
   const router = useRouter();
@@ -56,8 +57,8 @@ export default function SetupPage() {
       const result = await registerUser(username, pin);
 
       if (result.success) {
-        router.push('/');
-        router.refresh();
+        // Use full page reload to ensure cookie is sent with next request
+        window.location.href = '/';
       } else {
         setError(result.error || 'Registration failed');
       }
@@ -215,6 +216,9 @@ export default function SetupPage() {
           <p className="text-center text-sm text-zinc-200 drop-shadow-md">
             LiveOS - Self-hosted infrastructure management
           </p>
+          <span className="block text-center text-xs text-zinc-400">
+            Version {packageJson.version}
+          </span>
         </div>
       </div>
     </WallpaperLayout>
