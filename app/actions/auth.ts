@@ -99,14 +99,18 @@ export async function registerUser(
     // Set cookie
     console.log('[Auth] registerUser: Setting session cookie...');
     const cookieStore = await cookies();
+
+    // In production, only use secure flag if accessing via HTTPS
+    const isSecure = process.env.NODE_ENV === 'production' && process.env.LIVEOS_HTTPS === 'true';
+
     cookieStore.set(SESSION_COOKIE_NAME, session.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'lax',
       maxAge: SESSION_DURATION / 1000,
       path: '/',
     });
-    console.log('[Auth] registerUser: Cookie set successfully');
+    console.log(`[Auth] registerUser: Cookie set - Secure: ${isSecure}, SameSite: lax, Path: /, MaxAge: ${SESSION_DURATION / 1000}s`);
 
     console.log('[Auth] registerUser: ✅ Registration completed successfully');
     return {
@@ -187,14 +191,19 @@ export async function login(
     // Set cookie
     console.log('[Auth] login: Setting session cookie...');
     const cookieStore = await cookies();
+
+    // In production, only use secure flag if accessing via HTTPS
+    // For local/HTTP access (like home.local:3000), secure must be false
+    const isSecure = process.env.NODE_ENV === 'production' && process.env.LIVEOS_HTTPS === 'true';
+
     cookieStore.set(SESSION_COOKIE_NAME, session.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'lax',
       maxAge: SESSION_DURATION / 1000,
       path: '/',
     });
-    console.log(`[Auth] login: Cookie set - Name: ${SESSION_COOKIE_NAME}, HttpOnly: true, Secure: ${process.env.NODE_ENV === 'production'}`);
+    console.log(`[Auth] login: Cookie set - Name: ${SESSION_COOKIE_NAME}, HttpOnly: true, Secure: ${isSecure}, SameSite: lax, Path: /, MaxAge: ${SESSION_DURATION / 1000}s`);
 
     console.log(`[Auth] login: ✅ Login successful for user "${normalizedUsername}"`);
     return {
@@ -286,7 +295,7 @@ export async function logout(): Promise<{ success: boolean }> {
       // Delete session from database
       await prisma.session.delete({
         where: { token: sessionToken },
-      }).catch((err) => {
+      }).catch(() => {
         // Session might not exist, ignore error
         console.warn('[Auth] logout: Session not found in database (already deleted?)');
       });

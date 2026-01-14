@@ -31,6 +31,9 @@ export async function proxy(request: NextRequest) {
 
   // Get the session token from cookies
   const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+  console.log(`[Proxy] All cookies received: ${allCookies.map(c => c.name).join(', ') || 'none'}`);
+
   const sessionToken = cookieStore.get('liveos_session')?.value;
 
   // Check if user is authenticated
