@@ -288,6 +288,24 @@ export async function createFile(
   }
 }
 
+export async function writeFileContent(
+  filePath: string,
+  content: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { valid, sanitized } = validatePath(filePath);
+    if (!valid) {
+      return { success: false, error: 'Invalid path' };
+    }
+
+    await fs.writeFile(sanitized, content, 'utf-8');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Write file content error:', error);
+    return { success: false, error: error.message || 'Failed to save file' };
+  }
+}
+
 /**
  * Get disk usage for a directory
  */

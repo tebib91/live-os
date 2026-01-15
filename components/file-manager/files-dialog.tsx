@@ -4,6 +4,8 @@ import {
   createDirectory,
   deleteItem,
   createFile,
+  readFileContent,
+  writeFileContent,
   getDefaultDirectories,
   openPath,
   readDirectory,
@@ -15,6 +17,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog as Modal,
+  DialogContent as ModalContent,
+  DialogHeader as ModalHeader,
+  DialogTitle as ModalTitle,
+  DialogFooter as ModalFooter,
+} from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   ChevronLeft,
@@ -37,9 +46,11 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useRef } from 'react';
+import dynamic from 'next/dynamic';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
+
+const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
 interface FilesDialogProps {
   open: boolean;
@@ -56,6 +67,8 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
   const [showHidden, setShowHidden] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [creatingFile, setCreatingFile] = useState(false);
+  const [newFileName, setNewFileName] = useState('');
   const [history, setHistory] = useState<string[]>(['/DATA']);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [shortcuts, setShortcuts] = useState<DefaultDirectory[]>([]);
@@ -66,6 +79,34 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     item: FileSystemItem | null;
   }>({ x: 0, y: 0, item: null });
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorPath, setEditorPath] = useState('');
+  const [editorContent, setEditorContent] = useState('');
+  const [editorSaving, setEditorSaving] = useState(false);
+  const isTextLike = (fileName: string) =>
+    /\.(txt|md|log|json|ya?ml|js|ts|jsx|tsx|html|css)$/i.test(fileName);
+  const toDirectoryItem = (itemPath: string, label: string): FileSystemItem => ({
+    name: label || itemPath.split('/').filter(Boolean).pop() || 'folder',
+    path: itemPath,
+    type: 'directory',
+    size: 0,
+    modified: Date.now(),
+    permissions: '',
+    isHidden: label.startsWith('.'),
+  });
+
+  const guessLanguage = (filePath: string) => {
+    if (filePath.endsWith('.json')) return 'json';
+    if (filePath.endsWith('.md')) return 'markdown';
+    if (filePath.endsWith('.yml') || filePath.endsWith('.yaml')) return 'yaml';
+    if (filePath.endsWith('.ts')) return 'typescript';
+    if (filePath.endsWith('.tsx')) return 'typescript';
+    if (filePath.endsWith('.js')) return 'javascript';
+    if (filePath.endsWith('.jsx')) return 'javascript';
+    if (filePath.endsWith('.html')) return 'html';
+    if (filePath.endsWith('.css')) return 'css';
+    return 'plaintext';
+  };
 
   useEffect(() => {
     if (open && ready) {
@@ -116,8 +157,17 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
         setContextMenu((prev) => ({ ...prev, item: null }));
       }
     };
+    const handleKeyClose = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setContextMenu((prev) => ({ ...prev, item: null }));
+      }
+    };
     window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
+    window.addEventListener('keydown', handleKeyClose);
+    return () => {
+      window.removeEventListener('click', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyClose);
+    };
   }, []);
 
   const loadDirectory = async (path: string) => {
@@ -184,9 +234,38 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     if (item.type === 'directory') {
       handleNavigate(item.path);
     } else {
+      if (isTextLike(item.name)) {
+        openFileInEditor(item.path);
+        return;
+      }
       handleOpenNative(item.path);
     }
   };
+
+  const breadcrumbs = useMemo(() => {
+    const normalizedHome = homePath.endsWith('/')
+      ? homePath.slice(0, -1)
+      : homePath || '/';
+
+    const relative = currentPath.startsWith(normalizedHome)
+      ? currentPath.slice(normalizedHome.length)
+      : currentPath;
+
+    const parts = relative.split('/').filter(Boolean);
+    const trail: { label: string; path: string }[] = [];
+    trail.push({
+      label: normalizedHome.split('/').filter(Boolean).pop() || 'Home',
+      path: normalizedHome || '/',
+    });
+
+    let accum = normalizedHome || '/';
+    parts.forEach((part) => {
+      accum = `${accum}/${part}`.replace(/\/+/g, '/');
+      trail.push({ label: part, path: accum });
+    });
+
+    return trail;
+  }, [currentPath, homePath]);
 
   const shortcutPath = (name: string) => {
     const match = shortcuts.find(
@@ -197,30 +276,19 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     return `${trimmedHome}/${name}`;
   };
 
-  const handleCreateFile = async () => {
-    const fileName = prompt('Enter file name');
-    if (!fileName) return;
-    const result = await createFile(currentPath, fileName);
-    if (result.success) {
-      toast.success('File created successfully');
-      loadDirectory(currentPath);
-    } else {
-      toast.error(result.error || 'Failed to create file');
-    }
-  };
-
-  const displayPath = () => {
-    const base = homePath || '';
-    if (currentPath.startsWith(base)) {
-      const relative = currentPath.slice(base.length) || '/';
-      return relative.startsWith('/') ? relative : `/${relative}`;
-    }
-    return currentPath;
+  const handleCreateFile = () => {
+    setCreatingFolder(false);
+    setNewFileName('');
+    setCreatingFile(true);
   };
 
   const openContextMenu = (event: React.MouseEvent, item: FileSystemItem) => {
     event.preventDefault();
-    setContextMenu({ x: event.clientX, y: event.clientY, item });
+    const menuWidth = 220;
+    const menuHeight = 260;
+    const posX = Math.min(event.clientX, window.innerWidth - menuWidth - 8);
+    const posY = Math.min(event.clientY, window.innerHeight - menuHeight - 8);
+    setContextMenu({ x: posX, y: posY, item });
   };
 
   const handleShare = async (item: FileSystemItem) => {
@@ -236,6 +304,35 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     toast.info(`${item.type === 'directory' ? 'Folder' : 'File'} • ${item.path}`);
   };
 
+  const openFileInEditor = async (filePath: string) => {
+    try {
+      const result = await readFileContent(filePath);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      setEditorPath(filePath);
+      setEditorContent(result.content);
+      setEditorOpen(true);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to open file');
+    }
+  };
+
+  const saveEditor = useCallback(async () => {
+    setEditorSaving(true);
+    const result = await writeFileContent(editorPath, editorContent);
+    setEditorSaving(false);
+    if (result.success) {
+      toast.success('File saved');
+      loadDirectory(currentPath);
+      setEditorOpen(false);
+    } else {
+      toast.error(result.error || 'Failed to save file');
+    }
+  }, [currentPath, editorContent, editorPath]);
+
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) {
       toast.error('Please enter a folder name');
@@ -250,6 +347,22 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
       loadDirectory(currentPath);
     } else {
       toast.error(result.error || 'Failed to create folder');
+    }
+  };
+
+  const handleCreateFileSubmit = async () => {
+    if (!newFileName.trim()) {
+      toast.error('Please enter a file name');
+      return;
+    }
+    const result = await createFile(currentPath, newFileName);
+    if (result.success) {
+      toast.success('File created successfully');
+      setNewFileName('');
+      setCreatingFile(false);
+      loadDirectory(currentPath);
+    } else {
+      toast.error(result.error || 'Failed to create file');
     }
   };
 
@@ -283,6 +396,22 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
   };
 
   const filteredItems = content?.items.filter((item) => showHidden || !item.isHidden) || [];
+  const editorLanguage = useMemo(() => guessLanguage(editorPath), [editorPath]);
+
+  useEffect(() => {
+    if (!editorOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        saveEditor();
+      }
+      if (event.key === 'Escape') {
+        setEditorOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [editorOpen, saveEditor]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -423,11 +552,29 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   </Button>
                 </div>
 
-                <div className="flex items-center gap-2 text-white">
-                  <Home className="h-4 w-4 text-white/80" />
-                  <span className="text-sm font-medium -tracking-[0.01em]">
-                    {displayPath()}
-                  </span>
+                <div className="flex items-center gap-1 text-white">
+                  {breadcrumbs.map((crumb, index) => (
+                    <div key={crumb.path} className="flex items-center gap-1">
+                      {index === 0 ? (
+                        <Home className="h-4 w-4 text-white/80" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-white/50" />
+                      )}
+                      <button
+                        className={`px-2 py-1 rounded-md text-sm font-medium -tracking-[0.01em] transition-colors ${
+                          index === breadcrumbs.length - 1
+                            ? 'bg-white/15 text-white border border-white/15'
+                            : 'hover:bg-white/10 text-white/80 border border-transparent'
+                        }`}
+                        onClick={() => handleNavigate(crumb.path)}
+                        onContextMenu={(e) =>
+                          openContextMenu(e, toDirectoryItem(crumb.path, crumb.label))
+                        }
+                      >
+                        {crumb.label}
+                      </button>
+                    </div>
+                  ))}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -455,12 +602,39 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
-                  onClick={() => setCreatingFolder(!creatingFolder)}
+                  onClick={() =>
+                    setCreatingFolder((prev) => {
+                      const next = !prev;
+                      if (next) {
+                        setCreatingFile(false);
+                        setNewFileName('');
+                      }
+                      return next;
+                    })
+                  }
                   disabled={loading}
                   className="h-9 px-4 rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 text-white text-sm shadow-sm"
                 >
                   <FolderPlus className="h-4 w-4 mr-2" />
                   Folder
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() =>
+                    setCreatingFile((prev) => {
+                      const next = !prev;
+                      if (next) {
+                        setCreatingFolder(false);
+                        setNewFolderName('');
+                      }
+                      return next;
+                    })
+                  }
+                  disabled={loading}
+                  className="h-9 px-4 rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 text-white text-sm shadow-sm"
+                >
+                  <FilePlus className="h-4 w-4 mr-2" />
+                  File
                 </Button>
 
                 <label className="flex items-center gap-2 text-xs text-white/70">
@@ -541,7 +715,10 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   onChange={(e) => setNewFolderName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleCreateFolder();
-                    if (e.key === 'Escape') setCreatingFolder(false);
+                    if (e.key === 'Escape') {
+                      setCreatingFolder(false);
+                      setNewFolderName('');
+                    }
                   }}
                   className="bg-white/10 border border-white/15 text-white"
                   autoFocus
@@ -554,7 +731,46 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   Create
                 </Button>
                 <Button
-                  onClick={() => setCreatingFolder(false)}
+                  onClick={() => {
+                    setCreatingFolder(false);
+                    setNewFolderName('');
+                  }}
+                  size="sm"
+                  variant="ghost"
+                  className="hover:bg-white/10 text-white/80"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+            {creatingFile && (
+              <div className="px-6 py-3 border-b border-white/10 flex items-center gap-2 bg-black/30 backdrop-blur">
+                <Input
+                  placeholder="File name"
+                  value={newFileName}
+                  onChange={(e) => setNewFileName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateFileSubmit();
+                    if (e.key === 'Escape') {
+                      setCreatingFile(false);
+                      setNewFileName('');
+                    }
+                  }}
+                  className="bg-white/10 border border-white/15 text-white"
+                  autoFocus
+                />
+                <Button
+                  onClick={handleCreateFileSubmit}
+                  size="sm"
+                  className="border border-white/15 bg-white/10 hover:bg-white/20 text-white shadow-sm"
+                >
+                  Create
+                </Button>
+                <Button
+                  onClick={() => {
+                    setCreatingFile(false);
+                    setNewFileName('');
+                  }}
                   size="sm"
                   variant="ghost"
                   className="hover:bg-white/10 text-white/80"
@@ -663,60 +879,171 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
             {contextMenu.item && (
               <div
                 ref={contextMenuRef}
-                className="fixed z-50 bg-black/90 border border-white/10 rounded-lg shadow-lg text-white text-sm min-w-[180px] overflow-hidden"
+                className="fixed z-50 bg-gradient-to-b from-[#0b0b0f]/95 to-[#101018]/95 border border-white/10 rounded-xl shadow-2xl text-white text-sm min-w-[220px] overflow-hidden backdrop-blur-lg"
                 style={{ top: contextMenu.y, left: contextMenu.x }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <button
-                  className="w-full text-left px-3 py-2 hover:bg-white/10 flex items-center gap-2"
-                  onClick={() => {
-                    handleItemOpen(contextMenu.item as FileSystemItem);
-                    setContextMenu({ ...contextMenu, item: null });
-                  }}
-                >
-                  <ExternalLink className="h-4 w-4" /> Open
-                </button>
-                <button
-                  className="w-full text-left px-3 py-2 hover:bg-white/10 flex items-center gap-2"
-                  onClick={() => {
-                    handleRename(contextMenu.item as FileSystemItem);
-                    setContextMenu({ ...contextMenu, item: null });
-                  }}
-                >
-                  <FileIcon className="h-4 w-4" /> Rename
-                </button>
-                <button
-                  className="w-full text-left px-3 py-2 hover:bg-white/10 flex items-center gap-2 text-red-300"
-                  onClick={() => {
-                    handleDelete(contextMenu.item as FileSystemItem);
-                    setContextMenu({ ...contextMenu, item: null });
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" /> Delete
-                </button>
-                <button
-                  className="w-full text-left px-3 py-2 hover:bg-white/10 flex items-center gap-2"
-                  onClick={() => {
-                    handleShare(contextMenu.item as FileSystemItem);
-                    setContextMenu({ ...contextMenu, item: null });
-                  }}
-                >
-                  <Share2 className="h-4 w-4" /> Share
-                </button>
-                <button
-                  className="w-full text-left px-3 py-2 hover:bg-white/10 flex items-center gap-2"
-                  onClick={() => {
-                    showInfo(contextMenu.item as FileSystemItem);
-                    setContextMenu({ ...contextMenu, item: null });
-                  }}
-                >
-                  <Info className="h-4 w-4" /> Info
-                </button>
+                <div className="px-3 py-2 border-b border-white/10">
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-white/50 mb-1">
+                    Selected
+                  </div>
+                  <div className="font-semibold text-white truncate">
+                    {(contextMenu.item as FileSystemItem).name}
+                  </div>
+                  <div className="text-[11px] text-white/40 truncate">
+                    {(contextMenu.item as FileSystemItem).path}
+                  </div>
+                </div>
+                <div className="p-1">
+                  <button
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 flex items-center gap-2 transition-colors"
+                    onClick={() => {
+                      handleItemOpen(contextMenu.item as FileSystemItem);
+                      setContextMenu({ ...contextMenu, item: null });
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4 text-white/70" /> Open
+                  </button>
+                  {contextMenu.item?.type === 'file' &&
+                    isTextLike((contextMenu.item as FileSystemItem).name) && (
+                      <button
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 flex items-center gap-2 transition-colors"
+                        onClick={() => {
+                          openFileInEditor((contextMenu.item as FileSystemItem).path);
+                          setContextMenu({ ...contextMenu, item: null });
+                        }}
+                      >
+                        <FileIcon className="h-4 w-4 text-white/70" /> Open in editor
+                      </button>
+                    )}
+                  <button
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 flex items-center gap-2 transition-colors"
+                    onClick={() => {
+                      handleRename(contextMenu.item as FileSystemItem);
+                      setContextMenu({ ...contextMenu, item: null });
+                    }}
+                  >
+                    <FileIcon className="h-4 w-4 text-white/70" /> Rename
+                  </button>
+                  <button
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 flex items-center gap-2 text-red-300 transition-colors"
+                    onClick={() => {
+                      handleDelete(contextMenu.item as FileSystemItem);
+                      setContextMenu({ ...contextMenu, item: null });
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" /> Delete
+                  </button>
+                  <button
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 flex items-center gap-2 transition-colors"
+                    onClick={() => {
+                      handleShare(contextMenu.item as FileSystemItem);
+                      setContextMenu({ ...contextMenu, item: null });
+                    }}
+                  >
+                    <Share2 className="h-4 w-4 text-white/70" /> Share path
+                  </button>
+                  <button
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 flex items-center gap-2 transition-colors"
+                    onClick={() => {
+                      showInfo(contextMenu.item as FileSystemItem);
+                      setContextMenu({ ...contextMenu, item: null });
+                    }}
+                  >
+                    <Info className="h-4 w-4 text-white/70" /> Info
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
       </DialogContent>
+      {editorOpen && (
+        <Modal open={editorOpen} onOpenChange={(isOpen) => setEditorOpen(isOpen)}>
+          <ModalContent className="max-w-6xl w-[96vw] max-h-[90vh] bg-[#05050a]/95 text-white border border-white/10 backdrop-blur-3xl shadow-2xl shadow-black/60 overflow-hidden">
+            <ModalHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <ModalTitle className="text-xl font-semibold">
+                  Editing {editorPath.split('/').filter(Boolean).pop()}
+                </ModalTitle>
+                <p className="text-xs text-white/50 mt-1 break-all">
+                  {editorPath}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  className="h-9 px-3 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white/80"
+                  onClick={() => setEditorOpen(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  className="h-9 px-4 rounded-lg bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/30"
+                  onClick={saveEditor}
+                  disabled={editorSaving}
+                >
+                  {editorSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    'Save'
+                  )}
+                </Button>
+              </div>
+            </ModalHeader>
+            <div className="px-2 pb-4">
+              <div className="text-[11px] text-white/50 mb-2">
+                Tip: press <span className="font-semibold text-white/80">Ctrl/⌘ + S</span> to save
+              </div>
+              <div className="h-[65vh] rounded-lg border border-white/10 overflow-hidden bg-black/60">
+                <MonacoEditor
+                  height="100%"
+                  language={editorLanguage}
+                  theme="vs-dark"
+                  value={editorContent}
+                  onChange={(value) => setEditorContent(value ?? '')}
+                  options={{
+                    fontSize: 14,
+                    minimap: { enabled: false },
+                    smoothScrolling: true,
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                  }}
+                />
+              </div>
+            </div>
+            <ModalFooter className="px-6 pb-6 pt-0 flex justify-between">
+              <div className="text-xs text-white/40">
+                {editorPath}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  className="h-9 px-3 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white/80"
+                  onClick={() => setEditorOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="h-9 px-4 rounded-lg bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/30"
+                  onClick={saveEditor}
+                  disabled={editorSaving}
+                >
+                  {editorSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    'Save'
+                  )}
+                </Button>
+              </div>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
     </Dialog>
   );
 }
