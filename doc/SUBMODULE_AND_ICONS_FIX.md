@@ -2,6 +2,8 @@
 
 **Date:** 2026-01-12
 **Issues Fixed:**
+> Deprecated: The Umbrel app store submodule is no longer used. Use the CasaOS import flow instead.
+
 1. umbrel-apps-ref folder missing on server
 2. Dock icons not loading
 3. Build tools running on every update

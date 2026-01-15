@@ -14,6 +14,7 @@ import { AppCard } from './app-card';
 import { CustomDeployDialog } from './custom-deploy-dialog';
 import type { App } from './types';
 import { Button } from '@/components/ui/button';
+import { CommunityStoreDialog } from './community-store-dialog';
 
 interface AppStoreDialogProps {
   open: boolean;
@@ -27,6 +28,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [customDeployOpen, setCustomDeployOpen] = useState(false);
+  const [communityStoreOpen, setCommunityStoreOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -100,6 +102,24 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setCommunityStoreOpen(true)}
+                className="h-9 text-white hover:text-white transition-all"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                }}
+              >
+                Import CasaOS Store
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setCustomDeployOpen(true)}
                 className="h-9 text-white hover:text-white transition-all"
                 style={{
@@ -142,6 +162,11 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
         <CustomDeployDialog
           open={customDeployOpen}
           onOpenChange={setCustomDeployOpen}
+        />
+        <CommunityStoreDialog
+          open={communityStoreOpen}
+          onOpenChange={setCommunityStoreOpen}
+          onImported={loadApps}
         />
 
         {/* Search Bar */}
@@ -218,13 +243,22 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
           {!loading && !error && filteredApps.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 gap-2">
               <p className="text-zinc-300">No applications found</p>
-              {searchQuery && (
+              {searchQuery ? (
                 <button
                   onClick={() => setSearchQuery('')}
                   className="text-sm text-blue-200 hover:text-blue-100"
                 >
                   Clear search
                 </button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCommunityStoreOpen(true)}
+                  className="text-white border-white/20 bg-white/5 hover:bg-white/10 mt-2"
+                >
+                  Import CasaOS Store
+                </Button>
               )}
             </div>
           )}

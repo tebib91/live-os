@@ -11,4 +11,6 @@
 export type * from './models/User'
 export type * from './models/Session'
 export type * from './models/Settings'
+export type * from './models/Store'
+export type * from './models/App'
 export type * from './commonInputTypes'

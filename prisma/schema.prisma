@@ -40,3 +40,41 @@ model Settings {
   currentWallpaper String?
   updatedAt        DateTime @updatedAt
 }
+
+model Store {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  url         String
+  name        String
+  description String?
+  localPath   String
+  apps        App[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model App {
+  id          String   @id @default(cuid())
+  storeId     String
+  appId       String
+  title       String
+  name        String
+  icon        String
+  tagline     String?
+  overview    String?
+  category    Json?
+  developer   String?
+  screenshots Json?
+  version     String?
+  port        Int?
+  path        String?
+  website     String?
+  repo        String?
+  composePath String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, appId])
+}

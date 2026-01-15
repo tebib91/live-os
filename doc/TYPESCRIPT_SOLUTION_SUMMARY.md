@@ -143,7 +143,7 @@ No extra steps needed - everything works out of the box!
 ### Run development server:
 ```bash
 npm run dev
-# Server starts on http://localhost:3001
+# Server starts on http://localhost:3000
 ```
 
 ---

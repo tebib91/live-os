@@ -109,13 +109,6 @@ fi
 git fetch origin "$REMOTE_BRANCH"
 git reset --hard origin/"$REMOTE_BRANCH"
 
-# Update submodules (umbrel-apps-ref)
-print_status "Updating app store (umbrel-apps-ref submodule)..."
-git submodule update --init --recursive || {
-    print_error "Warning: Failed to update umbrel-apps-ref submodule"
-    print_info "App store may not have latest updates"
-}
-
 # Install dependencies (skip Husky setup scripts)
 # Note: TypeScript is needed for build even in production
 print_status "Installing dependencies..."

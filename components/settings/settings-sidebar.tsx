@@ -1,11 +1,12 @@
-import { MetricCard } from "./metric-card";
 import Image from "next/image";
+import { MetricCard } from "./metric-card";
+import type { StorageInfo, SystemInfo, SystemStatus } from "./types";
 
 type SidebarProps = {
   currentWallpaper?: string;
-  systemInfo?: any;
-  storageInfo?: any;
-  systemStatus?: any;
+  systemInfo?: SystemInfo | null;
+  storageInfo?: StorageInfo | null;
+  systemStatus?: SystemStatus | null;
   formatBytes: (bytes: number, decimals?: number) => string;
   getMetricColor: (percentage: number) => "cyan" | "green" | "yellow" | "red";
 };

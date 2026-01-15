@@ -14,6 +14,7 @@ export interface App {
   path?: string;           // Path suffix for web UI (e.g., "/admin")
   website?: string;        // Official website
   repo?: string;           // Source code repository
+  composePath?: string;    // Local compose path (for install)
   container?: {            // Optional (for future installation)
     image: string;
     ports: any[];

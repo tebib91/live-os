@@ -32,3 +32,13 @@ export type Session = Prisma.SessionModel
  * 
  */
 export type Settings = Prisma.SettingsModel
+/**
+ * Model Store
+ * 
+ */
+export type Store = Prisma.StoreModel
+/**
+ * Model App
+ * 
+ */
+export type App = Prisma.AppModel

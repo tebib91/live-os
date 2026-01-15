@@ -11,6 +11,10 @@
 
 set -e  # Exit on error
 
+echo "This script is deprecated: the Umbrel-based local app store has been removed."
+echo "Use the App Store UI to import CasaOS community stores instead."
+exit 0
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

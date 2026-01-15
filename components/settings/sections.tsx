@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { HardwareInfo, formatCpuLabel, formatCpuTemp } from "./hardware-utils";
+import type { SystemInfo } from "./types";
 
 export type WallpaperOption = {
   id: string;
@@ -20,7 +21,7 @@ export type WallpaperOption = {
 };
 
 type DeviceInfoSectionProps = {
-  systemInfo?: any;
+  systemInfo?: SystemInfo;
 };
 
 export function DeviceInfoSection({ systemInfo }: DeviceInfoSectionProps) {

@@ -2,10 +2,12 @@ import type { Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import os from 'os';
 import si from 'systeminformation';
+import type { Systeminformation } from 'systeminformation';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+const DEFAULT_APP_ICON = '/icons/default-app-icon.png';
 
 // Types for the data we broadcast
 export interface SystemStats {
@@ -64,6 +66,10 @@ export interface AppsUpdateMessage {
   };
   timestamp: number;
 }
+
+type ExtendedGraphicsControllerData = Systeminformation.GraphicsControllerData & {
+  utilization?: number;
+};
 
 // Track network stats for delta calculation
 let lastNetworkSample: { rx: number; tx: number; timestamp: number } | null = null;
@@ -151,10 +157,9 @@ async function collectSystemMetrics(): Promise<SystemUpdateMessage['data']> {
 
     // Running apps CPU usage
     const runningApps = await collectRunningAppUsage();
-    const firstGpu = graphicsInfo.controllers?.[0];
-    const gpuUsage = Math.round(
-      (firstGpu?.utilizationGpu ?? (firstGpu as any)?.utilization ?? 0) as number
-    );
+    const firstGpu: ExtendedGraphicsControllerData | undefined = graphicsInfo.controllers?.[0];
+    const gpuUsageRaw = firstGpu?.utilizationGpu ?? firstGpu?.utilization ?? 0;
+    const gpuUsage = Math.round(gpuUsageRaw);
 
     return {
       cpu: { usage: cpuUsage, temperature: tempValue, power: powerWatts },
@@ -212,7 +217,7 @@ async function collectRunningAppUsage(): Promise<AppUsage[]> {
       return {
         id: name,
         name: name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-        icon: `/umbrel-apps-ref/${name}/icon.png`,
+        icon: DEFAULT_APP_ICON,
         cpuUsage: isNaN(cpuUsage) ? 0 : cpuUsage,
       };
     }).sort((a, b) => b.cpuUsage - a.cpuUsage);
@@ -247,7 +252,7 @@ async function collectInstalledApps(): Promise<InstalledApp[]> {
         id: containerName,
         appId: containerName,
         name: containerName.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-        icon: `/umbrel-apps-ref/${containerName}/icon.png`,
+        icon: DEFAULT_APP_ICON,
         status: appStatus,
         containerName,
         installedAt: Date.now(),

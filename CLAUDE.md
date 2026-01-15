@@ -67,7 +67,7 @@ When you detect inconsistent design, **automatically fix it**. Common inconsiste
 
 ```bash
 # Development
-npm run dev              # Start Next.js dev server on port 3001
+npm run dev              # Start Next.js dev server on port 3000
 
 # Building
 npm run build           # Production build

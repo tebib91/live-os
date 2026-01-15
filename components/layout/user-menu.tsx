@@ -1,8 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { getCurrentUser, logout, type AuthUser } from '@/app/actions/auth';
+import { getCurrentUser, logout, type AuthUser } from "@/app/actions/auth";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,15 +9,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
-import { User, LogOut, Settings } from 'lucide-react';
+} from "@/components/ui/dropdown-menu";
+import { LogOut, Settings, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export function UserMenu() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-
+  // TODO: issue with rerendering infinite loop
   useEffect(() => {
     getCurrentUser().then((userData) => {
       setUser(userData);
@@ -28,7 +28,7 @@ export function UserMenu() {
 
   const handleLogout = async () => {
     await logout();
-    router.push('/login');
+    router.push("/login");
     router.refresh();
   };
 
@@ -54,9 +54,7 @@ export function UserMenu() {
         <DropdownMenuLabel className="text-zinc-200">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium">{user.username}</p>
-            <p className="text-xs text-zinc-500 font-normal">
-              {user.role}
-            </p>
+            <p className="text-xs text-zinc-500 font-normal">{user.role}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-zinc-800" />

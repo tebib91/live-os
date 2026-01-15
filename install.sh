@@ -576,11 +576,7 @@ setup_liveos() {
 
     cd "$INSTALL_DIR"
 
-    print_status "Initializing app store (umbrel-apps-ref submodule)..."
-    git submodule update --init --recursive || {
-        print_error "Warning: Failed to initialize umbrel-apps-ref submodule"
-        print_info "App store may not be available. Check your internet connection."
-    }
+    print_info "Skipping Umbrel app store submodule: local store is no longer bundled."
 
     print_status "Installing dependencies (skipping Husky for production)..."
     # Install all dependencies but skip Husky setup scripts

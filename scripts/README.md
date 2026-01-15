@@ -6,7 +6,7 @@ This directory contains utility scripts for managing LiveOS.
 
 ### `update-apps.sh` - Sync with Umbrel Apps
 
-Updates your local `umbrel-apps-ref` directory with the latest apps from Umbrel's official repository.
+Deprecated: Umbrel app store syncing is no longer used; use the App Store UI to import CasaOS community stores instead.
 
 **Usage:**
 

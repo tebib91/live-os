@@ -1,31 +1,22 @@
 # LiveOS App Store Guide
 
-Quick reference for managing the Umbrel Apps integration.
+Quick reference for browsing and importing CasaOS community app stores.
 
 ## Overview
 
-LiveOS uses [Umbrel's app repository](https://github.com/getumbrel/umbrel-apps) as the source for its app store. Your fork at `umbrel-apps-ref/` contains 298+ Docker-based apps.
+LiveOS no longer bundles the Umbrel app store locally. Use the built-in “Import CasaOS Store” button in the App Store dialog to browse the curated list at https://awesome.casaos.io and copy a store source URL to import.
 
 ## Quick Start
 
 ### View Apps in App Store
 
 1. Start dev server: `npm run dev`
-2. Open browser: `http://localhost:3001`
-3. Browse the App Store
+2. Open browser: `http://localhost:3000`
+3. Open the App Store and click **Import CasaOS Store** to copy a store URL
 
 ### Update Apps from Upstream
 
-```bash
-# Interactive update (recommended)
-npm run update-apps
-
-# Auto-approve all updates
-npm run update-apps:auto
-
-# Test app parsing
-npm run test-apps
-```
+> The previous Umbrel sync scripts are deprecated now that the local store is removed.
 
 ## Current Status
 
@@ -51,15 +42,8 @@ Your fork is currently **24 commits behind** upstream with updates available for
 
 ```
 LiveOS
-├── umbrel-apps-ref/              # Your fork (298 apps)
-│   ├── adguard-home/
-│   │   ├── umbrel-app.yml       # App metadata
-│   │   └── docker-compose.yml   # Container config
-│   ├── nextcloud/
-│   └── ...
-│
-├── app/actions/appstore.ts       # Reads apps from umbrel-apps-ref/
-└── components/app-store/         # UI components
+├── app/actions/appstore.ts       # Fetches CasaOS community list; no bundled apps
+└── components/app-store/         # UI components + CasaOS import dialog
 ```
 
 ### Icon Sources
@@ -76,20 +60,16 @@ https://getumbrel.github.io/umbrel-apps-gallery/[app-id]/icon.svg
 
 ### Data Flow
 
-1. **Server Action** (`app/actions/appstore.ts`):
-   - Reads `umbrel-apps-ref/*/umbrel-app.yml`
-   - Parses metadata (name, version, category, etc.)
-   - Returns array of apps with icon URLs
+1. **CasaOS list fetch** (`app/actions/appstore.ts`):
+   - Fetches curated store sources from the CasaOS community list
+   - Returns name/description/source links
 
 2. **UI** (`components/app-store/`):
-   - Displays apps in grid/list
-   - Fetches icons from Umbrel CDN
-   - Shows app details in dialogs
+   - Displays available stores and lets you copy/open source URLs
+   - Custom deploy supports user-provided compose configs
 
 3. **Installation** (future):
-   - Reads `docker-compose.yml`
-   - Spins up containers
-   - Manages lifecycle
+   - Direct installs from CasaOS sources are not yet wired; use Custom Deploy for now.
 
 ## Maintenance
 
@@ -120,44 +100,13 @@ npm run dev
 
 ### Staying in Sync with Upstream
 
-Your setup:
-
-```
-origin    → github.com/tebib91/umbrel-apps-ref (your fork)
-upstream  → github.com/getumbrel/umbrel-apps  (official)
-```
-
-The update script:
-1. Fetches from `upstream/master`
-2. Shows what changed
-3. Merges into your local branch
-4. You can push to `origin` to update your fork
-
-### Pushing Updates to Your Fork
-
-After running `npm run update-apps`:
-
-```bash
-cd umbrel-apps-ref
-
-# Review changes
-git log -5
-
-# Push to your fork
-git push origin master
-```
+Deprecated: the Umbrel-based workflow and fork sync are no longer used now that the local store is removed.
 
 ## Customization
 
 ### Adding Custom Apps
 
-To add your own apps alongside Umbrel's:
-
-1. **Create app folder:**
-
-   ```bash
-   mkdir umbrel-apps-ref/my-app
-   ```
+Use Custom Deploy in the App Store dialog to provide your own compose configuration; local Umbrel folder customization is no longer supported.
 
 2. **Add `umbrel-app.yml`:**
 
@@ -478,6 +427,4 @@ Questions? Issues?
 
 ---
 
-**Last Updated:** 2026-01-12
-**Apps Available:** 298
-**Updates Available:** 24 apps have newer versions
+*Umbrel app counts and update stats are no longer tracked (local store removed).*

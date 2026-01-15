@@ -52,3 +52,4 @@ dev.db
 
 # custom docker deployments
 /custom-apps
+/external-apps
