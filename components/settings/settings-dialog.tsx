@@ -4,6 +4,7 @@
 
 import { getWallpapers, updateSettings } from "@/app/actions/settings";
 import { getSystemInfo } from "@/app/actions/system";
+import { getUptime } from "@/app/actions/system";
 import { getStorageInfo, getSystemStatus } from "@/app/actions/system-status";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { SettingsSidebar } from "./settings-sidebar";
 import {
   AccountSection,
@@ -49,12 +52,15 @@ export function SettingsDialog({
   const [wallpapersLoading, setWallpapersLoading] = useState(false);
   const [wifiDialogOpen, setWifiDialogOpen] = useState(false);
   const [systemDetailsOpen, setSystemDetailsOpen] = useState(false);
+  const [uptimeSeconds, setUptimeSeconds] = useState<number>(0);
+  const router = useRouter();
 
   useEffect(() => {
     if (open) {
       fetchSystemData();
       fetchSystemInfo();
       fetchWallpapers();
+      fetchUptime();
 
       const interval = setInterval(fetchSystemData, 3000);
       return () => clearInterval(interval);
@@ -73,6 +79,15 @@ export function SettingsDialog({
   const fetchSystemInfo = async () => {
     const info = await getSystemInfo();
     setSystemInfo(info);
+  };
+
+  const fetchUptime = async () => {
+    try {
+      const seconds = await getUptime();
+      setUptimeSeconds(seconds);
+    } catch (error) {
+      console.error("Failed to load uptime:", error);
+    }
   };
 
   const fetchWallpapers = async () => {
@@ -116,6 +131,44 @@ export function SettingsDialog({
 
   const hardware: HardwareInfo | undefined = systemStatus?.hardware;
 
+  const uptimeLabel = () => {
+    const seconds = uptimeSeconds || 0;
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  const handleLogout = async () => {
+    const res = await fetch("/api/auth/logout", { method: "POST" });
+    if (res.ok) {
+      toast.success("Logged out");
+      router.push("/login");
+    } else {
+      toast.error("Failed to log out");
+    }
+  };
+
+  const handleRestart = async () => {
+    const res = await fetch("/api/system/restart", { method: "POST" });
+    if (res.ok) {
+      toast.success("Restarting system...");
+    } else {
+      toast.error("Restart failed");
+    }
+  };
+
+  const handleShutdown = async () => {
+    const res = await fetch("/api/system/shutdown", { method: "POST" });
+    if (res.ok) {
+      toast.success("Shutting down...");
+    } else {
+      toast.error("Shutdown failed");
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -157,7 +210,13 @@ export function SettingsDialog({
             />
 
             <div className="flex-1 bg-white/5 p-6 space-y-4 backdrop-blur-xl">
-              <DeviceInfoSection systemInfo={systemInfo} />
+              <DeviceInfoSection
+                systemInfo={systemInfo}
+                uptimeLabel={uptimeLabel()}
+                onLogout={handleLogout}
+                onRestart={handleRestart}
+                onShutdown={handleShutdown}
+              />
               <AccountSection />
               <WallpaperSection
                 wallpapers={wallpapers}

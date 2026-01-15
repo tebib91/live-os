@@ -3,6 +3,7 @@
 import {
   createDirectory,
   deleteItem,
+  createFile,
   getDefaultDirectories,
   openPath,
   readDirectory,
@@ -16,12 +17,12 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  ArrowUpDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   Clock,
   ExternalLink,
+  FilePlus,
   FileIcon,
   FolderPlus,
   Grid2x2,
@@ -31,9 +32,13 @@ import {
   Loader2,
   Plus,
   Search,
+  Share2,
+  Info,
+  Trash2,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useRef } from 'react';
 import { toast } from 'sonner';
 
 interface FilesDialogProps {
@@ -42,8 +47,8 @@ interface FilesDialogProps {
 }
 
 export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
-  const [homePath, setHomePath] = useState('/home');
-  const [currentPath, setCurrentPath] = useState('/home');
+  const [homePath, setHomePath] = useState('/DATA');
+  const [currentPath, setCurrentPath] = useState('/DATA');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [content, setContent] = useState<DirectoryContent | null>(null);
   const [loading, setLoading] = useState(false);
@@ -51,10 +56,16 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
   const [showHidden, setShowHidden] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [history, setHistory] = useState<string[]>(['/home']);
+  const [history, setHistory] = useState<string[]>(['/DATA']);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [shortcuts, setShortcuts] = useState<DefaultDirectory[]>([]);
   const [ready, setReady] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    item: FileSystemItem | null;
+  }>({ x: 0, y: 0, item: null });
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (open && ready) {
@@ -77,9 +88,9 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
         setHomePath(result.home);
         setShortcuts(result.directories);
 
-        const normalizedHome = result.home || '/home';
+        const normalizedHome = result.home || '/DATA';
         setHistory((prev) => {
-          if (prev.length === 1 && prev[0] === '/home') {
+          if (prev.length === 1 && (prev[0] === '/home' || prev[0] === '/DATA')) {
             setHistoryIndex(0);
             setCurrentPath(normalizedHome);
             return [normalizedHome];
@@ -95,6 +106,19 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
 
     loadDefaults();
   }, [open]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        contextMenuRef.current &&
+        !contextMenuRef.current.contains(event.target as Node)
+      ) {
+        setContextMenu((prev) => ({ ...prev, item: null }));
+      }
+    };
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const loadDirectory = async (path: string) => {
     setLoading(true);
@@ -171,6 +195,45 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     if (match) return match.path;
     const trimmedHome = homePath.endsWith('/') ? homePath.slice(0, -1) : homePath;
     return `${trimmedHome}/${name}`;
+  };
+
+  const handleCreateFile = async () => {
+    const fileName = prompt('Enter file name');
+    if (!fileName) return;
+    const result = await createFile(currentPath, fileName);
+    if (result.success) {
+      toast.success('File created successfully');
+      loadDirectory(currentPath);
+    } else {
+      toast.error(result.error || 'Failed to create file');
+    }
+  };
+
+  const displayPath = () => {
+    const base = homePath || '';
+    if (currentPath.startsWith(base)) {
+      const relative = currentPath.slice(base.length) || '/';
+      return relative.startsWith('/') ? relative : `/${relative}`;
+    }
+    return currentPath;
+  };
+
+  const openContextMenu = (event: React.MouseEvent, item: FileSystemItem) => {
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY, item });
+  };
+
+  const handleShare = async (item: FileSystemItem) => {
+    try {
+      await navigator.clipboard.writeText(item.path);
+      toast.success('Path copied to clipboard');
+    } catch {
+      toast.error('Failed to copy path');
+    }
+  };
+
+  const showInfo = (item: FileSystemItem) => {
+    toast.info(`${item.type === 'directory' ? 'Folder' : 'File'} • ${item.path}`);
   };
 
   const handleCreateFolder = async () => {
@@ -362,7 +425,9 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
 
                 <div className="flex items-center gap-2 text-white">
                   <Home className="h-4 w-4 text-white/80" />
-                  <span className="text-sm font-medium -tracking-[0.01em]">{currentPath}</span>
+                  <span className="text-sm font-medium -tracking-[0.01em]">
+                    {displayPath()}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -451,8 +516,9 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   variant="ghost"
                   size="icon"
                   className="h-9 w-9 rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 text-white/70"
+                  onClick={handleCreateFile}
                 >
-                  <ArrowUpDown className="h-4 w-4" />
+                  <FilePlus className="h-4 w-4" />
                 </Button>
 
                 <Button
@@ -519,11 +585,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                           e.preventDefault();
                           handleOpenNative(item.path);
                         }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          const action = confirm(`Delete "${item.name}"?`);
-                          if (action) handleDelete(item);
-                        }}
+                        onContextMenu={(e) => openContextMenu(e, item)}
                         className="flex flex-col items-center gap-3 group"
                       >
                         {item.type === 'directory' ? (
@@ -559,11 +621,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                       <button
                         key={item.path}
                         onClick={() => handleItemOpen(item)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          const action = confirm(`Delete "${item.name}"?`);
-                          if (action) handleDelete(item);
-                        }}
+                        onContextMenu={(e) => openContextMenu(e, item)}
                         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
                      >
                         {item.type === 'directory' ? (
@@ -601,6 +659,61 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                 {filteredItems.length} items {showHidden && `(${content?.items.length} total)`}
               </div>
             </div>
+
+            {contextMenu.item && (
+              <div
+                ref={contextMenuRef}
+                className="fixed z-50 bg-black/90 border border-white/10 rounded-lg shadow-lg text-white text-sm min-w-[180px] overflow-hidden"
+                style={{ top: contextMenu.y, left: contextMenu.x }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  className="w-full text-left px-3 py-2 hover:bg-white/10 flex items-center gap-2"
+                  onClick={() => {
+                    handleItemOpen(contextMenu.item as FileSystemItem);
+                    setContextMenu({ ...contextMenu, item: null });
+                  }}
+                >
+                  <ExternalLink className="h-4 w-4" /> Open
+                </button>
+                <button
+                  className="w-full text-left px-3 py-2 hover:bg-white/10 flex items-center gap-2"
+                  onClick={() => {
+                    handleRename(contextMenu.item as FileSystemItem);
+                    setContextMenu({ ...contextMenu, item: null });
+                  }}
+                >
+                  <FileIcon className="h-4 w-4" /> Rename
+                </button>
+                <button
+                  className="w-full text-left px-3 py-2 hover:bg-white/10 flex items-center gap-2 text-red-300"
+                  onClick={() => {
+                    handleDelete(contextMenu.item as FileSystemItem);
+                    setContextMenu({ ...contextMenu, item: null });
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" /> Delete
+                </button>
+                <button
+                  className="w-full text-left px-3 py-2 hover:bg-white/10 flex items-center gap-2"
+                  onClick={() => {
+                    handleShare(contextMenu.item as FileSystemItem);
+                    setContextMenu({ ...contextMenu, item: null });
+                  }}
+                >
+                  <Share2 className="h-4 w-4" /> Share
+                </button>
+                <button
+                  className="w-full text-left px-3 py-2 hover:bg-white/10 flex items-center gap-2"
+                  onClick={() => {
+                    showInfo(contextMenu.item as FileSystemItem);
+                    setContextMenu({ ...contextMenu, item: null });
+                  }}
+                >
+                  <Info className="h-4 w-4" /> Info
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

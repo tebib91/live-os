@@ -42,3 +42,8 @@ export type Store = Prisma.StoreModel
  * 
  */
 export type App = Prisma.AppModel
+/**
+ * Model InstalledApp
+ * 
+ */
+export type InstalledApp = Prisma.InstalledAppModel

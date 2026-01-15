@@ -2,6 +2,7 @@
 
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import si from 'systeminformation';
 
 const execFileAsync = promisify(execFile);
 
@@ -12,6 +13,25 @@ export type WifiNetwork = {
 };
 
 export async function listWifiNetworks(): Promise<WifiNetwork[]> {
+  try {
+    const wifiNetworks = await si.wifiNetworks();
+    if (Array.isArray(wifiNetworks) && wifiNetworks.length > 0) {
+      return wifiNetworks
+        .map((network) => ({
+          ssid: network.ssid || '',
+          security: Array.isArray(network.security)
+            ? network.security.join(', ')
+            : network.security || '',
+          signal: Number(network.quality ?? network.signalLevel ?? 0) || 0,
+        }))
+        .filter((n) => n.ssid)
+        .sort((a, b) => b.signal - a.signal);
+    }
+  } catch (error) {
+    console.error('[network] listWifiNetworks via systeminformation failed:', error);
+  }
+
+  // Fallback to nmcli if systeminformation fails or returns nothing
   try {
     const { stdout } = await execFileAsync('nmcli', [
       '-t',

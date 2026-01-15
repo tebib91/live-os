@@ -3,12 +3,11 @@
 
 import { exec } from 'child_process';
 import fs from 'fs/promises';
-import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
-const HOME_ROOT = process.env.LIVEOS_HOME || os.homedir() || '/home';
+const HOME_ROOT = process.env.LIVEOS_HOME || '/DATA';
 const DEFAULT_DIRECTORIES = ['apps', 'Downloads', 'Documents', 'Photos', 'Devices'] as const;
 
 export interface FileSystemItem {
@@ -253,6 +252,39 @@ export async function renameItem(
   } catch (error: any) {
     console.error('Rename item error:', error);
     return { success: false, error: error.message || 'Failed to rename item' };
+  }
+}
+
+/**
+ * Create an empty file
+ */
+export async function createFile(
+  parentPath: string,
+  fileName: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { valid, sanitized } = validatePath(parentPath);
+    if (!valid) {
+      return { success: false, error: 'Invalid parent path' };
+    }
+
+    if (!fileName || fileName.includes('/') || fileName.includes('..')) {
+      return { success: false, error: 'Invalid file name' };
+    }
+
+    const newFilePath = path.join(sanitized, fileName);
+    try {
+      await fs.access(newFilePath);
+      return { success: false, error: 'File already exists' };
+    } catch {
+      // ok
+    }
+
+    await fs.writeFile(newFilePath, '');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Create file error:', error);
+    return { success: false, error: error.message || 'Failed to create file' };
   }
 }
 

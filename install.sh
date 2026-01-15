@@ -25,7 +25,7 @@ print_dry() {
 }
 
 print_info() {
-    echo -e "${BLUE}[i]${NC} $1"
+    echo -e "${BLUE}[!]${NC} $1"
 }
 
 # Parse command line arguments

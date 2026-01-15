@@ -2,6 +2,8 @@
 "use server";
 
 import type { InstallConfig, InstalledApp } from "@/components/app-store/types";
+import prisma from "@/lib/prisma";
+import { triggerAppsUpdate } from "@/lib/system-status/websocket-server";
 import { exec } from "child_process";
 import fs from "fs/promises";
 import path from "path";
@@ -14,6 +16,44 @@ const execAsync = promisify(exec);
 const CONTAINER_PREFIX = process.env.CONTAINER_PREFIX || "";
 const DEFAULT_APP_ICON = "/icons/default-application-icon.png";
 const STORES_ROOT = path.join(process.cwd(), "public", "external-apps");
+
+async function resolveHostPort(containerName: string): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync(
+      `docker inspect -f '{{json .NetworkSettings.Ports}}' ${containerName}`
+    );
+
+    const ports = JSON.parse(stdout || "{}") as Record<
+      string,
+      { HostIp: string; HostPort: string }[] | null
+    >;
+
+    const firstMapping = Object.values(ports).find(
+      (mappings) => Array.isArray(mappings) && mappings.length > 0
+    );
+
+    return firstMapping?.[0]?.HostPort ?? null;
+  } catch (error) {
+    console.error(`[Docker] resolveHostPort: failed for ${containerName}:`, error);
+    return null;
+  }
+}
+
+async function recordInstalledApp(appId: string, containerName: string): Promise<void> {
+  const appMeta = await prisma.app.findFirst({
+    where: { appId },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const name = appMeta?.title || appMeta?.name || appId;
+  const icon = appMeta?.icon || DEFAULT_APP_ICON;
+
+  await prisma.installedApp.upsert({
+    where: { containerName },
+    update: { appId, name, icon },
+    create: { appId, name, icon, containerName },
+  });
+}
 
 /**
  * Validate appId to prevent path traversal
@@ -171,6 +211,8 @@ export async function installApp(
       console.error("[Docker] installApp: stderr:", stderr);
     }
 
+    await recordInstalledApp(appId, containerName);
+    await triggerAppsUpdate();
     console.log(`[Docker] installApp: ✅ Successfully installed "${appId}"`);
     return { success: true };
   } catch (error: any) {
@@ -247,6 +289,15 @@ export async function getInstalledApps(): Promise<InstalledApp[]> {
   console.log("[Docker] getInstalledApps: Fetching installed apps...");
 
   try {
+    const [knownApps, storeApps] = await Promise.all([
+      prisma.installedApp.findMany(),
+      prisma.app.findMany(),
+    ]);
+    const metaByContainer = new Map(
+      knownApps.map((app) => [app.containerName, app])
+    );
+    const appMetaById = new Map(storeApps.map((app) => [app.appId, app]));
+
     // Optional prefix for container filtering
     const CONTAINER_PREFIX = process.env.CONTAINER_PREFIX || "";
     console.log(
@@ -298,32 +349,21 @@ export async function getInstalledApps(): Promise<InstalledApp[]> {
       );
 
       // Get first exposed port if available
-      let webUIPort: number | undefined;
-      try {
-        const { stdout: portInfo } = await execAsync(
-          `docker port ${name} | head -1`
-        );
-        const portMatch = portInfo.match(/:(\d+)/);
-        if (portMatch) {
-          webUIPort = parseInt(portMatch[1], 10);
-          console.log(
-            `[Docker] getInstalledApps: Found port ${webUIPort} for "${name}"`
-          );
-        }
-      } catch {
-        // Port info not available
-        console.log(`[Docker] getInstalledApps: No port info for "${name}"`);
-      }
+      const hostPort = await resolveHostPort(name);
+      const webUIPort = hostPort ? parseInt(hostPort, 10) : undefined;
+
+      const record = metaByContainer.get(name);
+      const storeMeta = appMetaById.get(appId);
 
       apps.push({
         id: name,
         appId,
-        name: appId,
-        icon: DEFAULT_APP_ICON,
+        name: record?.name || storeMeta?.title || storeMeta?.name || appId,
+        icon: record?.icon || storeMeta?.icon || DEFAULT_APP_ICON,
         status,
         webUIPort,
         containerName: name,
-        installedAt: Date.now(), // Approximate
+        installedAt: record?.createdAt?.getTime?.() || Date.now(),
       });
     }
 
@@ -501,6 +541,11 @@ export async function uninstallApp(appId: string): Promise<boolean> {
     );
     await execAsync(`docker rm -f ${containerName}`);
 
+    await prisma.installedApp
+      .delete({ where: { containerName } })
+      .catch(() => null);
+    await triggerAppsUpdate();
+
     console.log(
       `[Docker] uninstallApp: ✅ Successfully uninstalled "${appId}"`
     );
@@ -648,6 +693,8 @@ export async function deployCustomCompose(
     console.log(
       `[Docker] deployCustomCompose: ✅ Successfully deployed "${appName}"`
     );
+    await recordInstalledApp(appName, containerName);
+    await triggerAppsUpdate();
     return { success: true };
   } catch (error: any) {
     console.error(
@@ -806,6 +853,8 @@ export async function deployCustomRun(
     console.log(
       `[Docker] deployCustomRun: ✅ Successfully deployed "${appName}"`
     );
+    await recordInstalledApp(appName, finalContainerName);
+    await triggerAppsUpdate();
     return { success: true };
   } catch (error: any) {
     console.error(

@@ -3,11 +3,13 @@ import { WebSocketServer, WebSocket } from 'ws';
 import os from 'os';
 import si from 'systeminformation';
 import type { Systeminformation } from 'systeminformation';
+import prisma from '@/lib/prisma';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 const DEFAULT_APP_ICON = '/icons/default-app-icon.png';
+const CONTAINER_PREFIX = process.env.CONTAINER_PREFIX || '';
 
 // Types for the data we broadcast
 export interface SystemStats {
@@ -70,6 +72,30 @@ export interface AppsUpdateMessage {
 type ExtendedGraphicsControllerData = Systeminformation.GraphicsControllerData & {
   utilization?: number;
 };
+
+function getAppIdFromContainerName(name: string): string {
+  if (!CONTAINER_PREFIX) return name;
+  return name.replace(new RegExp(`^${CONTAINER_PREFIX}`), '');
+}
+
+async function resolveHostPort(containerName: string): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync(
+      `docker inspect -f '{{json .NetworkSettings.Ports}}' ${containerName}`
+    );
+    const ports = JSON.parse(stdout || '{}') as Record<
+      string,
+      { HostIp: string; HostPort: string }[] | null
+    >;
+    const firstMapping = Object.values(ports).find(
+      (mappings) => Array.isArray(mappings) && mappings.length > 0
+    );
+    return firstMapping?.[0]?.HostPort ?? null;
+  } catch (error) {
+    console.error('[SystemStatus WS] Failed to resolve host port:', error);
+    return null;
+  }
+}
 
 // Track network stats for delta calculation
 let lastNetworkSample: { rx: number; tx: number; timestamp: number } | null = null;
@@ -178,7 +204,6 @@ async function collectSystemMetrics(): Promise<SystemUpdateMessage['data']> {
     console.error('[SystemStatus WS] Error collecting metrics:', error);
 
     // Fallback using Node.js os module
-    const cpus = os.cpus();
     const totalMemory = os.totalmem();
     const freeMemory = os.freemem();
     const usedMemory = totalMemory - freeMemory;
@@ -231,6 +256,15 @@ async function collectRunningAppUsage(): Promise<AppUsage[]> {
  */
 async function collectInstalledApps(): Promise<InstalledApp[]> {
   try {
+    const [knownApps, storeApps] = await Promise.all([
+      prisma.installedApp.findMany(),
+      prisma.app.findMany(),
+    ]);
+    const metaByContainer = new Map(
+      knownApps.map((app) => [app.containerName, app])
+    );
+    const storeMetaById = new Map(storeApps.map((app) => [app.appId, app]));
+
     const { stdout } = await execAsync(
       'docker ps -a --format "{{.Names}}\t{{.Status}}\t{{.Image}}"'
     );
@@ -238,26 +272,38 @@ async function collectInstalledApps(): Promise<InstalledApp[]> {
     if (!stdout.trim()) return [];
 
     const lines = stdout.trim().split('\n');
-    return lines.map((line) => {
-      const [containerName, status, image] = line.split('\t');
+    return await Promise.all(
+      lines.map(async (line) => {
+        const [containerName, status] = line.split('\t');
 
-      let appStatus: 'running' | 'stopped' | 'error' = 'error';
-      if (status.toLowerCase().startsWith('up')) {
-        appStatus = 'running';
-      } else if (status.toLowerCase().includes('exited')) {
-        appStatus = 'stopped';
-      }
+        let appStatus: 'running' | 'stopped' | 'error' = 'error';
+        if (status.toLowerCase().startsWith('up')) {
+          appStatus = 'running';
+        } else if (status.toLowerCase().includes('exited')) {
+          appStatus = 'stopped';
+        }
 
-      return {
-        id: containerName,
-        appId: containerName,
-        name: containerName.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-        icon: DEFAULT_APP_ICON,
-        status: appStatus,
-        containerName,
-        installedAt: Date.now(),
-      };
-    });
+        const meta = metaByContainer.get(containerName);
+        const appId = meta?.appId || getAppIdFromContainerName(containerName);
+        const storeMeta = appId ? storeMetaById.get(appId) : undefined;
+        const hostPort = await resolveHostPort(containerName);
+
+        return {
+          id: containerName,
+          appId,
+          name:
+            meta?.name ||
+            storeMeta?.title ||
+            storeMeta?.name ||
+            containerName.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+          icon: meta?.icon || storeMeta?.icon || DEFAULT_APP_ICON,
+          status: appStatus,
+          containerName,
+          installedAt: meta?.createdAt?.getTime?.() || Date.now(),
+          webUIPort: hostPort ? parseInt(hostPort, 10) : undefined,
+        };
+      })
+    );
   } catch {
     return [];
   }

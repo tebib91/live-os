@@ -22,9 +22,19 @@ export type WallpaperOption = {
 
 type DeviceInfoSectionProps = {
   systemInfo?: SystemInfo;
+  uptimeLabel?: string;
+  onLogout?: () => void;
+  onRestart?: () => void;
+  onShutdown?: () => void;
 };
 
-export function DeviceInfoSection({ systemInfo }: DeviceInfoSectionProps) {
+export function DeviceInfoSection({
+  systemInfo,
+  uptimeLabel,
+  onLogout,
+  onRestart,
+  onShutdown,
+}: DeviceInfoSectionProps) {
   return (
     <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/15 shadow-lg shadow-black/25">
       <div className="flex items-start justify-between mb-6">
@@ -39,6 +49,7 @@ export function DeviceInfoSection({ systemInfo }: DeviceInfoSectionProps) {
             variant="ghost"
             size="sm"
             className="border border-white/15 bg-white/10 hover:bg-white/20 text-white text-xs shadow-sm"
+            onClick={onLogout}
           >
             <LogOut className="h-4 w-4 mr-2" />
             Log out
@@ -47,6 +58,7 @@ export function DeviceInfoSection({ systemInfo }: DeviceInfoSectionProps) {
             variant="ghost"
             size="sm"
             className="border border-white/15 bg-white/10 hover:bg-white/20 text-white text-xs shadow-sm"
+            onClick={onRestart}
           >
             <RotateCw className="h-4 w-4 mr-2" />
             Restart
@@ -55,6 +67,7 @@ export function DeviceInfoSection({ systemInfo }: DeviceInfoSectionProps) {
             variant="ghost"
             size="sm"
             className="border border-white/15 bg-white/10 hover:bg-[#E22C2C]/20 text-[#F53737] hover:text-[#F53737] text-xs shadow-sm"
+            onClick={onShutdown}
           >
             <Power className="h-4 w-4 mr-2" />
             Shut down
@@ -79,7 +92,7 @@ export function DeviceInfoSection({ systemInfo }: DeviceInfoSectionProps) {
         </div>
         <div className="flex">
           <span className="w-32 text-white/60">Uptime</span>
-          <span className="text-white">6 hours</span>
+          <span className="text-white">{uptimeLabel || "..."}</span>
         </div>
       </div>
     </div>

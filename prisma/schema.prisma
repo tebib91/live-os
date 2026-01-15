@@ -78,3 +78,13 @@ model App {
 
   @@unique([storeId, appId])
 }
+
+model InstalledApp {
+  id             String   @id @default(cuid())
+  appId          String
+  name           String
+  icon           String
+  containerName  String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

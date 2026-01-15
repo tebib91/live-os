@@ -55,7 +55,8 @@ export const ModelName = {
   Session: 'Session',
   Settings: 'Settings',
   Store: 'Store',
-  App: 'App'
+  App: 'App',
+  InstalledApp: 'InstalledApp'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -140,6 +141,19 @@ export const AppScalarFieldEnum = {
 } as const
 
 export type AppScalarFieldEnum = (typeof AppScalarFieldEnum)[keyof typeof AppScalarFieldEnum]
+
+
+export const InstalledAppScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  name: 'name',
+  icon: 'icon',
+  containerName: 'containerName',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type InstalledAppScalarFieldEnum = (typeof InstalledAppScalarFieldEnum)[keyof typeof InstalledAppScalarFieldEnum]
 
 
 export const SortOrder = {

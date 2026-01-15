@@ -388,7 +388,8 @@ export const ModelName = {
   Session: 'Session',
   Settings: 'Settings',
   Store: 'Store',
-  App: 'App'
+  App: 'App',
+  InstalledApp: 'InstalledApp'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -404,7 +405,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "session" | "settings" | "store" | "app"
+    modelProps: "user" | "session" | "settings" | "store" | "app" | "installedApp"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -778,6 +779,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    InstalledApp: {
+      payload: Prisma.$InstalledAppPayload<ExtArgs>
+      fields: Prisma.InstalledAppFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.InstalledAppFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.InstalledAppFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        findFirst: {
+          args: Prisma.InstalledAppFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.InstalledAppFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        findMany: {
+          args: Prisma.InstalledAppFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>[]
+        }
+        create: {
+          args: Prisma.InstalledAppCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        createMany: {
+          args: Prisma.InstalledAppCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.InstalledAppCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>[]
+        }
+        delete: {
+          args: Prisma.InstalledAppDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        update: {
+          args: Prisma.InstalledAppUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        deleteMany: {
+          args: Prisma.InstalledAppDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.InstalledAppUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.InstalledAppUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>[]
+        }
+        upsert: {
+          args: Prisma.InstalledAppUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InstalledAppPayload>
+        }
+        aggregate: {
+          args: Prisma.InstalledAppAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateInstalledApp>
+        }
+        groupBy: {
+          args: Prisma.InstalledAppGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.InstalledAppGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.InstalledAppCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.InstalledAppCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -883,6 +958,19 @@ export const AppScalarFieldEnum = {
 } as const
 
 export type AppScalarFieldEnum = (typeof AppScalarFieldEnum)[keyof typeof AppScalarFieldEnum]
+
+
+export const InstalledAppScalarFieldEnum = {
+  id: 'id',
+  appId: 'appId',
+  name: 'name',
+  icon: 'icon',
+  containerName: 'containerName',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type InstalledAppScalarFieldEnum = (typeof InstalledAppScalarFieldEnum)[keyof typeof InstalledAppScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1080,6 +1168,7 @@ export type GlobalOmitConfig = {
   settings?: Prisma.SettingsOmit
   store?: Prisma.StoreOmit
   app?: Prisma.AppOmit
+  installedApp?: Prisma.InstalledAppOmit
 }
 
 /* Types for Logging */

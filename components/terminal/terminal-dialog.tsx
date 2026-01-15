@@ -19,6 +19,7 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !terminalRef.current) return;
@@ -36,31 +37,31 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
 
       // Initialize xterm.js
       term = new Terminal({
-      cursorBlink: true,
-      fontSize: 14,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-      theme: {
-        background: '#000000',
-        foreground: '#00ff00',
-        cursor: '#00ff00',
-        cursorAccent: '#000000',
-        black: '#000000',
-        red: '#ff5555',
-        green: '#50fa7b',
-        yellow: '#f1fa8c',
-        blue: '#bd93f9',
-        magenta: '#ff79c6',
-        cyan: '#8be9fd',
-        white: '#bfbfbf',
-        brightBlack: '#4d4d4d',
-        brightRed: '#ff6e67',
-        brightGreen: '#5af78e',
-        brightYellow: '#f4f99d',
-        brightBlue: '#caa9fa',
-        brightMagenta: '#ff92d0',
-        brightCyan: '#9aedfe',
-        brightWhite: '#e6e6e6',
-      },
+        cursorBlink: true,
+        fontSize: 14,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        theme: {
+          background: '#000000',
+          foreground: '#00ff00',
+          cursor: '#00ff00',
+          cursorAccent: '#000000',
+          black: '#000000',
+          red: '#ff5555',
+          green: '#50fa7b',
+          yellow: '#f1fa8c',
+          blue: '#bd93f9',
+          magenta: '#ff79c6',
+          cyan: '#8be9fd',
+          white: '#bfbfbf',
+          brightBlack: '#4d4d4d',
+          brightRed: '#ff6e67',
+          brightGreen: '#5af78e',
+          brightYellow: '#f4f99d',
+          brightBlue: '#caa9fa',
+          brightMagenta: '#ff92d0',
+          brightCyan: '#9aedfe',
+          brightWhite: '#e6e6e6',
+        },
         cols: 80,
         rows: 24,
       });
@@ -88,21 +89,31 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
 
       ws.onopen = () => {
         console.log('Terminal WebSocket connected');
+        setStatusMessage(null);
         term?.writeln('\x1b[1;32mConnected to server terminal\x1b[0m');
         term?.writeln('');
       };
 
       ws.onmessage = (event) => {
+        if (typeof event.data === 'string' && event.data.includes('Terminal unavailable')) {
+          setStatusMessage(event.data.toString());
+        }
         term?.write(event.data);
       };
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        setStatusMessage('Connection error. Ensure node-pty is installed on the server.');
         term?.writeln('\x1b[1;31mConnection error\x1b[0m');
       };
 
       ws.onclose = () => {
         console.log('Terminal WebSocket disconnected');
+        setStatusMessage(
+          (prev) =>
+            prev ||
+            'Terminal disconnected. If this persists, rebuild node-pty on the server.'
+        );
         term?.writeln('');
         term?.writeln('\x1b[1;31mDisconnected from server\x1b[0m');
       };
@@ -214,6 +225,11 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
           } w-full bg-black/70 p-4 backdrop-blur-xl`}
           style={{ overflow: 'hidden' }}
         />
+        {statusMessage && (
+          <div className="px-4 py-2 text-xs text-amber-300 bg-amber-950/40 border-t border-amber-800">
+            {statusMessage}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
