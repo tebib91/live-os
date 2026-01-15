@@ -372,17 +372,33 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
     }
 
     const containerName = getContainerName(appId);
-    const { stdout } = await execAsync(`docker port ${containerName}`);
+    const { stdout } = await execAsync(
+      `docker inspect -f '{{json .NetworkSettings.Ports}}' ${containerName}`
+    );
 
-    // Parse first port mapping
-    const match = stdout.match(/(\d+)\/tcp -> .*:(\d+)/);
-    if (match) {
-      const hostPort = match[2];
-      return `http://localhost:${hostPort}`;
-    }
+    const ports = JSON.parse(stdout || "{}") as Record<
+      string,
+      { HostIp: string; HostPort: string }[] | null
+    >;
 
-    return null;
-  } catch {
+    const firstMapping = Object.values(ports).find(
+      (mappings) => Array.isArray(mappings) && mappings.length > 0
+    );
+
+    const hostPort = firstMapping?.[0]?.HostPort;
+    if (!hostPort) return null;
+
+    const host =
+      process.env.LIVEOS_DOMAIN ||
+      process.env.LIVEOS_HOST ||
+      process.env.LIVEOS_HTTP_HOST ||
+      process.env.HOSTNAME ||
+      "localhost";
+    const protocol = process.env.LIVEOS_HTTPS === "true" ? "https" : "http";
+
+    return `${protocol}://${host}:${hostPort}`;
+  } catch (error) {
+    console.error(`[Docker] getAppWebUI: failed to resolve URL for ${appId}:`, error);
     return null;
   }
 }

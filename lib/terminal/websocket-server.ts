@@ -33,18 +33,30 @@ export function initializeWebSocketServer(server: any) {
     // Determine the shell to use
     const shell = process.env.SHELL || '/bin/bash';
 
-    // Spawn a shell process
-    const ptyProcess = pty.spawn(shell, [], {
-      name: 'xterm-256color',
-      cols: 80,
-      rows: 24,
-      cwd: process.env.HOME || '/home',
-      env: {
-        ...process.env,
-        TERM: 'xterm-256color',
-        COLORTERM: 'truecolor',
-      } as Record<string, string>,
-    });
+    let ptyProcess: pty.IPty | null = null;
+    try {
+      // Spawn a shell process
+      ptyProcess = pty.spawn(shell, [], {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd: process.env.HOME || '/home',
+        env: {
+          ...process.env,
+          TERM: 'xterm-256color',
+          COLORTERM: 'truecolor',
+        } as Record<string, string>,
+      });
+    } catch (error: any) {
+      console.error('Terminal spawn failed:', error);
+      try {
+        ws.send(`\r\nTerminal unavailable: ${error?.message || 'failed to start shell'}\r\n`);
+      } catch {
+        // ignore send error
+      }
+      ws.close();
+      return;
+    }
 
     // Forward pty output to WebSocket
     ptyProcess.onData((data) => {

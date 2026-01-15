@@ -59,6 +59,41 @@ PY
     exit 1
 }
 
+ensure_archive_tools() {
+    if command -v unzip >/dev/null 2>&1 || command -v bsdtar >/dev/null 2>&1; then
+        print_status "Archive tools present (unzip/bsdtar)"
+        return
+    fi
+
+    print_info "Installing unzip (required for app store imports)..."
+
+    if [ -x "$(command -v apt-get)" ]; then
+        apt-get update
+        apt-get install -y unzip || apt-get install -y libarchive-tools
+    elif [ -x "$(command -v dnf)" ]; then
+        dnf install -y unzip || dnf install -y bsdtar
+    elif [ -x "$(command -v yum)" ]; then
+        yum install -y unzip || yum install -y bsdtar
+    else
+        print_error "Unsupported package manager. Please install unzip or bsdtar manually."
+        return
+    fi
+
+    if command -v unzip >/dev/null 2>&1 || command -v bsdtar >/dev/null 2>&1; then
+        print_status "Archive tools installed successfully"
+    else
+        print_error "Failed to install archive tools. App store imports may fail."
+    fi
+}
+
+ensure_migrations_ready() {
+    print_status "Checking Prisma migration status..."
+    if ! npx prisma migrate status --schema=prisma/schema.prisma; then
+        print_error "Migration status check failed. Please resolve schema/database issues before updating."
+        exit 1
+    fi
+}
+
 # Ensure script is run as root
 if [ "$EUID" -ne 0 ]; then
     print_error "Please run as root"
@@ -114,6 +149,9 @@ git reset --hard origin/"$REMOTE_BRANCH"
 print_status "Installing dependencies..."
 npm install --ignore-scripts
 
+ensure_archive_tools
+ensure_migrations_ready
+
 # Rebuild native modules
 print_status "Rebuilding native modules..."
 
@@ -141,7 +179,7 @@ print_status "better-sqlite3 built successfully"
 print_status "Running database migrations..."
 if ! npx prisma migrate deploy --schema=prisma/schema.prisma; then
     print_error "Prisma migrations failed. Database may be out of sync."
-    print_info "The application will attempt to continue, but some features may not work."
+    exit 1
 fi
 
 # Build project

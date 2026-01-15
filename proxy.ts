@@ -1,54 +1,65 @@
-import { getCurrentUser } from '@/app/actions/auth';
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
-import { SESSION_COOKIE_NAME } from './lib/config';
+import { getCurrentUser, hasUsers } from "@/app/actions/auth";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { SESSION_COOKIE_NAME } from "./lib/config";
 
-// This middleware runs on every request
+const publicRoutes = ["/login", "/setup"];
+
+async function usersExist(): Promise<boolean> {
+  try {
+    return await hasUsers();
+  } catch (error) {
+    console.error("[Proxy] Failed to check users:", error);
+    return true; // fail-open to avoid trapping users on setup
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip middleware for static files and API routes
   if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/static') ||
-    pathname.includes('.')
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/static") ||
+    pathname.includes(".")
   ) {
     return NextResponse.next();
   }
 
-  // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/setup'];
+  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const currentUser = sessionToken ? await getCurrentUser(sessionToken) : null;
+  const isAuthenticated = currentUser !== null;
   const isPublicRoute = publicRoutes.includes(pathname);
 
-  // Check if user is authenticated by validating the session
-  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  const currentUser = await getCurrentUser(sessionToken);
-  const isAuthenticated = currentUser !== null;
+  const hasAnyUsers = await usersExist();
 
-  // Redirect unauthenticated users to login (except for public routes)
-  if (!isAuthenticated && !isPublicRoute) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  // If no users exist yet, force setup for all routes
+  if (!hasAnyUsers && pathname !== "/setup") {
+    return NextResponse.redirect(new URL("/setup", request.url));
   }
 
-  // Redirect authenticated users away from login/setup pages
-  if (isAuthenticated && isPublicRoute) {
-    return NextResponse.redirect(new URL('/', request.url));
+  // Users exist: block setup screen
+  if (hasAnyUsers && pathname === "/setup") {
+    const destination = isAuthenticated ? "/" : "/login";
+    return NextResponse.redirect(new URL(destination, request.url));
+  }
+
+  // Auth guard for the rest of the app
+  if (!isAuthenticated && !isPublicRoute) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // Redirect logged-in users away from login
+  if (isAuthenticated && pathname === "/login") {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();
 }
 
-// Configure which routes this middleware runs on
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\..*|wallpapers).*)',
+    "/((?!_next/static|_next/image|favicon.ico|.*\\..*|wallpapers).*)",
   ],
 };

@@ -382,6 +382,43 @@ install_build_tools() {
     fi
 }
 
+install_archive_tools() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_dry "Ensure zip extraction tools (unzip/bsdtar)"
+        return
+    fi
+
+    if command -v unzip >/dev/null 2>&1; then
+        print_status "zip extraction available via unzip"
+        return
+    fi
+
+    if command -v bsdtar >/dev/null 2>&1; then
+        print_status "zip extraction available via bsdtar"
+        return
+    fi
+
+    print_status "Installing unzip (required to import app stores)..."
+
+    if [ -x "$(command -v apt-get)" ]; then
+        apt-get update
+        apt-get install -y unzip || apt-get install -y libarchive-tools
+    elif [ -x "$(command -v dnf)" ]; then
+        dnf install -y unzip || dnf install -y bsdtar
+    elif [ -x "$(command -v yum)" ]; then
+        yum install -y unzip || yum install -y bsdtar
+    else
+        print_error "Unsupported package manager. Please install unzip or bsdtar manually."
+        return
+    fi
+
+    if command -v unzip >/dev/null 2>&1 || command -v bsdtar >/dev/null 2>&1; then
+        print_status "zip extraction tools installed successfully"
+    else
+        print_error "Failed to install unzip/bsdtar. Importing app stores may not work."
+    fi
+}
+
 # Install Avahi for mDNS/.local domain support
 install_avahi() {
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -769,6 +806,7 @@ check_port
 if [ "$NO_DEP" -eq 0 ]; then
     install_git
     install_build_tools
+    install_archive_tools
     install_nodejs
     install_docker
     install_avahi

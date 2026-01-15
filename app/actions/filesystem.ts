@@ -3,10 +3,13 @@
 
 import { exec } from 'child_process';
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+const HOME_ROOT = process.env.LIVEOS_HOME || os.homedir() || '/home';
+const DEFAULT_DIRECTORIES = ['apps', 'Downloads', 'Documents', 'Photos', 'Devices'] as const;
 
 export interface FileSystemItem {
   name: string;
@@ -24,6 +27,30 @@ export interface DirectoryContent {
   parent: string | null;
 }
 
+export type DefaultDirectory = {
+  name: string;
+  path: string;
+};
+
+async function ensureDefaultDirectories(): Promise<DefaultDirectory[]> {
+  const directories: DefaultDirectory[] = [];
+
+  // Ensure home root exists
+  await fs.mkdir(HOME_ROOT, { recursive: true });
+
+  for (const dir of DEFAULT_DIRECTORIES) {
+    const target = path.join(HOME_ROOT, dir);
+    directories.push({ name: dir, path: target });
+    try {
+      await fs.mkdir(target, { recursive: true });
+    } catch {
+      // Ignore if it already exists or cannot be created
+    }
+  }
+
+  return directories;
+}
+
 /**
  * Validate and sanitize path to prevent directory traversal attacks
  */
@@ -31,30 +58,24 @@ function validatePath(requestedPath: string): { valid: boolean; sanitized: strin
   try {
     // Default to home directory if no path provided
     if (!requestedPath || requestedPath === '') {
-      requestedPath = '/home';
+      requestedPath = HOME_ROOT;
     }
 
     // Resolve to absolute path and normalize
     const sanitized = path.resolve(requestedPath);
 
     // Prevent access to sensitive system directories
-    const blockedPaths = [
-      '/etc/shadow',
-      '/etc/passwd',
-      '/root',
-      '/sys',
-      '/proc',
-    ];
+    const blockedPaths = ['/etc/shadow', '/etc/passwd', '/sys', '/proc'];
 
     for (const blocked of blockedPaths) {
       if (sanitized.startsWith(blocked)) {
-        return { valid: false, sanitized: '/home' };
+        return { valid: false, sanitized: HOME_ROOT };
       }
     }
 
     return { valid: true, sanitized };
   } catch {
-    return { valid: false, sanitized: '/home' };
+    return { valid: false, sanitized: HOME_ROOT };
   }
 }
 
@@ -63,6 +84,8 @@ function validatePath(requestedPath: string): { valid: boolean; sanitized: strin
  */
 export async function readDirectory(dirPath: string): Promise<DirectoryContent> {
   try {
+    await ensureDefaultDirectories();
+
     const { valid, sanitized } = validatePath(dirPath);
     if (!valid) {
       throw new Error('Invalid path');
@@ -284,15 +307,38 @@ export async function readFileContent(
   }
 }
 
-/**
- * Format file size to human-readable format (internal helper)
- */
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
+export async function getDefaultDirectories(): Promise<{
+  home: string;
+  directories: DefaultDirectory[];
+}> {
+  const directories = await ensureDefaultDirectories();
+  return { home: HOME_ROOT, directories };
+}
 
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+export async function openPath(
+  targetPath: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { valid, sanitized } = validatePath(targetPath);
+    if (!valid) {
+      return { success: false, error: 'Invalid path' };
+    }
 
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+    const platform = process.platform;
+    const command =
+      platform === 'darwin'
+        ? `open "${sanitized}"`
+        : platform === 'win32'
+        ? `start "" "${sanitized}"`
+        : `xdg-open "${sanitized}"`;
+
+    await execAsync(command, {
+      shell: platform === 'win32' ? 'cmd.exe' : undefined,
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Open path error:', error);
+    return { success: false, error: error.message || 'Failed to open path' };
+  }
 }

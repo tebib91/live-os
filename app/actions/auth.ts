@@ -6,6 +6,10 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { Role } from "../generated/prisma/enums";
 
+const HAS_USERS_CACHE_MS = 10_000;
+let cachedHasUsers: boolean | null = null;
+let cachedHasUsersAt = 0;
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -22,17 +26,32 @@ export interface AuthResult {
  * Check if any users exist in the system
  */
 export async function hasUsers(): Promise<boolean> {
+  const now = Date.now();
+  if (
+    cachedHasUsers !== null &&
+    now - cachedHasUsersAt < HAS_USERS_CACHE_MS
+  ) {
+    console.log(
+      `[Auth] hasUsers: Using cached result: ${cachedHasUsers ? "true" : "false"}`
+    );
+    return cachedHasUsers;
+  }
+
   console.log("[Auth] hasUsers: Checking if users exist...");
   try {
     const count = await prisma.user.count();
     console.log(`[Auth] hasUsers: Found ${count} users in database`);
-    return count > 0;
+    cachedHasUsers = count > 0;
+    cachedHasUsersAt = now;
+    return cachedHasUsers;
   } catch (error) {
     // If database/table doesn't exist, return false (no users)
     console.error(
       "[Auth] hasUsers error (database may not be initialized):",
       error
     );
+    cachedHasUsers = false;
+    cachedHasUsersAt = now;
     return false;
   }
 }
@@ -128,6 +147,9 @@ export async function registerUser(
     );
 
     console.log("[Auth] registerUser: ✅ Registration completed successfully");
+    cachedHasUsers = true;
+    cachedHasUsersAt = Date.now();
+
     return {
       success: true,
       user: {

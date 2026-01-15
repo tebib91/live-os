@@ -48,7 +48,7 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
       if (url) {
         window.open(url, '_blank');
       } else {
-        toast.error('Unable to determine app URL');
+        toast.error('Unable to determine app URL. Ensure the container exposes a port and is running.');
       }
     } catch (error) {
       toast.error('Failed to open app');

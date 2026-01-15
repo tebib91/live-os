@@ -3,8 +3,11 @@
 import {
   createDirectory,
   deleteItem,
+  getDefaultDirectories,
+  openPath,
   readDirectory,
   renameItem,
+  type DefaultDirectory,
   type DirectoryContent,
   type FileSystemItem,
 } from '@/app/actions/filesystem';
@@ -16,7 +19,9 @@ import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock,
+  ExternalLink,
   FileIcon,
   FolderPlus,
   Grid2x2,
@@ -37,21 +42,59 @@ interface FilesDialogProps {
 }
 
 export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
+  const [homePath, setHomePath] = useState('/home');
   const [currentPath, setCurrentPath] = useState('/home');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [content, setContent] = useState<DirectoryContent | null>(null);
   const [loading, setLoading] = useState(false);
+  const [openingNative, setOpeningNative] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [history, setHistory] = useState<string[]>(['/home']);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [shortcuts, setShortcuts] = useState<DefaultDirectory[]>([]);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (open) {
+    if (open && ready) {
       loadDirectory(currentPath);
     }
-  }, [open, currentPath]);
+  }, [open, currentPath, ready]);
+
+  useEffect(() => {
+    if (!open) {
+      setReady(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const loadDefaults = async () => {
+      try {
+        const result = await getDefaultDirectories();
+        setHomePath(result.home);
+        setShortcuts(result.directories);
+
+        const normalizedHome = result.home || '/home';
+        setHistory((prev) => {
+          if (prev.length === 1 && prev[0] === '/home') {
+            setHistoryIndex(0);
+            setCurrentPath(normalizedHome);
+            return [normalizedHome];
+          }
+          return prev;
+        });
+        setReady(true);
+      } catch (error) {
+        console.error(error);
+        toast.error('Failed to load default directories');
+      }
+    };
+
+    loadDefaults();
+  }, [open]);
 
   const loadDirectory = async (path: string) => {
     setLoading(true);
@@ -67,11 +110,18 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
   };
 
   const handleNavigate = (path: string) => {
+    if (!path) return;
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(path);
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
     setCurrentPath(path);
+  };
+
+  const handleGoToParent = () => {
+    if (content?.parent) {
+      handleNavigate(content.parent);
+    }
   };
 
   const handleBack = () => {
@@ -86,6 +136,41 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
       setHistoryIndex(historyIndex + 1);
       setCurrentPath(history[historyIndex + 1]);
     }
+  };
+
+  const handleOpenNative = async (pathToOpen: string) => {
+    if (!pathToOpen) return;
+    setOpeningNative(true);
+    try {
+      const result = await openPath(pathToOpen);
+      if (result.success) {
+        toast.success('Opened in your OS');
+      } else {
+        toast.error(result.error || 'Failed to open');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to open');
+    } finally {
+      setOpeningNative(false);
+    }
+  };
+
+  const handleItemOpen = (item: FileSystemItem) => {
+    if (item.type === 'directory') {
+      handleNavigate(item.path);
+    } else {
+      handleOpenNative(item.path);
+    }
+  };
+
+  const shortcutPath = (name: string) => {
+    const match = shortcuts.find(
+      (dir) => dir.name.toLowerCase() === name.toLowerCase()
+    );
+    if (match) return match.path;
+    const trimmedHome = homePath.endsWith('/') ? homePath.slice(0, -1) : homePath;
+    return `${trimmedHome}/${name}`;
   };
 
   const handleCreateFolder = async () => {
@@ -134,7 +219,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     }
   };
 
-const filteredItems = content?.items.filter((item) => showHidden || !item.isHidden) || [];
+  const filteredItems = content?.items.filter((item) => showHidden || !item.isHidden) || [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -164,9 +249,14 @@ const filteredItems = content?.items.filter((item) => showHidden || !item.isHidd
             <ScrollArea className="flex-1 px-3">
               <div className="space-y-1">
                 {/* Main Navigation */}
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-white/10 text-white/90 hover:bg-white/15 transition-colors border border-white/10 shadow-sm">
+                <button
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-white/10 text-white/90 hover:bg-white/15 transition-colors border border-white/10 shadow-sm"
+                  onClick={() => handleNavigate(homePath)}
+                >
                   <Home className="h-4 w-4 text-white/80" />
-                  <span className="text-sm -tracking-[0.01em]">ahmed&apos;s Umbrel</span>
+                  <span className="text-sm -tracking-[0.01em]">
+                    {homePath.split('/').filter(Boolean).pop() || 'Home'}
+                  </span>
                 </button>
 
                 <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
@@ -174,7 +264,10 @@ const filteredItems = content?.items.filter((item) => showHidden || !item.isHidd
                   <span className="text-sm -tracking-[0.01em]">Recents</span>
                 </button>
 
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
+                <button
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10"
+                  onClick={() => handleNavigate(shortcutPath('apps'))}
+                >
                   <Grid3x3 className="h-4 w-4 text-white/70" />
                   <span className="text-sm -tracking-[0.01em]">Apps</span>
                 </button>
@@ -184,60 +277,33 @@ const filteredItems = content?.items.filter((item) => showHidden || !item.isHidd
                   <div className="text-xs text-white/50 px-3 -tracking-[0.01em]">Favorites</div>
                 </div>
 
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
-                  <div className="relative w-4 h-3.5 flex-shrink-0">
-                    {/* Tab */}
-                    <div className="absolute top-0 left-0 w-1.5 h-1 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
-                    {/* Body */}
-                    <div className="absolute top-0.5 left-0 w-full h-2.5 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded shadow">
-                      <div className="absolute inset-0 rounded bg-gradient-to-b from-white/20 to-transparent"></div>
+                {shortcuts.map((shortcut) => (
+                  <button
+                    key={shortcut.path}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10"
+                    onClick={() => handleNavigate(shortcut.path)}
+                  >
+                    <div className="relative w-4 h-3.5 flex-shrink-0">
+                      <div className="absolute top-0 left-0 w-1.5 h-1 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
+                      <div className="absolute top-0.5 left-0 w-full h-2.5 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded shadow">
+                        <div className="absolute inset-0 rounded bg-gradient-to-b from-white/20 to-transparent"></div>
+                      </div>
                     </div>
-                  </div>
-                  <span className="text-sm -tracking-[0.01em]">Downloads</span>
-                </button>
-
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
-                  <div className="relative w-4 h-3.5 flex-shrink-0">
-                    {/* Tab */}
-                    <div className="absolute top-0 left-0 w-1.5 h-1 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
-                    {/* Body */}
-                    <div className="absolute top-0.5 left-0 w-full h-2.5 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded shadow">
-                      <div className="absolute inset-0 rounded bg-gradient-to-b from-white/20 to-transparent"></div>
-                    </div>
-                  </div>
-                  <span className="text-sm -tracking-[0.01em]">Documents</span>
-                </button>
-
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
-                  <div className="relative w-4 h-3.5 flex-shrink-0">
-                    {/* Tab */}
-                    <div className="absolute top-0 left-0 w-1.5 h-1 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
-                    {/* Body */}
-                    <div className="absolute top-0.5 left-0 w-full h-2.5 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded shadow">
-                      <div className="absolute inset-0 rounded bg-gradient-to-b from-white/20 to-transparent"></div>
-                    </div>
-                  </div>
-                  <span className="text-sm -tracking-[0.01em]">Photos</span>
-                </button>
-
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
-                  <div className="relative w-4 h-3.5 flex-shrink-0">
-                    {/* Tab */}
-                    <div className="absolute top-0 left-0 w-1.5 h-1 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
-                    {/* Body */}
-                    <div className="absolute top-0.5 left-0 w-full h-2.5 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded shadow">
-                      <div className="absolute inset-0 rounded bg-gradient-to-b from-white/20 to-transparent"></div>
-                    </div>
-                  </div>
-                  <span className="text-sm -tracking-[0.01em]">Videos</span>
-                </button>
+                    <span className="text-sm -tracking-[0.01em]">
+                      {shortcut.name.charAt(0).toUpperCase() + shortcut.name.slice(1)}
+                    </span>
+                  </button>
+                ))}
 
                 {/* Network Section */}
                 <div className="pt-4 pb-2">
                   <div className="text-xs text-white/50 px-3 -tracking-[0.01em]">Network</div>
                 </div>
 
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
+                <button
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10"
+                  onClick={() => handleNavigate(shortcutPath('Devices'))}
+                >
                   <div className="relative w-4 h-4 flex-shrink-0">
                     <div className="w-full h-full rounded-sm bg-gradient-to-br from-cyan-400 via-cyan-500 to-cyan-600 shadow-sm">
                       <div className="absolute inset-0 rounded-sm bg-gradient-to-b from-white/30 to-transparent"></div>
@@ -297,6 +363,26 @@ const filteredItems = content?.items.filter((item) => showHidden || !item.isHidd
                 <div className="flex items-center gap-2 text-white">
                   <Home className="h-4 w-4 text-white/80" />
                   <span className="text-sm font-medium -tracking-[0.01em]">{currentPath}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleGoToParent}
+                    disabled={!content?.parent || loading}
+                    className="h-8 w-8 rounded-lg hover:bg-white/5 text-white/60 hover:text-white/90 disabled:opacity-30"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleOpenNative(currentPath)}
+                    disabled={loading || openingNative}
+                    className="h-8 w-8 rounded-lg hover:bg-white/5 text-white/60 hover:text-white/90 disabled:opacity-30"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
 
@@ -428,10 +514,10 @@ const filteredItems = content?.items.filter((item) => showHidden || !item.isHidd
                     {filteredItems.map((item) => (
                       <button
                         key={item.path}
-                        onClick={() => {
-                          if (item.type === 'directory') {
-                            handleNavigate(item.path);
-                          }
+                        onClick={() => handleItemOpen(item)}
+                        onDoubleClick={(e) => {
+                          e.preventDefault();
+                          handleOpenNative(item.path);
                         }}
                         onContextMenu={(e) => {
                           e.preventDefault();
@@ -472,18 +558,14 @@ const filteredItems = content?.items.filter((item) => showHidden || !item.isHidd
                     {filteredItems.map((item) => (
                       <button
                         key={item.path}
-                        onClick={() => {
-                          if (item.type === 'directory') {
-                            handleNavigate(item.path);
-                          }
-                        }}
+                        onClick={() => handleItemOpen(item)}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           const action = confirm(`Delete "${item.name}"?`);
                           if (action) handleDelete(item);
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
-                      >
+                     >
                         {item.type === 'directory' ? (
                           <div className="relative w-8 h-7 flex-shrink-0">
                             <div className="absolute top-0 left-0 w-3.5 h-2 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>

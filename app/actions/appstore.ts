@@ -256,15 +256,45 @@ async function extractZipBuffer(
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "liveos-store-"));
   const zipPath = path.join(tmpDir, "store.zip");
   await fs.writeFile(zipPath, buffer);
+
+  const extractor = await findZipExtractor();
+  if (!extractor) {
+    throw new Error(
+      "Failed to extract store archive: unzip/bsdtar/tar not available on this system"
+    );
+  }
+
+  await fs.mkdir(targetDir, { recursive: true });
   try {
-    await execAsync(`unzip -oq "${zipPath}" -d "${targetDir}"`);
+    await execAsync(extractor(zipPath, targetDir));
   } catch (error: any) {
     throw new Error(
-      `Failed to extract store archive (unzip required): ${
+      `Failed to extract store archive: ${
         error?.message ?? "unknown error"
       }`
     );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
   }
+}
+
+async function findZipExtractor(): Promise<((zip: string, dest: string) => string) | null> {
+  const candidates: { tool: string; build: (zip: string, dest: string) => string }[] = [
+    { tool: "unzip", build: (zip, dest) => `unzip -oq "${zip}" -d "${dest}"` },
+    { tool: "bsdtar", build: (zip, dest) => `bsdtar -xf "${zip}" -C "${dest}"` },
+    { tool: "tar", build: (zip, dest) => `tar -xf "${zip}" -C "${dest}"` },
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      await execAsync(`command -v ${candidate.tool}`);
+      return candidate.build;
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  return null;
 }
 
 async function parseCasaStore(
