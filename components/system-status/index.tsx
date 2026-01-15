@@ -1,39 +1,25 @@
 "use client";
 
-import { getStorageInfo, getSystemStatus } from "@/app/actions/system-status";
+import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { Card } from "@/components/ui/card";
 import { ChevronRight, HardDrive, Settings } from "lucide-react";
-import { useEffect, useState } from "react";
 import { CircularProgress } from "./circular-progress";
 
 export function SystemStatusCard() {
-  const [systemStatus, setSystemStatus] = useState({
+  const { systemStats, storageStats } = useSystemStatus();
+
+  // Use WebSocket data or defaults
+  const systemStatus = systemStats || {
     cpu: { usage: 0, temperature: 0, power: 0 },
     memory: { usage: 0, total: 0, used: 0, free: 0 },
-  });
+  };
 
-  const [storage, setStorage] = useState({
+  const storage = storageStats || {
     total: 0,
     used: 0,
     usagePercent: 0,
     health: "Healthy",
-  });
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const [statusData, storageData] = await Promise.all([
-        getSystemStatus(),
-        getStorageInfo(),
-      ]);
-      setSystemStatus(statusData);
-      setStorage(storageData);
-    };
-
-    fetchData();
-    const interval = setInterval(fetchData, 3000); // Update every 3 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+  };
 
   const formatBytes = (bytes: number) => {
     return (bytes / 1024 / 1024 / 1024).toFixed(1) + " GB";

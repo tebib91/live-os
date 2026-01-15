@@ -23,9 +23,8 @@ export function initializeWebSocketServer(server: any) {
       wss!.handleUpgrade(request, socket, head, (ws) => {
         wss!.emit('connection', ws, request);
       });
-    } else {
-      socket.destroy();
     }
+    // Note: Don't destroy socket for other paths - let other WebSocket handlers process them
   });
 
   wss.on('connection', (ws) => {

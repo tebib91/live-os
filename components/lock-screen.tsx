@@ -125,10 +125,10 @@ export function LockScreen({ open, onUnlock }: LockScreenProps) {
                 containerClassName="justify-center"
               >
                 <InputOTPGroup>
-                  <InputOTPSlot index={0} className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur" />
-                  <InputOTPSlot index={1} className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur" />
-                  <InputOTPSlot index={2} className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur" />
-                  <InputOTPSlot index={3} className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur" />
+                  <InputOTPSlot mask index={0} className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur" />
+                  <InputOTPSlot mask index={1} className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur" />
+                  <InputOTPSlot mask index={2} className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur" />
+                  <InputOTPSlot mask index={3} className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur" />
                 </InputOTPGroup>
               </InputOTP>
 

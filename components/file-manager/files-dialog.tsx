@@ -134,21 +134,28 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     }
   };
 
-  const filteredItems = content?.items.filter((item) => showHidden || !item.isHidden) || [];
+const filteredItems = content?.items.filter((item) => showHidden || !item.isHidden) || [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[95vw] sm:max-w-[1400px] max-h-[90vh] bg-black border-zinc-800 shadow-2xl p-0 gap-0 overflow-hidden"
+        className="max-w-[95vw] sm:max-w-[1400px] max-h-[90vh] bg-white/5 border border-white/10 backdrop-blur-3xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden ring-1 ring-white/5"
         aria-describedby="files-description"
       >
         <div className="flex h-[90vh]">
           {/* Left Sidebar */}
-          <div className="w-52 bg-zinc-900/50 border-r border-zinc-800 flex flex-col">
+          <div className="w-60 bg-black/30 backdrop-blur-xl border-r border-white/10 flex flex-col">
             {/* Sidebar Header */}
             <div className="p-6">
-              <DialogTitle className="text-5xl font-bold text-white/90 -tracking-[0.02em]">Files</DialogTitle>
+              <div className="flex items-center gap-3">
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white/70">
+                  System
+                </span>
+                <DialogTitle className="text-3xl font-semibold text-white drop-shadow">
+                  Files
+                </DialogTitle>
+              </div>
               <DialogDescription id="files-description" className="sr-only">
                 File manager for browsing and managing your files
               </DialogDescription>
@@ -157,27 +164,27 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
             <ScrollArea className="flex-1 px-3">
               <div className="space-y-1">
                 {/* Main Navigation */}
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-white/10 text-white/90 hover:bg-white/15 transition-colors">
-                  <Home className="h-4 w-4 text-orange-500" />
+                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-white/10 text-white/90 hover:bg-white/15 transition-colors border border-white/10 shadow-sm">
+                  <Home className="h-4 w-4 text-white/80" />
                   <span className="text-sm -tracking-[0.01em]">ahmed&apos;s Umbrel</span>
                 </button>
 
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/60 hover:bg-white/5 hover:text-white/90 transition-colors">
-                  <Clock className="h-4 w-4 text-orange-500" />
+                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
+                  <Clock className="h-4 w-4 text-white/70" />
                   <span className="text-sm -tracking-[0.01em]">Recents</span>
                 </button>
 
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/60 hover:bg-white/5 hover:text-white/90 transition-colors">
-                  <Grid3x3 className="h-4 w-4 text-orange-500" />
+                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
+                  <Grid3x3 className="h-4 w-4 text-white/70" />
                   <span className="text-sm -tracking-[0.01em]">Apps</span>
                 </button>
 
                 {/* Favorites Section */}
                 <div className="pt-4 pb-2">
-                  <div className="text-xs text-white/40 px-3 -tracking-[0.01em]">Favorites</div>
+                  <div className="text-xs text-white/50 px-3 -tracking-[0.01em]">Favorites</div>
                 </div>
 
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/60 hover:bg-white/5 hover:text-white/90 transition-colors">
+                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
                   <div className="relative w-4 h-3.5 flex-shrink-0">
                     {/* Tab */}
                     <div className="absolute top-0 left-0 w-1.5 h-1 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
@@ -189,7 +196,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   <span className="text-sm -tracking-[0.01em]">Downloads</span>
                 </button>
 
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/60 hover:bg-white/5 hover:text-white/90 transition-colors">
+                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
                   <div className="relative w-4 h-3.5 flex-shrink-0">
                     {/* Tab */}
                     <div className="absolute top-0 left-0 w-1.5 h-1 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
@@ -201,7 +208,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   <span className="text-sm -tracking-[0.01em]">Documents</span>
                 </button>
 
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/60 hover:bg-white/5 hover:text-white/90 transition-colors">
+                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
                   <div className="relative w-4 h-3.5 flex-shrink-0">
                     {/* Tab */}
                     <div className="absolute top-0 left-0 w-1.5 h-1 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
@@ -213,7 +220,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   <span className="text-sm -tracking-[0.01em]">Photos</span>
                 </button>
 
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/60 hover:bg-white/5 hover:text-white/90 transition-colors">
+                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
                   <div className="relative w-4 h-3.5 flex-shrink-0">
                     {/* Tab */}
                     <div className="absolute top-0 left-0 w-1.5 h-1 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
@@ -227,10 +234,10 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
 
                 {/* Network Section */}
                 <div className="pt-4 pb-2">
-                  <div className="text-xs text-white/40 px-3 -tracking-[0.01em]">Network</div>
+                  <div className="text-xs text-white/50 px-3 -tracking-[0.01em]">Network</div>
                 </div>
 
-                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/60 hover:bg-white/5 hover:text-white/90 transition-colors">
+                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
                   <div className="relative w-4 h-4 flex-shrink-0">
                     <div className="w-full h-full rounded-sm bg-gradient-to-br from-cyan-400 via-cyan-500 to-cyan-600 shadow-sm">
                       <div className="absolute inset-0 rounded-sm bg-gradient-to-b from-white/30 to-transparent"></div>
@@ -244,8 +251,8 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
             </ScrollArea>
 
             {/* Sidebar Footer */}
-            <div className="p-3 border-t border-zinc-800">
-              <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/40 hover:bg-white/5 hover:text-white/60 transition-colors">
+            <div className="p-3 border-t border-white/10">
+              <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/60 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
                 <div className="relative w-4 h-4 flex-shrink-0">
                   <div className="w-full h-full rounded-sm bg-gradient-to-br from-zinc-500 via-zinc-600 to-zinc-700 shadow-sm">
                     <div className="absolute inset-0 rounded-sm bg-gradient-to-b from-white/20 to-transparent"></div>
@@ -261,9 +268,9 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 flex flex-col bg-zinc-950">
+          <div className="flex-1 flex flex-col bg-white/5 backdrop-blur-xl">
             {/* Top Toolbar */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/30 backdrop-blur">
               {/* Left Section - Navigation */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1">
@@ -287,8 +294,8 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   </Button>
                 </div>
 
-                <div className="flex items-center gap-2 text-white/90">
-                  <Home className="h-4 w-4 text-orange-500" />
+                <div className="flex items-center gap-2 text-white">
+                  <Home className="h-4 w-4 text-white/80" />
                   <span className="text-sm font-medium -tracking-[0.01em]">{currentPath}</span>
                 </div>
               </div>
@@ -299,19 +306,24 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   variant="ghost"
                   onClick={() => setCreatingFolder(!creatingFolder)}
                   disabled={loading}
-                  className="h-9 px-4 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 text-white/90 text-sm"
+                  className="h-9 px-4 rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 text-white text-sm shadow-sm"
                 >
                   <FolderPlus className="h-4 w-4 mr-2" />
                   Folder
                 </Button>
 
-                <label className="flex items-center gap-2 text-xs text-white/60">
-                  <input
-                    type="checkbox"
-                    checked={showHidden}
-                    onChange={(e) => setShowHidden(e.target.checked)}
-                    className="rounded"
-                  />
+                <label className="flex items-center gap-2 text-xs text-white/70">
+                  <span className="relative inline-flex">
+                    <input
+                      type="checkbox"
+                      checked={showHidden}
+                      onChange={(e) => setShowHidden(e.target.checked)}
+                      className="peer h-4 w-4 appearance-none rounded border border-white/20 bg-white/10 transition-all checked:bg-white checked:border-white/80 checked:shadow-[0_0_0_2px_rgba(255,255,255,0.18)]"
+                    />
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] text-black opacity-0 peer-checked:opacity-100">
+                      ✓
+                    </span>
+                  </span>
                   Hidden
                 </label>
 
@@ -319,7 +331,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
                   <Input
                     placeholder="Search"
-                    className="h-9 w-48 pl-9 bg-zinc-800/50 border-zinc-700 text-white/90 placeholder:text-white/40 text-sm"
+                    className="h-9 w-48 pl-9 bg-white/10 border-white/15 text-white placeholder:text-white/40 text-sm"
                   />
                 </div>
 
@@ -327,10 +339,10 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   variant="ghost"
                   size="icon"
                   onClick={() => setViewMode('grid')}
-                  className={`h-9 w-9 rounded-lg ${
+                  className={`h-9 w-9 rounded-lg border ${
                     viewMode === 'grid'
-                      ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                      : 'bg-zinc-800/50 hover:bg-zinc-800 text-white/60'
+                      ? 'border-white/60 bg-white/15 text-white'
+                      : 'border-white/15 bg-white/10 text-white/70 hover:text-white hover:bg-white/15'
                   }`}
                 >
                   <Grid2x2 className="h-4 w-4" />
@@ -340,10 +352,10 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   variant="ghost"
                   size="icon"
                   onClick={() => setViewMode('list')}
-                  className={`h-9 w-9 rounded-lg ${
+                  className={`h-9 w-9 rounded-lg border ${
                     viewMode === 'list'
-                      ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                      : 'bg-zinc-800/50 hover:bg-zinc-800 text-white/60'
+                      ? 'border-white/60 bg-white/15 text-white'
+                      : 'border-white/15 bg-white/10 text-white/70 hover:text-white hover:bg-white/15'
                   }`}
                 >
                   <List className="h-4 w-4" />
@@ -352,7 +364,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 text-white/60"
+                  className="h-9 w-9 rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 text-white/70"
                 >
                   <ArrowUpDown className="h-4 w-4" />
                 </Button>
@@ -361,7 +373,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   variant="ghost"
                   size="icon"
                   onClick={() => onOpenChange(false)}
-                  className="h-9 w-9 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 text-white/60 hover:text-white/90"
+                  className="h-9 w-9 rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -370,7 +382,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
 
             {/* New Folder Input */}
             {creatingFolder && (
-              <div className="px-6 py-3 border-b border-zinc-800 flex items-center gap-2">
+              <div className="px-6 py-3 border-b border-white/10 flex items-center gap-2 bg-black/30 backdrop-blur">
                 <Input
                   placeholder="Folder name"
                   value={newFolderName}
@@ -379,13 +391,13 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                     if (e.key === 'Enter') handleCreateFolder();
                     if (e.key === 'Escape') setCreatingFolder(false);
                   }}
-                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  className="bg-white/10 border border-white/15 text-white"
                   autoFocus
                 />
                 <Button
                   onClick={handleCreateFolder}
                   size="sm"
-                  className="bg-orange-500 hover:bg-orange-600"
+                  className="border border-white/15 bg-white/10 hover:bg-white/20 text-white shadow-sm"
                 >
                   Create
                 </Button>
@@ -393,7 +405,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
                   onClick={() => setCreatingFolder(false)}
                   size="sm"
                   variant="ghost"
-                  className="hover:bg-white/5"
+                  className="hover:bg-white/10 text-white/80"
                 >
                   Cancel
                 </Button>

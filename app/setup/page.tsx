@@ -1,30 +1,34 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { registerUser, hasUsers } from '@/app/actions/auth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { WallpaperLayout } from '@/components/layout/wallpaper-layout';
-import { Loader2, CheckCircle2 } from 'lucide-react';
-import packageJson from '../../package.json';
+import { hasUsers, registerUser } from "@/app/actions/auth";
+import { WallpaperLayout } from "@/components/layout/wallpaper-layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import { Label } from "@/components/ui/label";
+import { VERSION } from "@/lib/config";
+import { CheckCircle2, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function SetupPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [pin, setPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
+  const [username, setUsername] = useState("");
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [checkingUsers, setCheckingUsers] = useState(true);
 
   useEffect(() => {
     // Check if users already exist, redirect to login if they do
     hasUsers().then((exists) => {
       if (exists) {
-        router.push('/login');
+        router.push("/login");
       } else {
         setCheckingUsers(false);
       }
@@ -33,21 +37,21 @@ export default function SetupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     // Validate
     if (username.length < 3) {
-      setError('Username must be at least 3 characters long');
+      setError("Username must be at least 3 characters long");
       return;
     }
 
     if (pin.length !== 4) {
-      setError('PIN must be exactly 4 digits');
+      setError("PIN must be exactly 4 digits");
       return;
     }
 
     if (pin !== confirmPin) {
-      setError('PINs do not match');
+      setError("PINs do not match");
       return;
     }
 
@@ -58,23 +62,20 @@ export default function SetupPage() {
 
       if (result.success) {
         // Use full page reload to ensure cookie is sent with next request
-        window.location.href = '/';
+        window.location.href = "/";
       } else {
-        setError(result.error || 'Registration failed');
+        setError(result.error || "Registration failed");
       }
     } catch (err) {
-      setError('An unexpected error occurred');
-      console.error('Registration error:', err);
+      setError("An unexpected error occurred");
+      console.error("Registration error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePinChange = (
-    value: string,
-    setter: (value: string) => void
-  ) => {
-    const cleaned = value.replace(/\D/g, '').slice(0, 4);
+  const handlePinChange = (value: string, setter: (value: string) => void) => {
+    const cleaned = value.replace(/\D/g, "").slice(0, 4);
     setter(cleaned);
   };
 
@@ -96,8 +97,12 @@ export default function SetupPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Header */}
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">Welcome to LiveOS</h1>
-            <p className="text-zinc-200 drop-shadow-md">Create your admin account to get started</p>
+            <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">
+              Welcome to LiveOS
+            </h1>
+            <p className="text-zinc-200 drop-shadow-md">
+              Create your admin account to get started
+            </p>
           </div>
 
           {/* Setup Form */}
@@ -106,8 +111,8 @@ export default function SetupPage() {
               {/* Info Box */}
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                 <p className="text-sm text-blue-400">
-                  This will be your admin account with full system access. Choose a
-                  memorable username and 4-digit PIN.
+                  This will be your admin account with full system access.
+                  Choose a memorable username and 4-digit PIN.
                 </p>
               </div>
 
@@ -128,9 +133,7 @@ export default function SetupPage() {
                   className="bg-zinc-800/90 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-blue-500 focus:ring-blue-500"
                   disabled={loading}
                 />
-                <p className="text-xs text-zinc-400">
-                  At least 3 characters
-                </p>
+                <p className="text-xs text-zinc-400">At least 3 characters</p>
               </div>
 
               {/* PIN */}
@@ -147,10 +150,26 @@ export default function SetupPage() {
                     pattern="[0-9]*"
                   >
                     <InputOTPGroup>
-                      <InputOTPSlot index={0} className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl" />
-                      <InputOTPSlot index={1} className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl" />
-                      <InputOTPSlot index={2} className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl" />
-                      <InputOTPSlot index={3} className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl" />
+                      <InputOTPSlot
+                        mask
+                        index={0}
+                        className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                      />
+                      <InputOTPSlot
+                        mask
+                        index={1}
+                        className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                      />
+                      <InputOTPSlot
+                        mask
+                        index={2}
+                        className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                      />
+                      <InputOTPSlot
+                        mask
+                        index={3}
+                        className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                      />
                     </InputOTPGroup>
                   </InputOTP>
                 </div>
@@ -171,10 +190,26 @@ export default function SetupPage() {
                       pattern="[0-9]*"
                     >
                       <InputOTPGroup>
-                        <InputOTPSlot index={0} className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl" />
-                        <InputOTPSlot index={1} className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl" />
-                        <InputOTPSlot index={2} className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl" />
-                        <InputOTPSlot index={3} className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl" />
+                        <InputOTPSlot
+                          mask
+                          index={0}
+                          className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                        />
+                        <InputOTPSlot
+                          mask
+                          index={1}
+                          className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                        />
+                        <InputOTPSlot
+                          mask
+                          index={2}
+                          className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                        />
+                        <InputOTPSlot
+                          mask
+                          index={3}
+                          className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                        />
                       </InputOTPGroup>
                     </InputOTP>
                     {pinMatch && (
@@ -183,7 +218,9 @@ export default function SetupPage() {
                   </div>
                 </div>
                 {confirmPin.length === 4 && !pinMatch && (
-                  <p className="text-xs text-red-400 text-center">PINs do not match</p>
+                  <p className="text-xs text-red-400 text-center">
+                    PINs do not match
+                  </p>
                 )}
               </div>
 
@@ -206,7 +243,7 @@ export default function SetupPage() {
                     Creating Account...
                   </>
                 ) : (
-                  'Create Admin Account'
+                  "Create Admin Account"
                 )}
               </Button>
             </form>
@@ -217,7 +254,7 @@ export default function SetupPage() {
             LiveOS - Self-hosted infrastructure management
           </p>
           <span className="block text-center text-xs text-zinc-400">
-            Version {packageJson.version}
+            Version {VERSION}
           </span>
         </div>
       </div>

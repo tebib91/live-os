@@ -5,101 +5,119 @@ import { InstalledAppsGrid } from "@/components/installed-apps/installed-apps-gr
 import { DockOs } from "@/components/layout/dock";
 import { UserMenu } from "@/components/layout/user-menu";
 import { WallpaperLayout } from "@/components/layout/wallpaper-layout";
+import { LockScreen } from "@/components/lock-screen";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { SystemMonitorDialog } from "@/components/system-monitor";
 import { TerminalDialog } from "@/components/terminal/terminal-dialog";
+import { VERSION } from "@/lib/config";
+import { getSettings } from "@/app/actions/settings";
 import { useEffect, useState } from "react";
-import { LockScreen } from "@/components/lock-screen";
-import { GreetingCard } from "@/components/greeting-card";
-import { SystemStatusCard } from "@/components/system-status";
 
 export default function Home() {
   const sampleApps = [
     {
-      id: 'finder',
-      name: 'Finder',
-      icon: 'https://img.icons8.com/?size=100&id=12775&format=png&color=000000'
+      id: "finder",
+      name: "Finder",
+      icon: "https://img.icons8.com/?size=100&id=12775&format=png&color=000000",
     },
     {
-      id: 'terminal',
-      name: 'Terminal',
-      icon: 'https://img.icons8.com/?size=100&id=WbRVMGxHh74X&format=png&color=000000'
+      id: "terminal",
+      name: "Terminal",
+      icon: "https://img.icons8.com/?size=100&id=WbRVMGxHh74X&format=png&color=000000",
     },
     {
-      id: 'monitor',
-      name: 'Monitor',
-      icon: 'https://img.icons8.com/?size=100&id=MT51l0HSFpBZ&format=png&color=000000'
+      id: "monitor",
+      name: "Monitor",
+      icon: "https://img.icons8.com/?size=100&id=MT51l0HSFpBZ&format=png&color=000000",
     },
     {
-      id: 'store',
-      name: 'Store',
-      icon: 'https://img.icons8.com/?size=100&id=chS9utjiN2xq&format=png&color=000000'
+      id: "store",
+      name: "Store",
+      icon: "https://img.icons8.com/?size=100&id=chS9utjiN2xq&format=png&color=000000",
     },
     {
-      id: 'settings',
-      name: 'Settings',
-      icon: 'https://img.icons8.com/?size=100&id=12784&format=png&color=000000'
+      id: "settings",
+      name: "Settings",
+      icon: "https://img.icons8.com/?size=100&id=12784&format=png&color=000000",
     },
   ];
-  const [openApps, setOpenApps] = useState<string[]>(['finder', 'safari']);
+  const [openApps, setOpenApps] = useState<string[]>(["finder", "safari"]);
   const [appStoreOpen, setAppStoreOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [monitorOpen, setMonitorOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
-  const [wallpaper, setWallpaper] = useState('/wallpapers/pexels-philippedonn.jpg');
+  const [wallpaper, setWallpaper] = useState<string | undefined>(undefined);
   const [locked, setLocked] = useState(false);
 
+  useEffect(() => {
+    const loadWallpaper = async () => {
+      try {
+        const settings = await getSettings();
+        if (settings.currentWallpaper) {
+          setWallpaper(settings.currentWallpaper);
+        } else {
+          setWallpaper("/wallpapers/pexels-philippedonn.jpg");
+        }
+      } catch (error) {
+        console.error("Failed to load wallpaper:", error);
+        setWallpaper("/wallpapers/pexels-philippedonn.jpg");
+      }
+    };
+
+    loadWallpaper();
+  }, []);
+
   const handleAppClick = (appId: string) => {
-    console.log('App clicked:', appId);
+    console.log("App clicked:", appId);
 
     // Open files dialog when finder icon is clicked
-    if (appId === 'finder') {
+    if (appId === "finder") {
       setFilesOpen(true);
       return;
     }
 
     // Open app store dialog when store icon is clicked
-    if (appId === 'store') {
+    if (appId === "store") {
       setAppStoreOpen(true);
       return;
     }
 
     // Open settings dialog when settings icon is clicked
-    if (appId === 'settings') {
+    if (appId === "settings") {
       setSettingsOpen(true);
       return;
     }
 
     // Open system monitor dialog when monitor icon is clicked
-    if (appId === 'monitor') {
+    if (appId === "monitor") {
       setMonitorOpen(true);
       return;
     }
 
     // Open terminal dialog when terminal icon is clicked
-    if (appId === 'terminal') {
+    if (appId === "terminal") {
       setTerminalOpen(true);
       return;
     }
 
-    setOpenApps(prev =>
+    setOpenApps((prev) =>
       prev.includes(appId)
-        ? prev.filter(id => id !== appId)
+        ? prev.filter((id) => id !== appId)
         : [...prev, appId]
     );
   };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey && event.key.toLowerCase() === 'l') {
+      if (event.metaKey && event.key.toLowerCase() === "l") {
         event.preventDefault();
         setLocked(true);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const handleUnlock = () => {
@@ -113,8 +131,8 @@ export default function Home() {
       onWallpaperLoaded={setWallpaper}
     >
       {/* Widgets */}
-      <GreetingCard />
-      <SystemStatusCard />
+      {/* <GreetingCard />
+      <SystemStatusCard /> */}
 
       {/* User Menu - Top Right */}
       <div className="fixed top-4 right-4 z-50">
@@ -137,10 +155,7 @@ export default function Home() {
         </div>
 
         {/* App Store Dialog */}
-        <AppStoreDialog
-          open={appStoreOpen}
-          onOpenChange={setAppStoreOpen}
-        />
+        <AppStoreDialog open={appStoreOpen} onOpenChange={setAppStoreOpen} />
 
         {/* Settings Dialog */}
         <SettingsDialog
@@ -151,25 +166,19 @@ export default function Home() {
         />
 
         {/* System Monitor Dialog */}
-        <SystemMonitorDialog
-          open={monitorOpen}
-          onOpenChange={setMonitorOpen}
-        />
+        <SystemMonitorDialog open={monitorOpen} onOpenChange={setMonitorOpen} />
 
         {/* Files Dialog */}
-        <FilesDialog
-          open={filesOpen}
-          onOpenChange={setFilesOpen}
-        />
+        <FilesDialog open={filesOpen} onOpenChange={setFilesOpen} />
 
         {/* Terminal Dialog */}
-        <TerminalDialog
-          open={terminalOpen}
-          onOpenChange={setTerminalOpen}
-        />
+        <TerminalDialog open={terminalOpen} onOpenChange={setTerminalOpen} />
       </main>
 
       <LockScreen open={locked} onUnlock={handleUnlock} />
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end space-y-1">
+        <div className="text-xs text-white/50">LiveOS - v{VERSION}</div>
+      </div>
     </WallpaperLayout>
   );
 }

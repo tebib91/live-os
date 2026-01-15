@@ -34,6 +34,15 @@ app.prepare().then(() => {
       console.log('  To enable terminal, run: npm install node-pty && npm rebuild node-pty');
     });
 
+  // Initialize WebSocket server for real-time system status
+  import('./lib/system-status/websocket-server')
+    .then((module) => {
+      module.initializeSystemStatusWebSocket(server);
+    })
+    .catch((err) => {
+      console.error('⚠ System status WebSocket failed to initialize:', err.message);
+    });
+
   server.listen(port, (err?: Error) => {
     if (err) throw err;
     console.log(`> Ready on http://${hostname}:${port}`);

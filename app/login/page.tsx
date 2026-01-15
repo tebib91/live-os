@@ -148,18 +148,22 @@ export default function LoginPage() {
                 >
                   <InputOTPGroup>
                     <InputOTPSlot
+                      mask
                       index={0}
                       className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
                     />
                     <InputOTPSlot
+                      mask
                       index={1}
                       className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
                     />
                     <InputOTPSlot
+                      mask
                       index={2}
                       className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
                     />
                     <InputOTPSlot
+                      mask
                       index={3}
                       className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
                     />

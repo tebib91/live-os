@@ -1,205 +1,416 @@
-'use server';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server";
 
-import { exec } from 'child_process';
-import os from 'os';
-import fs from 'fs/promises';
-import { promisify } from 'util';
+import os from "os";
+import si from "systeminformation";
 
-const execAsync = promisify(exec);
+let lastNetworkSample: { rx: number; tx: number; timestamp: number } | null =
+  null;
 
-let lastCpuTotal = 0;
-let lastCpuIdle = 0;
+const safeNumber = (value: any, fallback: number | null = null) =>
+  Number.isFinite(value) ? value : fallback;
 
-type LinuxMemInfo = {
-    total: number;
-    available: number;
+const firstItem = <T>(arr: T[] | undefined | null): T | undefined =>
+  Array.isArray(arr) && arr.length > 0 ? arr[0] : undefined;
+
+const buildThermals = (temperature: any) => ({
+  main: safeNumber(temperature?.main),
+  max: safeNumber(temperature?.max),
+  cores: Array.isArray(temperature?.cores) ? temperature.cores : [],
+  socket: Array.isArray(temperature?.socket) ? temperature.socket : [],
+  chipset: safeNumber(temperature?.chipset),
+});
+
+const buildBattery = (batteryInfo: any) => ({
+  hasBattery: batteryInfo?.hasBattery ?? batteryInfo?.hasbattery ?? false,
+  percent: safeNumber(batteryInfo?.percent),
+  cycleCount: safeNumber(batteryInfo?.cycleCount ?? batteryInfo?.cyclecount),
+  isCharging:
+    typeof batteryInfo?.isCharging === "boolean"
+      ? batteryInfo.isCharging
+      : typeof batteryInfo?.ischarging === "boolean"
+      ? batteryInfo.ischarging
+      : null,
+  designedCapacity: safeNumber(
+    batteryInfo?.designedCapacity ?? batteryInfo?.designedcapacity
+  ),
+  maxCapacity: safeNumber(batteryInfo?.maxCapacity ?? batteryInfo?.maxcapacity),
+  currentCapacity: safeNumber(
+    batteryInfo?.currentCapacity ?? batteryInfo?.currentcapacity
+  ),
+  voltage: safeNumber(batteryInfo?.voltage),
+  timeRemaining: safeNumber(
+    batteryInfo?.timeRemaining ?? batteryInfo?.timeremaining
+  ),
+  acConnected:
+    typeof batteryInfo?.acConnected === "boolean"
+      ? batteryInfo.acConnected
+      : typeof batteryInfo?.acconnected === "boolean"
+      ? batteryInfo.acconnected
+      : null,
+  manufacturer: batteryInfo?.manufacturer || null,
+  model: batteryInfo?.model || null,
+  serial: batteryInfo?.serial || null,
+});
+
+const buildGraphics = (graphicsInfo: any) => {
+  const firstGpu = firstItem(graphicsInfo?.controllers) as any;
+  if (!firstGpu) return undefined;
+  return {
+    model: firstGpu.model || firstGpu.name || "Unknown",
+    vendor: firstGpu.vendor || "Unknown",
+    vram: firstGpu.vram || 0,
+    vramDynamic: firstGpu.vramDynamic ?? null,
+    fanSpeed: safeNumber(firstGpu.fanSpeed),
+    memoryTotal: safeNumber(firstGpu.memoryTotal),
+    memoryUsed: safeNumber(firstGpu.memoryUsed),
+    memoryFree: safeNumber(firstGpu.memoryFree),
+    utilizationGpu: safeNumber(firstGpu.utilizationGpu ?? firstGpu.utilization),
+    utilizationMemory: safeNumber(firstGpu.utilizationMemory),
+    temperatureGpu: safeNumber(firstGpu.temperatureGpu),
+    temperatureMemory: safeNumber(firstGpu.temperatureMemory),
+    powerDraw: safeNumber(firstGpu.powerDraw),
+    powerLimit: safeNumber(firstGpu.powerLimit),
+  };
 };
 
-async function getLinuxCpuUsage(): Promise<number | null> {
-    try {
-        const stat = await fs.readFile('/proc/stat', 'utf8');
-        const cpuLine = stat.split('\n').find((line) => line.startsWith('cpu '));
-        if (!cpuLine) return null;
+const selectPrimaryInterface = (networkInterfaces: any[]) =>
+  networkInterfaces.find((i) => i.default) ?? firstItem(networkInterfaces);
 
-        const parts = cpuLine.trim().split(/\s+/).slice(1).map((value) => parseInt(value, 10));
-        if (parts.length < 4) return null;
+const buildNetwork = (networkInterfaces: any[]) => {
+  const primaryInterface = selectPrimaryInterface(networkInterfaces);
+  if (!primaryInterface) return undefined;
+  return {
+    iface: primaryInterface.iface || "Unknown",
+    type: primaryInterface.type || "Unknown",
+    ip4: primaryInterface.ip4 || "Unknown",
+    mac: primaryInterface.mac || "Unknown",
+    speed: primaryInterface.speed || 0,
+    mtu: primaryInterface.mtu || 0,
+  };
+};
 
-        const [user, nice, system, idle, iowait = 0, irq = 0, softirq = 0, steal = 0] = parts;
-        const idleAll = idle + iowait;
-        const total = user + nice + system + idle + iowait + irq + softirq + steal;
+const buildWifi = (wifiNetworks: any[]) => {
+  const firstWifi = firstItem(wifiNetworks);
+  if (!firstWifi) return undefined;
+  return {
+    ssid: firstWifi.ssid || "Unknown",
+    quality: firstWifi.quality || 0,
+    frequency: firstWifi.frequency || 0,
+  };
+};
 
-        if (lastCpuTotal === 0 || lastCpuIdle === 0) {
-            lastCpuTotal = total;
-            lastCpuIdle = idleAll;
-            return null;
-        }
+const buildBluetooth = (bluetoothDevices: any[]) => ({
+  devices: Array.isArray(bluetoothDevices) ? bluetoothDevices.length : 0,
+  firstName: firstItem(bluetoothDevices)?.name,
+});
 
-        const totalDelta = total - lastCpuTotal;
-        const idleDelta = idleAll - lastCpuIdle;
-
-        lastCpuTotal = total;
-        lastCpuIdle = idleAll;
-
-        if (totalDelta <= 0) return null;
-
-        return Math.max(0, Math.min(100, Math.round(100 * (1 - idleDelta / totalDelta))));
-    } catch {
-        return null;
-    }
-}
-
-async function getLinuxMemoryInfo(): Promise<LinuxMemInfo | null> {
-    try {
-        const { stdout } = await execAsync('cat /proc/meminfo');
-        const totalMatch = stdout.match(/^MemTotal:\s+(\d+)\s+kB/m);
-        const availableMatch = stdout.match(/^MemAvailable:\s+(\d+)\s+kB/m);
-        const freeMatch = stdout.match(/^MemFree:\s+(\d+)\s+kB/m);
-
-        if (!totalMatch) return null;
-
-        const totalKb = parseInt(totalMatch[1], 10);
-        const availableKb = availableMatch
-            ? parseInt(availableMatch[1], 10)
-            : freeMatch
-                ? parseInt(freeMatch[1], 10)
-                : 0;
-
-        if (!totalKb || !availableKb) return null;
-
-        return {
-            total: totalKb * 1024,
-            available: availableKb * 1024,
-        };
-    } catch {
-        return null;
-    }
-}
-
-async function getLinuxCpuTemperature(): Promise<number | null> {
-    try {
-        const entries = await fs.readdir('/sys/class/thermal', { withFileTypes: true });
-        const temps: number[] = [];
-
-        for (const entry of entries) {
-            if (!entry.isDirectory() || !entry.name.startsWith('thermal_zone')) {
-                continue;
-            }
-
-            try {
-                const raw = await fs.readFile(`/sys/class/thermal/${entry.name}/temp`, 'utf8');
-                const value = parseInt(raw.trim(), 10);
-                if (!Number.isNaN(value)) {
-                    temps.push(value >= 1000 ? value / 1000 : value);
-                }
-            } catch {
-                // Ignore missing/permission issues per zone
-            }
-        }
-
-        if (temps.length === 0) return null;
-
-        const avg = temps.reduce((sum, temp) => sum + temp, 0) / temps.length;
-        return Math.round(avg);
-    } catch {
-        return null;
-    }
-}
+const estimatePowerWatts = (cpuUsage: number) =>
+  parseFloat(((cpuUsage / 100) * 15).toFixed(1));
 
 export async function getSystemStatus() {
+  try {
+    const [
+      load,
+      mem,
+      temperature,
+      systemMeta,
+      cpuMeta,
+      batteryInfo,
+      graphicsInfo,
+      networkInterfaces,
+    ] = await Promise.all([
+      si.currentLoad(),
+      si.mem(),
+      si.cpuTemperature(),
+      si.system(),
+      si.cpu(),
+      si.battery(),
+      si.graphics(),
+      si.networkInterfaces(),
+    ]);
+    let wifiNetworks: Awaited<ReturnType<typeof si.wifiNetworks>> = [];
     try {
-        const cpus = os.cpus();
-        let totalMemory = os.totalmem();
-        let availableMemory = os.freemem();
-
-        const linuxMem = await getLinuxMemoryInfo();
-        if (linuxMem) {
-            totalMemory = linuxMem.total;
-            availableMemory = linuxMem.available;
-        }
-
-        const usedMemory = totalMemory - availableMemory;
-
-        // Calculate CPU usage (average across all cores)
-        let totalIdle = 0;
-        let totalTick = 0;
-
-        cpus.forEach(cpu => {
-            for (const type in cpu.times) {
-                totalTick += cpu.times[type as keyof typeof cpu.times];
-            }
-            totalIdle += cpu.times.idle;
-        });
-
-        const idle = totalIdle / cpus.length;
-        const total = totalTick / cpus.length;
-        const fallbackCpuUsage = 100 - ~~(100 * idle / total);
-        const linuxCpuUsage = os.platform() === 'linux' ? await getLinuxCpuUsage() : null;
-        const cpuUsage = linuxCpuUsage ?? fallbackCpuUsage;
-
-        const memoryUsage = Math.round((usedMemory / totalMemory) * 100);
-
-        // Get temperature (Linux or macOS)
-        let temperature = null;
-        try {
-            if (os.platform() === 'linux') {
-                temperature = await getLinuxCpuTemperature();
-            } else {
-                const { stdout } = await execAsync('sysctl -n machdep.xcpm.cpu_thermal_level 2>/dev/null || echo "0"');
-                temperature = parseInt(stdout.trim()) * 10 + 20; // Rough estimate
-            }
-        } catch (error) {
-            // Temperature not available
-        }
-
-        // Get power consumption (rough estimate based on CPU usage)
-        const powerWatts = (cpuUsage / 100 * 15).toFixed(1); // Rough estimate
-
-        return {
-            cpu: {
-                usage: cpuUsage,
-                temperature: temperature || 38,
-                power: parseFloat(powerWatts),
-            },
-            memory: {
-                usage: memoryUsage,
-                total: totalMemory,
-                used: usedMemory,
-                free: availableMemory,
-            },
-        };
-    } catch (error) {
-        return {
-            cpu: { usage: 0, temperature: 0, power: 0 },
-            memory: { usage: 0, total: 0, used: 0, free: 0 },
-        };
+      wifiNetworks = await si.wifiNetworks();
+    } catch {
+      wifiNetworks = [];
     }
+    let bluetoothDevices: Awaited<ReturnType<typeof si.bluetoothDevices>> = [];
+    if (typeof si.bluetoothDevices === "function") {
+      try {
+        bluetoothDevices = await si.bluetoothDevices();
+      } catch {
+        bluetoothDevices = [];
+      }
+    }
+
+    const cpuUsage = Math.round(load.currentLoad);
+    const memoryUsage = Math.round((mem.active / mem.total) * 100);
+    const usedMemory = mem.total - mem.available;
+    const tempValue = Number.isFinite(temperature.main)
+      ? Math.round(temperature.main)
+      : 38;
+    const powerWatts = estimatePowerWatts(cpuUsage);
+
+    const hardware = {
+      system: {
+        manufacturer: systemMeta.manufacturer || "Unknown",
+        model: systemMeta.model || "Unknown",
+        version: systemMeta.version || "Unknown",
+        serial: systemMeta.serial || "Unknown",
+        uuid: systemMeta.uuid || "Unknown",
+      },
+      cpu: {
+        brand: cpuMeta.brand || cpuMeta.manufacturer || "Unknown",
+        speed: cpuMeta.speed || 0,
+        cores: cpuMeta.cores || 0,
+        physicalCores: cpuMeta.physicalCores || cpuMeta.cores || 0,
+      },
+      cpuTemperature: tempValue,
+      thermals: buildThermals(temperature),
+      memory: {
+        total: mem.total,
+        used: usedMemory,
+        free: mem.available,
+        usage: memoryUsage,
+      },
+      battery: buildBattery(batteryInfo),
+      graphics: buildGraphics(graphicsInfo),
+      network: buildNetwork(networkInterfaces),
+      wifi: buildWifi(wifiNetworks),
+      bluetooth: buildBluetooth(bluetoothDevices),
+    };
+
+    return {
+      cpu: {
+        usage: cpuUsage,
+        temperature: tempValue,
+        power: powerWatts,
+      },
+      memory: {
+        usage: memoryUsage,
+        total: mem.total,
+        used: usedMemory,
+        free: mem.available,
+      },
+      hardware,
+    };
+  } catch (error) {
+    console.error(
+      "[SystemStatus] Failed to gather stats with systeminformation:",
+      error
+    );
+
+    // Minimal fallback using built-in os module
+    try {
+      const cpus = os.cpus();
+      const totalMemory = os.totalmem();
+      const freeMemory = os.freemem();
+      const usedMemory = totalMemory - freeMemory;
+      const totalTick = cpus.reduce(
+        (sum, cpu) => sum + Object.values(cpu.times).reduce((t, v) => t + v, 0),
+        0
+      );
+      const totalIdle = cpus.reduce((sum, cpu) => sum + cpu.times.idle, 0);
+      const fallbackCpuUsage =
+        totalTick > 0
+          ? Math.max(
+              0,
+              Math.min(100, Math.round(100 - (100 * totalIdle) / totalTick))
+            )
+          : 0;
+      const cpuModel = cpus[0]?.model ?? "Unknown";
+      const cpuSpeedGHz = cpus[0]?.speed
+        ? parseFloat((cpus[0].speed / 1000).toFixed(2))
+        : 0;
+
+      return {
+        cpu: { usage: fallbackCpuUsage, temperature: 0, power: 0 },
+        memory: {
+          usage: Math.round((usedMemory / totalMemory) * 100),
+          total: totalMemory,
+          used: usedMemory,
+          free: freeMemory,
+        },
+        hardware: {
+          system: {
+            manufacturer: "Unknown",
+            model: os.hostname(),
+            version: "Unknown",
+            serial: "Unknown",
+            uuid: "Unknown",
+          },
+          cpu: {
+            brand: cpuModel,
+            speed: cpuSpeedGHz,
+            cores: cpus.length,
+            physicalCores: cpus.length,
+          },
+          cpuTemperature: 0,
+          thermals: {
+            main: 0,
+            max: 0,
+            cores: [],
+            socket: [],
+            chipset: null,
+          },
+          memory: {
+            total: totalMemory,
+            used: usedMemory,
+            free: freeMemory,
+            usage: Math.round((usedMemory / totalMemory) * 100),
+          },
+          battery: {
+            hasBattery: false,
+            percent: null,
+            cycleCount: null,
+            isCharging: null,
+            designedCapacity: null,
+            maxCapacity: null,
+            currentCapacity: null,
+            voltage: null,
+            timeRemaining: null,
+            acConnected: null,
+            manufacturer: null,
+            model: null,
+            serial: null,
+          },
+          graphics: undefined,
+          network: undefined,
+          wifi: undefined,
+          bluetooth: {
+            devices: 0,
+            firstName: undefined,
+          },
+        },
+      };
+    } catch {
+      return {
+        cpu: { usage: 0, temperature: 0, power: 0 },
+        memory: { usage: 0, total: 0, used: 0, free: 0 },
+        hardware: {
+          system: {
+            manufacturer: "Unknown",
+            model: "Unknown",
+            version: "Unknown",
+            serial: "Unknown",
+            uuid: "Unknown",
+          },
+          cpu: {
+            brand: "Unknown",
+            speed: 0,
+            cores: 0,
+            physicalCores: 0,
+          },
+          cpuTemperature: 0,
+          thermals: {
+            main: null,
+            max: null,
+            cores: [],
+            socket: [],
+            chipset: null,
+          },
+          memory: {
+            total: 0,
+            used: 0,
+            free: 0,
+            usage: 0,
+          },
+          battery: {
+            hasBattery: false,
+            percent: null,
+            cycleCount: null,
+            isCharging: null,
+            designedCapacity: null,
+            maxCapacity: null,
+            currentCapacity: null,
+            voltage: null,
+            timeRemaining: null,
+            acConnected: null,
+            manufacturer: null,
+            model: null,
+            serial: null,
+          },
+          graphics: undefined,
+          network: undefined,
+          wifi: undefined,
+          bluetooth: {
+            devices: 0,
+            firstName: undefined,
+          },
+        },
+      };
+    }
+  }
 }
 
 export async function getStorageInfo() {
-    try {
-        // Try to get disk usage on macOS/Linux
-        const { stdout } = await execAsync('df -k / | tail -1');
-        const parts = stdout.trim().split(/\s+/);
+  try {
+    const disks = await si.fsSize();
+    const primary = disks.find((d) => d.mount === "/") ?? disks[0];
 
-        const totalKB = parseInt(parts[1]);
-        const usedKB = parseInt(parts[2]);
-
-        const totalGB = (totalKB / 1024 / 1024).toFixed(2);
-        const usedGB = (usedKB / 1024 / 1024).toFixed(1);
-        const usagePercent = Math.round((usedKB / totalKB) * 100);
-
-        return {
-            total: parseFloat(totalGB),
-            used: parseFloat(usedGB),
-            usagePercent,
-            health: usagePercent < 80 ? 'Healthy' : usagePercent < 90 ? 'Warning' : 'Critical',
-        };
-    } catch (error) {
-        return {
-            total: 0,
-            used: 0,
-            usagePercent: 0,
-            health: 'Unknown',
-        };
+    if (!primary) {
+      throw new Error("No disks found");
     }
+
+    const totalGB = primary.size / 1024 / 1024 / 1024;
+    const usedGB = primary.used / 1024 / 1024 / 1024;
+    const usagePercent = Math.round((primary.used / primary.size) * 100);
+
+    return {
+      total: parseFloat(totalGB.toFixed(2)),
+      used: parseFloat(usedGB.toFixed(1)),
+      usagePercent,
+      health:
+        usagePercent < 80
+          ? "Healthy"
+          : usagePercent < 90
+          ? "Warning"
+          : "Critical",
+    };
+  } catch (error) {
+    console.error("[SystemStatus] Failed to gather storage info:", error);
+    return {
+      total: 0,
+      used: 0,
+      usagePercent: 0,
+      health: "Unknown",
+    };
+  }
+}
+
+export async function getNetworkStats() {
+  try {
+    const now = Date.now();
+    const stats = await si.networkStats();
+    const filtered = stats.filter((s) => s.iface !== "lo");
+
+    const rx = filtered.reduce((sum, s) => sum + (s.rx_bytes || 0), 0);
+    const tx = filtered.reduce((sum, s) => sum + (s.tx_bytes || 0), 0);
+
+    if (!lastNetworkSample) {
+      lastNetworkSample = { rx, tx, timestamp: now };
+      return { uploadMbps: 0, downloadMbps: 0 };
+    }
+
+    const deltaSeconds = (now - lastNetworkSample.timestamp) / 1000;
+    const deltaRx = rx - lastNetworkSample.rx;
+    const deltaTx = tx - lastNetworkSample.tx;
+    lastNetworkSample = { rx, tx, timestamp: now };
+
+    if (deltaSeconds <= 0) {
+      return { uploadMbps: 0, downloadMbps: 0 };
+    }
+
+    const uploadMbps = Math.max(0, (deltaTx * 8) / 1_000_000 / deltaSeconds);
+    const downloadMbps = Math.max(0, (deltaRx * 8) / 1_000_000 / deltaSeconds);
+
+    return {
+      uploadMbps: parseFloat(uploadMbps.toFixed(2)),
+      downloadMbps: parseFloat(downloadMbps.toFixed(2)),
+    };
+  } catch (error) {
+    console.error("[SystemStatus] Failed to gather network stats:", error);
+    return { uploadMbps: 0, downloadMbps: 0 };
+  }
 }

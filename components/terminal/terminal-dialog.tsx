@@ -166,18 +166,17 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
           isMaximized
             ? 'max-w-[98vw] max-h-[98vh]'
             : 'max-w-[95vw] sm:max-w-[1200px] max-h-[90vh]'
-        } bg-black border-zinc-800 shadow-2xl p-0 gap-0 overflow-hidden transition-all`}
+        } bg-white/5 border border-white/10 backdrop-blur-3xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden ring-1 ring-white/5 transition-all`}
         aria-describedby="terminal-description"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/50">
-          <div className="flex items-center gap-3">
-            <div className="flex gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-              <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            </div>
-            <DialogTitle className="text-lg font-bold text-white/90 -tracking-[0.01em]">Terminal</DialogTitle>
+        <div className="flex items-center justify-between px-8 py-5 border-b border-white/5 bg-gradient-to-r from-white/10 via-white/5 to-transparent backdrop-blur">
+          <div className="flex items-center gap-4">
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white/70">
+              System
+            </span>
+            <DialogTitle className="text-3xl font-semibold text-white drop-shadow">
+              Terminal
+            </DialogTitle>
             <DialogDescription id="terminal-description" className="sr-only">
               Interactive terminal for executing shell commands
             </DialogDescription>
@@ -188,7 +187,7 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
               variant="ghost"
               size="icon"
               onClick={toggleMaximize}
-              className="h-8 w-8 rounded-lg hover:bg-white/10 text-white/60 hover:text-white/90"
+              className="h-10 w-10 rounded-full border border-white/15 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
             >
               {isMaximized ? (
                 <Minimize2 className="h-4 w-4" />
@@ -200,7 +199,7 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
               variant="ghost"
               size="icon"
               onClick={() => onOpenChange(false)}
-              className="h-8 w-8 rounded-lg hover:bg-white/10 text-white/60 hover:text-white/90"
+              className="h-10 w-10 rounded-full border border-white/15 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -212,7 +211,7 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
           ref={terminalRef}
           className={`${
             isMaximized ? 'h-[calc(98vh-64px)]' : 'h-[calc(90vh-64px)]'
-          } w-full bg-black p-4`}
+          } w-full bg-black/70 p-4 backdrop-blur-xl`}
           style={{ overflow: 'hidden' }}
         />
       </DialogContent>
