@@ -24,6 +24,10 @@ print_dry() {
     echo -e "${BLUE}[DRY]${NC} Would: $1"
 }
 
+print_info() {
+    echo -e "${BLUE}[i]${NC} $1"
+}
+
 # Parse command line arguments
 DRY_RUN=0
 NO_DEP=0
