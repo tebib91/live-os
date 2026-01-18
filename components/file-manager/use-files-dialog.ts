@@ -14,7 +14,7 @@ import {
   type DirectoryContent,
   type FileSystemItem,
 } from '@/app/actions/filesystem';
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 const DEFAULT_ROOT = '/DATA';
@@ -256,7 +256,7 @@ export function useFilesDialog(open: boolean) {
     return `${trimmedHome}/${name}`;
   };
 
-  const handleContextMenu = (event: MouseEvent, item: FileSystemItem) => {
+  const handleContextMenu = (event: React.MouseEvent, item: FileSystemItem) => {
     event.preventDefault();
     const menuWidth = 220;
     const menuHeight = 260;

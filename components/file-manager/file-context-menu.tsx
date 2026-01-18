@@ -12,7 +12,7 @@ interface ContextMenuState {
 
 interface FilesContextMenuProps {
   contextMenu: ContextMenuState;
-  menuRef: RefObject<HTMLDivElement>;
+  menuRef: RefObject<HTMLDivElement | null>;
   isTextLike: (name: string) => boolean;
   onOpen: (item: FileSystemItem) => void;
   onOpenInEditor: (path: string) => void;

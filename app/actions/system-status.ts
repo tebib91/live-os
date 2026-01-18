@@ -7,11 +7,33 @@ import si from "systeminformation";
 let lastNetworkSample: { rx: number; tx: number; timestamp: number } | null =
   null;
 
+const SLOW_REFRESH_MS = 15_000;
+const STORAGE_REFRESH_MS = 30_000;
+
 const safeNumber = (value: any, fallback: number | null = null) =>
   Number.isFinite(value) ? value : fallback;
 
 const firstItem = <T>(arr: T[] | undefined | null): T | undefined =>
   Array.isArray(arr) && arr.length > 0 ? arr[0] : undefined;
+
+function buildHardwareSystem(systemMeta: any) {
+  return {
+    manufacturer: systemMeta?.manufacturer || "Unknown",
+    model: systemMeta?.model || "Unknown",
+    version: systemMeta?.version || "Unknown",
+    serial: systemMeta?.serial || "Unknown",
+    uuid: systemMeta?.uuid || "Unknown",
+  };
+}
+
+function buildHardwareCpu(cpuMeta: any) {
+  return {
+    brand: cpuMeta?.brand || cpuMeta?.manufacturer || "Unknown",
+    speed: cpuMeta?.speed || 0,
+    cores: cpuMeta?.cores || 0,
+    physicalCores: cpuMeta?.physicalCores || cpuMeta?.cores || 0,
+  };
+}
 
 const buildThermals = (temperature: any) => ({
   main: safeNumber(temperature?.main),
@@ -90,13 +112,25 @@ const buildNetwork = (networkInterfaces: any[]) => {
   };
 };
 
-const buildWifi = (wifiNetworks: any[]) => {
+const buildWifi = (wifiConnections: any[], wifiNetworks: any[]) => {
+  const firstConnection = firstItem(wifiConnections);
+  if (firstConnection) {
+    return {
+      ssid: firstConnection.ssid || "Unknown",
+      quality:
+        safeNumber(firstConnection.quality) ??
+        safeNumber(firstConnection.signalLevel) ??
+        0,
+      frequency: safeNumber(firstConnection.frequency) ?? 0,
+    };
+  }
+
   const firstWifi = firstItem(wifiNetworks);
   if (!firstWifi) return undefined;
   return {
     ssid: firstWifi.ssid || "Unknown",
-    quality: firstWifi.quality || 0,
-    frequency: firstWifi.frequency || 0,
+    quality: safeNumber(firstWifi.quality) ?? 0,
+    frequency: safeNumber(firstWifi.frequency) ?? 0,
   };
 };
 
@@ -108,40 +142,104 @@ const buildBluetooth = (bluetoothDevices: any[]) => ({
 const estimatePowerWatts = (cpuUsage: number) =>
   parseFloat(((cpuUsage / 100) * 15).toFixed(1));
 
+type StorageInfo = {
+  total: number;
+  used: number;
+  usagePercent: number;
+  health: string;
+};
+
+type Cached<T> = { value: T; timestamp: number };
+
+type HardwareBase = {
+  system: ReturnType<typeof buildHardwareSystem>;
+  cpu: ReturnType<typeof buildHardwareCpu>;
+  battery: ReturnType<typeof buildBattery>;
+  network: ReturnType<typeof buildNetwork>;
+};
+
+const isFresh = (cache: Cached<unknown> | null, maxAge: number) =>
+  !!(cache && Date.now() - cache.timestamp < maxAge);
+
+let hardwareCache: Cached<HardwareBase> | null = null;
+let wifiCache: Cached<ReturnType<typeof buildWifi>> | null = null;
+let bluetoothCache: Cached<ReturnType<typeof buildBluetooth>> | null = null;
+let storageCache: Cached<StorageInfo> | null = null;
+
 export async function getSystemStatus() {
   try {
-    const [
-      load,
-      mem,
-      temperature,
-      systemMeta,
-      cpuMeta,
-      batteryInfo,
-      graphicsInfo,
-      networkInterfaces,
-    ] = await Promise.all([
+    const now = Date.now();
+    const [load, mem, temperature] = await Promise.all([
       si.currentLoad(),
       si.mem(),
       si.cpuTemperature(),
-      si.system(),
-      si.cpu(),
-      si.battery(),
-      si.graphics(),
-      si.networkInterfaces(),
     ]);
-    let wifiNetworks: Awaited<ReturnType<typeof si.wifiNetworks>> = [];
-    try {
-      wifiNetworks = await si.wifiNetworks();
-    } catch {
-      wifiNetworks = [];
+
+    let hardwareBase = hardwareCache?.value;
+    if (!isFresh(hardwareCache, SLOW_REFRESH_MS)) {
+      const [systemMeta, cpuMeta, batteryInfo, networkInterfaces] =
+        await Promise.all([
+          si.system(),
+          si.cpu(),
+          si.battery(),
+          si.networkInterfaces(),
+        ]);
+
+      hardwareBase = {
+        system: buildHardwareSystem(systemMeta),
+        cpu: buildHardwareCpu(cpuMeta),
+        battery: buildBattery(batteryInfo),
+        network: buildNetwork(networkInterfaces),
+      };
+
+      hardwareCache = { value: hardwareBase, timestamp: now };
     }
-    let bluetoothDevices: Awaited<ReturnType<typeof si.bluetoothDevices>> = [];
-    if (typeof si.bluetoothDevices === "function") {
-      try {
-        bluetoothDevices = await si.bluetoothDevices();
-      } catch {
-        bluetoothDevices = [];
+
+    let graphicsInfo: Awaited<ReturnType<typeof si.graphics>> = {
+      controllers: [],
+      displays: [],
+    };
+    try {
+      graphicsInfo = await si.graphics();
+    } catch {
+      graphicsInfo = { controllers: [], displays: [] };
+    }
+
+    let wifiInfo = wifiCache?.value;
+    if (!isFresh(wifiCache, SLOW_REFRESH_MS)) {
+      let wifiConnections: Awaited<ReturnType<typeof si.wifiConnections>> = [];
+      if (typeof si.wifiConnections === "function") {
+        try {
+          wifiConnections = await si.wifiConnections();
+        } catch {
+          wifiConnections = [];
+        }
       }
+      let wifiNetworks: Awaited<ReturnType<typeof si.wifiNetworks>> = [];
+      if (wifiConnections.length === 0) {
+        try {
+          wifiNetworks = await si.wifiNetworks();
+        } catch {
+          wifiNetworks = [];
+        }
+      }
+      wifiInfo = buildWifi(wifiConnections, wifiNetworks);
+      wifiCache = { value: wifiInfo, timestamp: now };
+    }
+
+    let bluetoothInfo = bluetoothCache?.value;
+    if (!isFresh(bluetoothCache, SLOW_REFRESH_MS)) {
+      let bluetoothDevices: Awaited<ReturnType<typeof si.bluetoothDevices>> =
+        [];
+      if (typeof si.bluetoothDevices === "function") {
+        try {
+          bluetoothDevices = await si.bluetoothDevices();
+        } catch {
+          bluetoothDevices = [];
+        }
+      }
+      bluetoothInfo = buildBluetooth(bluetoothDevices);
+      bluetoothCache = { value: bluetoothInfo, timestamp: now };
     }
 
     const cpuUsage = Math.round(load.currentLoad);
@@ -152,34 +250,24 @@ export async function getSystemStatus() {
       : 38;
     const powerWatts = estimatePowerWatts(cpuUsage);
 
-    const hardware = {
-      system: {
-        manufacturer: systemMeta.manufacturer || "Unknown",
-        model: systemMeta.model || "Unknown",
-        version: systemMeta.version || "Unknown",
-        serial: systemMeta.serial || "Unknown",
-        uuid: systemMeta.uuid || "Unknown",
-      },
-      cpu: {
-        brand: cpuMeta.brand || cpuMeta.manufacturer || "Unknown",
-        speed: cpuMeta.speed || 0,
-        cores: cpuMeta.cores || 0,
-        physicalCores: cpuMeta.physicalCores || cpuMeta.cores || 0,
-      },
-      cpuTemperature: tempValue,
-      thermals: buildThermals(temperature),
-      memory: {
-        total: mem.total,
-        used: usedMemory,
-        free: mem.available,
-        usage: memoryUsage,
-      },
-      battery: buildBattery(batteryInfo),
-      graphics: buildGraphics(graphicsInfo),
-      network: buildNetwork(networkInterfaces),
-      wifi: buildWifi(wifiNetworks),
-      bluetooth: buildBluetooth(bluetoothDevices),
-    };
+    const hardware = hardwareBase
+      ? {
+          ...hardwareBase,
+          cpuTemperature: tempValue,
+          thermals: buildThermals(temperature),
+          memory: {
+            total: mem.total,
+            used: usedMemory,
+            free: mem.available,
+            usage: memoryUsage,
+          },
+          battery: hardwareBase.battery,
+          graphics: buildGraphics(graphicsInfo),
+          network: hardwareBase.network,
+          wifi: wifiInfo,
+          bluetooth: bluetoothInfo,
+        }
+      : undefined;
 
     return {
       cpu: {
@@ -344,7 +432,11 @@ export async function getSystemStatus() {
   }
 }
 
-export async function getStorageInfo() {
+export async function getStorageInfo(): Promise<StorageInfo> {
+  if (isFresh(storageCache, STORAGE_REFRESH_MS)) {
+    return storageCache!.value;
+  }
+
   try {
     const disks = await si.fsSize();
     const primary = disks.find((d) => d.mount === "/") ?? disks[0];
@@ -357,7 +449,7 @@ export async function getStorageInfo() {
     const usedGB = primary.used / 1024 / 1024 / 1024;
     const usagePercent = Math.round((primary.used / primary.size) * 100);
 
-    return {
+    const result: StorageInfo = {
       total: parseFloat(totalGB.toFixed(2)),
       used: parseFloat(usedGB.toFixed(1)),
       usagePercent,
@@ -368,8 +460,14 @@ export async function getStorageInfo() {
           ? "Warning"
           : "Critical",
     };
+
+    storageCache = { value: result, timestamp: Date.now() };
+    return result;
   } catch (error) {
     console.error("[SystemStatus] Failed to gather storage info:", error);
+    if (storageCache) {
+      return storageCache.value;
+    }
     return {
       total: 0,
       used: 0,

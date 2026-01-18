@@ -6,7 +6,6 @@ import {
   LogOut,
   Power,
   RotateCw,
-  Shield,
   User,
   Wifi,
 } from "lucide-react";
@@ -191,9 +190,15 @@ export function WallpaperSection({
 
 type WifiSectionProps = {
   onOpenDialog: () => void;
+  ssid?: string;
+  quality?: number;
 };
 
-export function WifiSection({ onOpenDialog }: WifiSectionProps) {
+export function WifiSection({ onOpenDialog, ssid, quality }: WifiSectionProps) {
+  const wifiLabel = ssid || "Not connected";
+  const qualityLabel =
+    typeof quality === "number" && quality > 0 ? `${quality}%` : null;
+
   return (
     <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/15 shadow-lg shadow-black/25">
       <div className="flex items-start justify-between">
@@ -203,8 +208,8 @@ export function WifiSection({ onOpenDialog }: WifiSectionProps) {
           </h4>
           <div className="flex items-center gap-2 text-xs text-white/60">
             <Wifi className="h-3.5 w-3.5" />
-            <span>HOMEAIJot</span>
-            <Shield className="h-3 w-3" />
+            <span className="text-white">{wifiLabel}</span>
+            {qualityLabel && <span className="text-white/60">• {qualityLabel}</span>}
           </div>
         </div>
         <Button

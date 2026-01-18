@@ -1,7 +1,7 @@
 'use client';
 
 import type { HardwareInfo } from '@/components/settings/hardware-utils';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface SystemStats {
   cpu: { usage: number; temperature: number; power: number };
@@ -64,105 +64,176 @@ interface SSEMessage {
   type: 'metrics' | 'error';
   systemStatus?: SystemStats;
   storageInfo?: StorageStats;
+  networkStats?: NetworkStats;
   message?: string;
+}
+
+type SharedState = {
+  systemStats: SystemStats | null;
+  storageStats: StorageStats | null;
+  networkStats: NetworkStats | null;
+  runningApps: AppUsage[];
+  installedApps: InstalledApp[];
+  connected: boolean;
+  error: string | null;
+};
+
+type Subscriber = {
+  callback: (state: SharedState) => void;
+  fast: boolean;
+};
+
+const subscribers = new Set<Subscriber>();
+let sharedState: SharedState = {
+  systemStats: null,
+  storageStats: null,
+  networkStats: null,
+  runningApps: [],
+  installedApps: [],
+  connected: false,
+  error: null,
+};
+
+let eventSource: EventSource | null = null;
+let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+let reconnectAttempts = 0;
+let currentFastMode = false;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY = 3000;
+
+function notifySubscribers() {
+  subscribers.forEach(({ callback }) => callback(sharedState));
+}
+
+function updateSharedState(update: Partial<SharedState>) {
+  const nextState: SharedState = { ...sharedState, ...update };
+  const changed = (Object.keys(nextState) as (keyof SharedState)[]).some(
+    (key) => sharedState[key] !== nextState[key]
+  );
+
+  if (!changed) return;
+
+  sharedState = nextState;
+  notifySubscribers();
+}
+
+function stopEventSource() {
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
+
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+
+  currentFastMode = false;
+}
+
+function scheduleReconnect() {
+  if (subscribers.size === 0) return;
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    updateSharedState({ error: 'Connection lost. Please refresh the page.' });
+    return;
+  }
+
+  reconnectAttempts++;
+  reconnectTimeout = setTimeout(() => syncEventSource(), RECONNECT_DELAY);
+}
+
+function shouldUseFast() {
+  for (const subscriber of subscribers) {
+    if (subscriber.fast) return true;
+  }
+  return false;
+}
+
+function connectEventSource(wantFast: boolean) {
+  if (subscribers.size === 0) return;
+  if (eventSource && currentFastMode === wantFast) return;
+
+  if (eventSource) {
+    stopEventSource();
+  }
+
+  try {
+    const es = new EventSource(`/api/system/stream${wantFast ? '?fast=1' : ''}`);
+    eventSource = es;
+    currentFastMode = wantFast;
+
+    es.onopen = () => {
+      reconnectAttempts = 0;
+      updateSharedState({ connected: true, error: null });
+    };
+
+    es.onmessage = (event) => {
+      try {
+        const data: SSEMessage = JSON.parse(event.data);
+
+        if (data.type === 'metrics') {
+          updateSharedState({
+            systemStats: data.systemStatus ?? sharedState.systemStats,
+            storageStats: data.storageInfo ?? sharedState.storageStats,
+            networkStats: data.networkStats ?? sharedState.networkStats,
+            error: null,
+          });
+        } else if (data.type === 'error') {
+          console.error('[SystemStatus] Server error:', data.message);
+          updateSharedState({ error: data.message || 'Unknown error' });
+        }
+      } catch (parseError) {
+        console.error('[SystemStatus] Failed to parse SSE message:', parseError);
+      }
+    };
+
+    es.onerror = () => {
+      console.log('[SystemStatus] SSE error/disconnected');
+      updateSharedState({ connected: false });
+      stopEventSource();
+      scheduleReconnect();
+    };
+  } catch (err) {
+    console.error('[SystemStatus] Failed to create EventSource:', err);
+    updateSharedState({ error: 'Failed to connect to system metrics stream', connected: false });
+  }
+}
+
+function syncEventSource() {
+  if (subscribers.size === 0) {
+    stopEventSource();
+    return;
+  }
+  connectEventSource(shouldUseFast());
+}
+
+function subscribeToSystemStatus(callback: (state: SharedState) => void, fast: boolean) {
+  const subscriber: Subscriber = { callback, fast };
+  subscribers.add(subscriber);
+  callback(sharedState);
+
+  syncEventSource();
+
+  return () => {
+    subscribers.delete(subscriber);
+    if (subscribers.size === 0) {
+      reconnectAttempts = 0;
+      stopEventSource();
+      return;
+    }
+    syncEventSource();
+  };
 }
 
 /**
  * Hook for real-time system status via Server-Sent Events (SSE)
  * Uses a singleton EventSource connection shared across all consumers
  */
-export function useSystemStatus(): UseSystemStatusReturn {
-  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
-  const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
-  const [networkStats, setNetworkStats] = useState<NetworkStats | null>(null);
-  const [runningApps, setRunningApps] = useState<AppUsage[]>([]);
-  const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
-  const [connected, setConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function useSystemStatus(options: { fast?: boolean } = {}): UseSystemStatusReturn {
+  const [state, setState] = useState<SharedState>(sharedState);
+  const fast = options.fast ?? false;
 
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const MAX_RECONNECT_ATTEMPTS = 5;
-  const RECONNECT_DELAY = 3000;
-
-  const connect = useCallback(() => {
-    // Don't connect if already connected or connecting
-    if (eventSourceRef.current?.readyState === EventSource.OPEN ||
-        eventSourceRef.current?.readyState === EventSource.CONNECTING) {
-      return;
-    }
-
-    try {
-      const es = new EventSource('/api/system/stream');
-      eventSourceRef.current = es;
-
-      es.onopen = () => {
-        console.log('[SystemStatus] SSE connected');
-        setConnected(true);
-        setError(null);
-        reconnectAttemptsRef.current = 0;
-      };
-
-      es.onmessage = (event) => {
-        try {
-          const data: SSEMessage = JSON.parse(event.data);
-
-          if (data.type === 'metrics') {
-            if (data.systemStatus) {
-              setSystemStats(data.systemStatus);
-            }
-            if (data.storageInfo) {
-              setStorageStats(data.storageInfo);
-            }
-          } else if (data.type === 'error') {
-            console.error('[SystemStatus] Server error:', data.message);
-            setError(data.message || 'Unknown error');
-          }
-        } catch (parseError) {
-          console.error('[SystemStatus] Failed to parse SSE message:', parseError);
-        }
-      };
-
-      es.onerror = () => {
-        console.log('[SystemStatus] SSE error/disconnected');
-        setConnected(false);
-        es.close();
-        eventSourceRef.current = null;
-
-        // Attempt to reconnect
-        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-          reconnectAttemptsRef.current++;
-          console.log(`[SystemStatus] Reconnecting in ${RECONNECT_DELAY}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
-          reconnectTimeoutRef.current = setTimeout(connect, RECONNECT_DELAY);
-        } else {
-          setError('Connection lost. Please refresh the page.');
-        }
-      };
-    } catch (err) {
-      console.error('[SystemStatus] Failed to create EventSource:', err);
-      setError('Failed to connect to system metrics stream');
-    }
-  }, []);
-
-  const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
-
-    setConnected(false);
-  }, []);
-
-  useEffect(() => {
-    connect();
-    return () => disconnect();
-  }, [connect, disconnect]);
+  useEffect(() => subscribeToSystemStatus(setState, fast), [fast]);
 
   // Manual refresh trigger - dispatches event for backwards compatibility
   const refreshApps = useCallback(() => {
@@ -170,13 +241,13 @@ export function useSystemStatus(): UseSystemStatusReturn {
   }, []);
 
   return {
-    systemStats,
-    storageStats,
-    networkStats,
-    runningApps,
-    installedApps,
-    connected,
-    error,
+    systemStats: state.systemStats,
+    storageStats: state.storageStats,
+    networkStats: state.networkStats,
+    runningApps: state.runningApps,
+    installedApps: state.installedApps,
+    connected: state.connected,
+    error: state.error,
     refreshApps,
   };
 }

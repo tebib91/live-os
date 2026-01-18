@@ -213,7 +213,11 @@ export function SettingsDialog({
                 currentWallpaper={currentWallpaper}
                 onSelect={handleWallpaperSelect}
               />
-              <WifiSection onOpenDialog={() => setWifiDialogOpen(true)} />
+              <WifiSection
+                onOpenDialog={() => setWifiDialogOpen(true)}
+                ssid={hardware?.wifi?.ssid}
+                quality={hardware?.wifi?.quality}
+              />
               <LanguageSection />
               {hardware && (
                 <SystemDetailsCard

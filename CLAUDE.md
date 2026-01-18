@@ -42,26 +42,397 @@ LiveOS is a self-hosted operating system dashboard for managing infrastructure, 
 - **Minimize dependencies**: Only add libraries when necessary
 - **Clear file structure**: Easy to navigate and understand
 
-### 3. Design Consistency
+### 3. Micro-Component Architecture
 
-**CRITICAL: All UI components must follow consistent design patterns**
+**CRITICAL: Components must be small, focused, and reusable**
 
-When you detect inconsistent design, **automatically fix it**. Common inconsistencies to watch for:
+**Maximum Component Size: 100-150 lines**. If a component exceeds this, it MUST be broken down into micro-components.
 
-- **Inconsistent spacing**: Use Tailwind's spacing scale consistently (p-4, p-6, gap-4, etc.)
-- **Inconsistent colors**: Stick to zinc palette for neutrals, blue for primary actions
-- **Inconsistent border radius**: Use consistent rounded values (rounded-lg, rounded-xl)
-- **Inconsistent typography**: Use defined text sizes (text-sm, text-base, text-2xl)
-- **Inconsistent shadows**: Use consistent shadow utilities
-- **Inconsistent hover states**: All interactive elements should have hover feedback
-- **Inconsistent button styles**: Follow defined button variants
+#### Component Size Guidelines
 
-**Design Reference**: UmbrelOS and CasaOS
-- Clean, modern interfaces
-- Clear visual hierarchy
-- Intuitive navigation
-- Responsive design
-- Dark mode support
+| Size | Classification | Action |
+|------|---------------|--------|
+| < 50 lines | Excellent | Ideal micro-component |
+| 50-100 lines | Good | Acceptable |
+| 100-150 lines | Warning | Consider splitting |
+| > 150 lines | Violation | MUST refactor |
+
+#### Breaking Down Components
+
+When a component exceeds limits, extract into:
+
+1. **Sub-components**: UI pieces that can be reused
+2. **Utility functions**: Logic that doesn't need React
+3. **Custom hooks**: Stateful logic
+4. **Types file**: TypeScript definitions
+
+**Example Structure:**
+```
+components/system-monitor/
+├── index.ts                    # Barrel export
+├── system-monitor-dialog.tsx   # Main orchestrator (~170 lines max)
+├── types.ts                    # Type definitions
+├── utils.ts                    # Utility functions
+├── dialog-header.tsx           # Header micro-component
+├── metric-chart-card.tsx       # Reusable metric card
+├── network-chart.tsx           # Network activity chart
+├── app-list.tsx               # Applications list
+├── app-list-item.tsx          # Single app item
+├── app-breakdown-panel.tsx    # Breakdown panel
+└── connection-status.tsx      # Status indicator
+```
+
+#### Good vs Bad Examples
+
+**❌ BAD - Monolithic Component (500+ lines):**
+```tsx
+// system-monitor-dialog.tsx - 500 lines
+export function SystemMonitorDialog() {
+  // All state, effects, handlers, and UI in one file
+  // Hard to maintain, test, and reuse
+}
+```
+
+**✅ GOOD - Micro-Component Architecture:**
+```tsx
+// system-monitor-dialog.tsx - 170 lines
+import { DialogHeader } from "./dialog-header";
+import { MetricChartCard } from "./metric-chart-card";
+import { NetworkChart } from "./network-chart";
+
+export function SystemMonitorDialog() {
+  // State and orchestration only
+  return (
+    <Dialog>
+      <DialogHeader connected={connected} onClose={handleClose} />
+      <MetricChartCard label="CPU" value={cpuUsage} />
+      <NetworkChart data={networkHistory} />
+    </Dialog>
+  );
+}
+```
+
+### 4. Design Consistency with Design Tokens
+
+**CRITICAL: Always use the design tokens from `components/ui/design-tokens.ts`**
+
+All UI components MUST use the shared design tokens for consistency. Never hardcode styles.
+
+#### Design Tokens File Location
+```
+components/ui/design-tokens.ts
+```
+
+#### Available Design Tokens
+
+**Card Styles:**
+```typescript
+import { card } from "@/components/ui/design-tokens";
+
+// Usage
+className={`${card.base} ${card.padding.md}`}
+// Outputs: "bg-black/30 backdrop-blur-xl rounded-2xl border border-white/15 shadow-lg shadow-black/25 p-5"
+```
+
+**Typography:**
+```typescript
+import { text } from "@/components/ui/design-tokens";
+
+// Available: text.label, text.labelUppercase, text.value, text.valueLarge,
+//            text.valueSmall, text.heading, text.headingLarge, text.headingXL,
+//            text.muted, text.subdued
+```
+
+**Colors:**
+```typescript
+import { colors } from "@/components/ui/design-tokens";
+
+// colors.cpu = "#06b6d4"      (cyan)
+// colors.memory = "#f59e0b"   (amber)
+// colors.gpu = "#a855f7"      (purple)
+// colors.storage = "#10b981"  (emerald)
+// colors.network.upload = "#8b5cf6"
+// colors.network.download = "#ec4899"
+```
+
+**Buttons:**
+```typescript
+import { button } from "@/components/ui/design-tokens";
+
+// button.ghost = "border border-white/15 bg-white/10 hover:bg-white/20 text-white"
+// button.closeIcon = "h-10 w-10 rounded-full border border-white/15 bg-white/10..."
+```
+
+**Status Indicators:**
+```typescript
+import { statusDot } from "@/components/ui/design-tokens";
+
+// statusDot.base = "w-2 h-2 rounded-full"
+// statusDot.live = "bg-cyan-500"
+// statusDot.connected = "bg-green-400"
+// statusDot.disconnected = "bg-red-400"
+```
+
+**Alerts:**
+```typescript
+import { alert } from "@/components/ui/design-tokens";
+
+// alert.error = "rounded-xl border border-red-500/30 bg-red-500/10 p-4"
+// alert.warning = "rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4"
+// alert.info = "rounded-xl border border-blue-500/30 bg-blue-500/10 p-4"
+// alert.success = "rounded-xl border border-green-500/30 bg-green-500/10 p-4"
+```
+
+**Icon Boxes:**
+```typescript
+import { iconBox } from "@/components/ui/design-tokens";
+
+// iconBox.sm = "h-8 w-8 rounded-lg bg-white/10..."
+// iconBox.md = "h-10 w-10 rounded-xl bg-white/10..."
+// iconBox.lg = "h-14 w-14 rounded-full border border-white/15..."
+```
+
+**Dialog Styles:**
+```typescript
+import { dialog } from "@/components/ui/design-tokens";
+
+// dialog.content = "bg-white/5 border border-white/10 backdrop-blur-3xl..."
+// dialog.header = "border-b border-white/5 bg-gradient-to-r from-white/10..."
+```
+
+#### Design Token Usage Rules
+
+1. **Always import from design-tokens.ts** - Never hardcode repeated styles
+2. **Use template literals** - Combine tokens: `${card.base} ${card.padding.lg}`
+3. **Extend, don't override** - Add classes after tokens: `${text.label} mb-2`
+4. **Create new tokens** - If a pattern repeats 3+ times, add it to design-tokens.ts
+
+### 5. Detecting Design Inconsistencies
+
+When you detect inconsistent design, **automatically fix it**. Common issues:
+
+- **Hardcoded styles that match tokens** → Replace with token import
+- **Component > 150 lines** → Break into micro-components
+- **Repeated style patterns** → Extract to design-tokens.ts
+- **Inconsistent spacing** → Standardize using tokens
+- **Mixed border radius** → Use consistent values from tokens
+
+### 6. Performance First (Low-Powered Devices)
+
+**CRITICAL: This app runs on low-powered servers like Raspberry Pi 4**
+
+All code MUST be optimized for:
+- Limited CPU (4-core ARM)
+- Limited RAM (2-8 GB)
+- Limited I/O bandwidth
+- Battery-powered scenarios
+
+#### Performance Rules
+
+**React Optimization:**
+```tsx
+// ✅ GOOD - Memoize expensive computations
+const sortedApps = useMemo(() =>
+  apps.sort((a, b) => b.cpuUsage - a.cpuUsage),
+  [apps]
+);
+
+// ✅ GOOD - Memoize callbacks passed to children
+const handleClick = useCallback(() => {
+  setSelected(id);
+}, [id]);
+
+// ✅ GOOD - Lazy load heavy components
+const SystemMonitor = dynamic(() => import('./SystemMonitor'), {
+  loading: () => <Skeleton />,
+  ssr: false
+});
+
+// ❌ BAD - Inline function creates new reference every render
+<Button onClick={() => handleAction(id)} />
+
+// ❌ BAD - Computing on every render
+const sorted = apps.sort((a, b) => b.cpu - a.cpu);
+```
+
+**Data Fetching:**
+```tsx
+// ✅ GOOD - Debounce frequent updates (500ms minimum)
+const lastUpdateRef = useRef(0);
+if (Date.now() - lastUpdateRef.current < 500) return;
+
+// ✅ GOOD - Limit history arrays
+setHistory(prev => [...prev, value].slice(-30)); // Max 30 items
+
+// ✅ GOOD - Cleanup on unmount
+useEffect(() => {
+  const interval = setInterval(fetch, 3000);
+  return () => clearInterval(interval);
+}, []);
+
+// ❌ BAD - Polling too frequently
+setInterval(fetch, 100); // Too fast!
+
+// ❌ BAD - Unbounded arrays
+setHistory(prev => [...prev, value]); // Memory leak!
+```
+
+**Bundle Size:**
+```tsx
+// ✅ GOOD - Import only what you need
+import { X, Settings } from 'lucide-react';
+
+// ✅ GOOD - Dynamic imports for heavy libraries
+const Chart = dynamic(() => import('recharts').then(m => m.AreaChart));
+
+// ❌ BAD - Import entire library
+import * as Icons from 'lucide-react';
+
+// ❌ BAD - Heavy library in main bundle
+import { AreaChart, LineChart, BarChart } from 'recharts';
+```
+
+#### Performance Checklist
+
+| Check | Rule |
+|-------|------|
+| Polling interval | ≥ 3000ms for data, ≥ 500ms for UI |
+| History arrays | Max 30-60 items |
+| Memoization | `useMemo` for computed values |
+| Callbacks | `useCallback` for event handlers |
+| Heavy components | `dynamic()` import with `ssr: false` |
+| Images | WebP format, lazy loading |
+| Animations | CSS over JS, `will-change` sparingly |
+
+#### Specific Optimizations
+
+**Real-Time Monitoring:**
+- Use Server-Sent Events (SSE) instead of WebSocket polling
+- Debounce updates: 500ms minimum between re-renders
+- Limit chart data points: 30 max for mini charts, 60 for full charts
+- Clear data on component unmount
+
+**Image Handling:**
+```tsx
+// ✅ GOOD - Next.js Image with optimization
+<Image
+  src={icon}
+  width={64}
+  height={64}
+  loading="lazy"
+  placeholder="blur"
+/>
+
+// ❌ BAD - Unoptimized img tag
+<img src={icon} />
+```
+
+**Lists & Grids:**
+```tsx
+// ✅ GOOD - Virtualize long lists (>20 items)
+import { VirtualizedList } from 'react-window';
+
+// ✅ GOOD - Pagination over infinite scroll
+const [page, setPage] = useState(1);
+const items = allItems.slice(0, page * 20);
+
+// ❌ BAD - Render all items at once
+{allItems.map(item => <Card key={item.id} />)}
+```
+
+**State Management:**
+```tsx
+// ✅ GOOD - Split state to minimize re-renders
+const [loading, setLoading] = useState(false);
+const [data, setData] = useState(null);
+
+// ✅ GOOD - Use refs for non-reactive values
+const lastUpdateRef = useRef(0);
+
+// ❌ BAD - Single state object causes full re-render
+const [state, setState] = useState({ loading: false, data: null, error: null });
+```
+
+**CSS Performance:**
+```css
+/* ✅ GOOD - Use transform for animations */
+.card:hover {
+  transform: scale(1.02);
+}
+
+/* ✅ GOOD - Contain paint for complex components */
+.dialog {
+  contain: layout paint;
+}
+
+/* ❌ BAD - Animating expensive properties */
+.card:hover {
+  width: 110%;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+```
+
+#### Memory Management
+
+**Cleanup Patterns:**
+```tsx
+useEffect(() => {
+  const controller = new AbortController();
+
+  fetch('/api/data', { signal: controller.signal })
+    .then(setData)
+    .catch(() => {});
+
+  return () => controller.abort(); // Cleanup!
+}, []);
+```
+
+**Avoid Memory Leaks:**
+- Always cleanup subscriptions, intervals, event listeners
+- Use `AbortController` for fetch requests
+- Limit array/object growth with `.slice()`
+- Set refs to `null` on unmount if storing large objects
+
+#### Server-Side Considerations
+
+**For Raspberry Pi / Low-Powered Servers:**
+```bash
+# Limit Node.js memory usage
+NODE_OPTIONS="--max-old-space-size=512" npm start
+
+# Use production mode (critical!)
+NODE_ENV=production npm start
+```
+
+**Next.js Configuration:**
+```js
+// next.config.js
+module.exports = {
+  // Reduce build memory usage
+  swcMinify: true,
+
+  // Optimize images for ARM
+  images: {
+    formats: ['image/webp'],
+    minimumCacheTTL: 60 * 60 * 24, // 24h cache
+  },
+
+  // Disable features not needed
+  reactStrictMode: false, // Disable in production for performance
+};
+```
+
+#### Performance Anti-Patterns to Avoid
+
+| Anti-Pattern | Problem | Solution |
+|--------------|---------|----------|
+| `useEffect` without deps | Runs every render | Add dependency array |
+| Inline objects/arrays | New reference each render | `useMemo` or move outside |
+| Polling < 1s | CPU overload | Increase interval |
+| Unbounded state arrays | Memory leak | Use `.slice(-N)` |
+| Heavy sync operations | Blocks main thread | Use Web Workers or `requestIdleCallback` |
+| Unoptimized images | Large downloads | Use Next.js Image |
+| Console.log in prod | Memory + CPU waste | Remove or use debug flag |
 
 ## Development Commands
 
@@ -110,33 +481,64 @@ live-os/
 │   └── globals.css              # Global styles
 │
 ├── components/                   # React components
-│   ├── ui/                      # shadcn/ui base components
+│   ├── ui/                      # shadcn/ui base components + design tokens
+│   │   └── design-tokens.ts     # 🔴 CRITICAL: Shared design tokens
+│   │
+│   ├── system-monitor/          # System monitoring (micro-components)
+│   │   ├── index.ts             # Barrel export
+│   │   ├── system-monitor-dialog.tsx  # Main orchestrator
+│   │   ├── types.ts             # Type definitions
+│   │   ├── utils.ts             # Utility functions
+│   │   ├── dialog-header.tsx    # Header component
+│   │   ├── metric-chart-card.tsx # Reusable metric card
+│   │   ├── network-chart.tsx    # Network chart
+│   │   ├── app-list.tsx         # App list
+│   │   ├── app-list-item.tsx    # Single app item
+│   │   ├── app-breakdown-panel.tsx # Breakdown panel
+│   │   └── connection-status.tsx # Status indicator
+│   │
+│   ├── settings/                # Settings dialogs (micro-components)
+│   │   ├── index.ts             # Barrel export
+│   │   ├── settings-dialog.tsx  # Main settings dialog
+│   │   ├── settings-sidebar.tsx # Sidebar component
+│   │   ├── system-details-dialog.tsx # System details
+│   │   ├── wifi-dialog.tsx      # WiFi dialog
+│   │   ├── metric-card.tsx      # Reusable metric card
+│   │   ├── info-row.tsx         # Info row component
+│   │   ├── sections.tsx         # Settings sections
+│   │   ├── types.ts             # Type definitions
+│   │   ├── hardware-utils.ts    # Hardware utilities
+│   │   ├── tabs/                # Tab micro-components
+│   │   │   ├── index.ts
+│   │   │   ├── system-tab.tsx
+│   │   │   ├── cpu-tab.tsx
+│   │   │   ├── memory-tab.tsx
+│   │   │   ├── battery-tab.tsx
+│   │   │   ├── graphics-tab.tsx
+│   │   │   ├── network-tab.tsx
+│   │   │   ├── thermals-tab.tsx
+│   │   │   └── settings-tab-trigger.tsx
+│   │   └── wifi/                # WiFi micro-components
+│   │       ├── index.ts
+│   │       ├── network-item.tsx
+│   │       ├── status-message.tsx
+│   │       └── wifi-dialog-header.tsx
+│   │
+│   ├── lock-screen/             # Lock screen (micro-components)
+│   │   ├── index.ts
+│   │   ├── lock-screen.tsx
+│   │   ├── user-header.tsx
+│   │   └── pin-input-form.tsx
+│   │
 │   ├── app-store/               # App store related
-│   │   ├── app-store-dialog.tsx
-│   │   ├── app-card.tsx
-│   │   ├── app-detail-dialog.tsx
-│   │   ├── app-install-dialog.tsx
-│   │   └── types.ts
 │   ├── installed-apps/          # Installed apps management
-│   ├── system-status/           # System monitoring
+│   ├── system-status/           # System status widget
 │   ├── greeting-card/           # User greeting & clock
 │   └── layout/                  # Layout components
-│       └── dock.tsx             # macOS-style dock
 │
 ├── lib/                         # Utility functions
-│   ├── utils.ts                 # General utilities
-│   └── fetchWeatherData.ts      # Weather API client
-│
 ├── store/                       # App Store (Umbrel format)
-│   ├── Nextcloud/
-│   │   ├── docker-compose.yml
-│   │   ├── icon.png
-│   │   └── appfile.json
-│   └── [AppName]/               # Each app follows this pattern
-│
 ├── public/                      # Static assets
-│   └── wallpapers/              # Background images
-│
 └── types/                       # TypeScript type definitions
 ```
 
@@ -153,30 +555,21 @@ These actions are called directly from client components, eliminating the need f
 
 ### Component Structure
 
-**Client Components** (`'use client'`):
-- **`components/greeting-card/`**: Displays greeting with username, weather, and clock
-  - Fetches username via `getSystemUsername()` on mount
-  - `weather-info.tsx`: Uses browser geolocation + `lib/fetchWeatherData.ts` (Open-Meteo API)
-  - `live-clock.tsx`: Real-time clock display
+**Micro-Component Examples:**
 
-- **`components/system-status/`**: Displays CPU/RAM/storage metrics
-  - Polls `getSystemStatus()` and `getStorageInfo()` every 3 seconds
-  - `circular-progress.tsx`: Reusable circular progress indicator
+**System Monitor** (`components/system-monitor/`):
+- `metric-chart-card.tsx` (80 lines) - Reusable card with chart
+- `app-list-item.tsx` (25 lines) - Single app display
+- `connection-status.tsx` (20 lines) - Status indicator
 
-- **`components/app-store/`**: App store interface (Umbrel-inspired design)
-  - Search and filter functionality
-  - Category organization
-  - App installation dialogs
+**Settings** (`components/settings/`):
+- `metric-card.tsx` (43 lines) - Metric display
+- `info-row.tsx` (13 lines) - Label/value row
+- Each tab is its own file (15-60 lines each)
 
-- **`components/installed-apps/`**: Manage running applications
-  - Grid view of installed apps
-  - Start/stop/restart controls
-  - Logs viewer
-  - Context menu actions
-
-**Layout**:
-- `app/page.tsx`: Main page with dynamic background and dock
-- `app/layout.tsx`: Root layout with Geist fonts and metadata
+**Lock Screen** (`components/lock-screen/`):
+- `user-header.tsx` (25 lines) - User info display
+- `pin-input-form.tsx` (80 lines) - PIN input
 
 ### App Store Structure (Umbrel Format)
 
@@ -208,56 +601,41 @@ store/AppName/
 }
 ```
 
-**Key conventions**:
-- App IDs: lowercase with hyphens only
-- Docker images: Pin with SHA256 digest when possible
-- Environment variables: Use `APP_` prefix for app-specific vars
-- Volumes: Mount to `${APP_DATA_DIR}` for persistence
-- Ports: Document all exposed ports
-
 ### Styling System
 
-**Consistent Design Tokens**:
+**Consistent Design Tokens** (MUST USE):
 
+- All styles defined in `components/ui/design-tokens.ts`
 - **Tailwind CSS 4** with custom theme tokens in `app/globals.css`
 - Uses CSS variables for light/dark mode (`.dark` class)
-- Custom `@theme inline` configuration for design tokens
 
-**Color Palette**:
-- Primary: `blue-600` / `blue-700` (actions, links)
-- Neutral: `zinc-*` scale (text, borders, backgrounds)
-- Success: `green-600`
-- Warning: `yellow-600`
-- Danger: `red-600`
+**Standard Color Palette:**
+- CPU: `#06b6d4` (cyan)
+- Memory: `#f59e0b` (amber)
+- GPU: `#a855f7` (purple)
+- Storage: `#10b981` (emerald)
+- Network Upload: `#8b5cf6` (violet)
+- Network Download: `#ec4899` (pink)
+- Neutral: `zinc-*` scale
+- Success: `green-*`
+- Warning: `yellow-*`
+- Danger: `red-*`
 
-**Spacing Scale** (use consistently):
-- xs: `gap-1`, `p-1` (4px)
-- sm: `gap-2`, `p-2` (8px)
-- md: `gap-4`, `p-4` (16px)
-- lg: `gap-6`, `p-6` (24px)
-- xl: `gap-8`, `p-8` (32px)
+**Card Styling (from design-tokens.ts):**
+```
+Base: bg-black/30 backdrop-blur-xl rounded-2xl border border-white/15 shadow-lg shadow-black/25
+Padding: p-4 (sm), p-5 (md), p-6 (lg)
+Hover: hover:border-white/30 hover:bg-black/40
+Selected: bg-black/40 border-cyan-500/50 ring-1 ring-cyan-500/30
+```
 
-**Typography Scale**:
-- xs: `text-xs` (12px)
-- sm: `text-sm` (14px)
-- base: `text-base` (16px)
-- lg: `text-lg` (18px)
-- xl: `text-xl` (20px)
-- 2xl: `text-2xl` (24px)
-
-**Border Radius**:
-- sm: `rounded-sm` (2px)
-- default: `rounded` (4px)
-- md: `rounded-md` (6px)
-- lg: `rounded-lg` (8px)
-- xl: `rounded-xl` (12px)
-- full: `rounded-full` (9999px)
-
-**Animations**:
-- **Framer Motion** for complex animations
-- **Tailwind transitions** for simple hover/focus states
-- Keep animations subtle and purposeful
-- Default duration: `transition-colors` or `duration-200`
+**Typography (from design-tokens.ts):**
+```
+Label: text-xs text-white/40 -tracking-[0.01em]
+Value: text-2xl font-bold text-white/90 -tracking-[0.02em]
+Heading: text-lg font-semibold text-white -tracking-[0.01em]
+Muted: text-xs text-white/60 -tracking-[0.01em]
+```
 
 ### Path Aliases
 
@@ -270,6 +648,7 @@ store/AppName/
 - **Tailwind CSS 4**: Utility-first CSS
 - **Framer Motion**: Animation library
 - **lucide-react**: Icon library
+- **recharts**: Charting library
 - **openmeteo**: Weather data API client
 - **class-variance-authority** + **clsx** + **tailwind-merge**: Component variant utilities
 - **shadcn/ui**: Base UI components
@@ -368,19 +747,6 @@ sudo apt install -y \
   docker-compose      # Docker Compose
 ```
 
-### Development vs Production
-
-**Development (macOS/Linux)**:
-- May use platform-specific commands for convenience
-- System monitoring might use approximations
-- Some features may have limited functionality
-
-**Production (Debian LTS)**:
-- All features fully functional
-- System commands optimized for Debian
-- Production-grade monitoring and metrics
-- Systemd service integration
-
 ## Features Inspired by UmbrelOS & CasaOS
 
 ### From UmbrelOS
@@ -402,20 +768,30 @@ sudo apt install -y \
 
 ### When Writing Code
 
-1. **Always check for design consistency** before committing
-2. **Apply SOLID principles** to all new code
-3. **Keep it simple**: Prefer readability over cleverness
-4. **Write TypeScript**: No implicit `any` types
-5. **Use Server Actions**: Avoid creating API routes unless necessary
-6. **Component composition**: Prefer composition over props drilling
-7. **Error handling**: Always handle errors gracefully with user feedback
+1. **Check component size** - Must be under 150 lines
+2. **Use design tokens** - Import from `components/ui/design-tokens.ts`
+3. **Apply SOLID principles** - Single responsibility per component
+4. **Keep it simple** - Prefer readability over cleverness
+5. **Write TypeScript** - No implicit `any` types
+6. **Use Server Actions** - Avoid creating API routes unless necessary
+7. **Component composition** - Prefer composition over props drilling
+8. **Error handling** - Always handle errors gracefully with user feedback
+9. **Performance first** - Memoize, debounce, limit arrays, cleanup effects
+10. **Optimize for Raspberry Pi** - Assume 1GB RAM, 4-core ARM CPU
 
 ### When Detecting Issues
 
+**If component exceeds 150 lines**:
+1. Identify logical sub-components
+2. Extract into separate files
+3. Create types.ts for shared types
+4. Create utils.ts for helper functions
+
 **If you detect design inconsistencies**:
-1. Note the inconsistency
-2. Fix it immediately using the established patterns
-3. Explain the change to the user
+1. Check if a design token exists
+2. If yes, replace hardcoded styles with token
+3. If no, consider adding new token to design-tokens.ts
+4. Apply the fix immediately
 
 **If you detect SOLID violations**:
 1. Refactor the code to follow SOLID principles
@@ -440,3 +816,25 @@ sudo apt install -y \
 - Feature branches: `feature/feature-name`
 - Commit messages: Clear and descriptive
 - No force pushes to main/develop
+
+## Quick Reference: Component Refactoring Checklist
+
+When creating or modifying components:
+
+- [ ] Component under 150 lines?
+- [ ] Using design tokens from `design-tokens.ts`?
+- [ ] Types extracted to `types.ts`?
+- [ ] Utility functions in `utils.ts`?
+- [ ] Barrel export in `index.ts`?
+- [ ] Sub-components properly extracted?
+- [ ] Consistent with existing patterns?
+
+## Reference Components
+
+**Best Examples of Micro-Component Architecture:**
+
+1. `components/system-monitor/` - Full dialog with 8+ micro-components
+2. `components/settings/tabs/` - 7 tab components, each focused
+3. `components/lock-screen/` - Simple 3-component structure
+4. `components/settings/metric-card.tsx` - Perfect 43-line reusable component
+5. `components/settings/info-row.tsx` - Minimal 13-line utility component

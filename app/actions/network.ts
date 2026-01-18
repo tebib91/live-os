@@ -18,6 +18,19 @@ export type WifiListResult = {
   warning?: string;
 };
 
+function dedupeNetworks(networks: WifiNetwork[]): WifiNetwork[] {
+  const strongestBySsid = new Map<string, WifiNetwork>();
+
+  for (const network of networks) {
+    const existing = strongestBySsid.get(network.ssid);
+    if (!existing || network.signal > existing.signal) {
+      strongestBySsid.set(network.ssid, network);
+    }
+  }
+
+  return Array.from(strongestBySsid.values()).sort((a, b) => b.signal - a.signal);
+}
+
 export async function listWifiNetworks(): Promise<WifiListResult> {
   console.log('[network] listWifiNetworks called');
   const errors: string[] = [];
@@ -35,16 +48,17 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
     console.log('[network] systeminformation result:', wifiNetworks);
     if (Array.isArray(wifiNetworks) && wifiNetworks.length > 0) {
       return {
-        networks: wifiNetworks
-          .map((network) => ({
-            ssid: network.ssid || '',
-            security: Array.isArray(network.security)
-              ? network.security.join(', ')
-              : network.security || '',
-            signal: Number(network.quality ?? network.signalLevel ?? 0) || 0,
-          }))
-          .filter((n) => n.ssid)
-          .sort((a, b) => b.signal - a.signal),
+        networks: dedupeNetworks(
+          wifiNetworks
+            .map((network) => ({
+              ssid: network.ssid || '',
+              security: Array.isArray(network.security)
+                ? network.security.join(', ')
+                : network.security || '',
+              signal: Number(network.quality ?? network.signalLevel ?? 0) || 0,
+            }))
+            .filter((n) => n.ssid)
+        ),
       };
     }
     console.log('[network] systeminformation returned empty, trying nmcli...');
@@ -104,7 +118,7 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
       };
     }
 
-    return { networks };
+    return { networks: dedupeNetworks(networks) };
   } catch (error) {
     const err = error as NodeJS.ErrnoException;
     console.error('[network] nmcli failed:', err.message);
