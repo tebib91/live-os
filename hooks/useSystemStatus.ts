@@ -1,12 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import type { HardwareInfo } from '@/components/settings/hardware-utils';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-// Types matching server-side definitions
 export interface SystemStats {
   cpu: { usage: number; temperature: number; power: number };
   memory: { usage: number; total: number; used: number; free: number };
-  gpu?: { usage: number; name: string };
+  hardware?: HardwareInfo;
 }
 
 export interface StorageStats {
@@ -42,29 +42,6 @@ export interface InstalledApp {
   installedAt: number;
 }
 
-interface SystemUpdateMessage {
-  type: 'system-update';
-  data: {
-    cpu: SystemStats['cpu'];
-    memory: SystemStats['memory'];
-    gpu?: SystemStats['gpu'];
-    storage: StorageStats;
-    network: NetworkStats;
-    runningApps: AppUsage[];
-  };
-  timestamp: number;
-}
-
-interface AppsUpdateMessage {
-  type: 'apps-update';
-  data: {
-    installedApps: InstalledApp[];
-  };
-  timestamp: number;
-}
-
-type WebSocketMessage = SystemUpdateMessage | AppsUpdateMessage;
-
 export interface UseSystemStatusReturn {
   // System metrics
   systemStats: SystemStats | null;
@@ -77,101 +54,22 @@ export interface UseSystemStatusReturn {
 
   // Connection state
   connected: boolean;
+  error: string | null;
 
   // Manual refresh trigger
   refreshApps: () => void;
 }
 
-// Singleton WebSocket connection
-let globalWs: WebSocket | null = null;
-const globalListeners: Set<(message: WebSocketMessage) => void> = new Set();
-let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-let connectionAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
-const RECONNECT_DELAY = 2000;
-
-function getWebSocketUrl(): string {
-  if (typeof window === 'undefined') return '';
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}/api/system-status`;
-}
-
-function connectWebSocket(): void {
-  if (globalWs?.readyState === WebSocket.OPEN || globalWs?.readyState === WebSocket.CONNECTING) {
-    return;
-  }
-
-  const url = getWebSocketUrl();
-  if (!url) return;
-
-  try {
-    globalWs = new WebSocket(url);
-
-    globalWs.onopen = () => {
-      console.log('[SystemStatus] WebSocket connected');
-      connectionAttempts = 0;
-    };
-
-    globalWs.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data) as WebSocketMessage;
-        globalListeners.forEach((listener) => listener(message));
-      } catch (error) {
-        console.error('[SystemStatus] Failed to parse message:', error);
-      }
-    };
-
-    globalWs.onclose = () => {
-      console.log('[SystemStatus] WebSocket disconnected');
-      globalWs = null;
-
-      // Attempt to reconnect if there are still listeners
-      if (globalListeners.size > 0 && connectionAttempts < MAX_RECONNECT_ATTEMPTS) {
-        connectionAttempts++;
-        reconnectTimeout = setTimeout(connectWebSocket, RECONNECT_DELAY);
-      }
-    };
-
-    globalWs.onerror = (error) => {
-      console.error('[SystemStatus] WebSocket error:', error);
-    };
-  } catch (error) {
-    console.error('[SystemStatus] Failed to create WebSocket:', error);
-  }
-}
-
-function disconnectWebSocket(): void {
-  if (reconnectTimeout) {
-    clearTimeout(reconnectTimeout);
-    reconnectTimeout = null;
-  }
-
-  if (globalWs) {
-    globalWs.close();
-    globalWs = null;
-  }
-}
-
-function addListener(listener: (message: WebSocketMessage) => void): void {
-  globalListeners.add(listener);
-
-  // Connect if this is the first listener
-  if (globalListeners.size === 1) {
-    connectWebSocket();
-  }
-}
-
-function removeListener(listener: (message: WebSocketMessage) => void): void {
-  globalListeners.delete(listener);
-
-  // Disconnect if no more listeners
-  if (globalListeners.size === 0) {
-    disconnectWebSocket();
-  }
+interface SSEMessage {
+  type: 'metrics' | 'error';
+  systemStatus?: SystemStats;
+  storageInfo?: StorageStats;
+  message?: string;
 }
 
 /**
- * Hook for real-time system status via WebSocket
+ * Hook for real-time system status via Server-Sent Events (SSE)
+ * Uses a singleton EventSource connection shared across all consumers
  */
 export function useSystemStatus(): UseSystemStatusReturn {
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
@@ -180,38 +78,91 @@ export function useSystemStatus(): UseSystemStatusReturn {
   const [runningApps, setRunningApps] = useState<AppUsage[]>([]);
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
   const [connected, setConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleMessage = useCallback((message: WebSocketMessage) => {
-    if (message.type === 'system-update') {
-      setSystemStats({
-        cpu: message.data.cpu,
-        memory: message.data.memory,
-        gpu: message.data.gpu,
-      });
-      setStorageStats(message.data.storage);
-      setNetworkStats(message.data.network);
-      setRunningApps(message.data.runningApps);
-      setConnected(true);
-    } else if (message.type === 'apps-update') {
-      setInstalledApps(message.data.installedApps);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const MAX_RECONNECT_ATTEMPTS = 5;
+  const RECONNECT_DELAY = 3000;
+
+  const connect = useCallback(() => {
+    // Don't connect if already connected or connecting
+    if (eventSourceRef.current?.readyState === EventSource.OPEN ||
+        eventSourceRef.current?.readyState === EventSource.CONNECTING) {
+      return;
+    }
+
+    try {
+      const es = new EventSource('/api/system/stream');
+      eventSourceRef.current = es;
+
+      es.onopen = () => {
+        console.log('[SystemStatus] SSE connected');
+        setConnected(true);
+        setError(null);
+        reconnectAttemptsRef.current = 0;
+      };
+
+      es.onmessage = (event) => {
+        try {
+          const data: SSEMessage = JSON.parse(event.data);
+
+          if (data.type === 'metrics') {
+            if (data.systemStatus) {
+              setSystemStats(data.systemStatus);
+            }
+            if (data.storageInfo) {
+              setStorageStats(data.storageInfo);
+            }
+          } else if (data.type === 'error') {
+            console.error('[SystemStatus] Server error:', data.message);
+            setError(data.message || 'Unknown error');
+          }
+        } catch (parseError) {
+          console.error('[SystemStatus] Failed to parse SSE message:', parseError);
+        }
+      };
+
+      es.onerror = () => {
+        console.log('[SystemStatus] SSE error/disconnected');
+        setConnected(false);
+        es.close();
+        eventSourceRef.current = null;
+
+        // Attempt to reconnect
+        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttemptsRef.current++;
+          console.log(`[SystemStatus] Reconnecting in ${RECONNECT_DELAY}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
+          reconnectTimeoutRef.current = setTimeout(connect, RECONNECT_DELAY);
+        } else {
+          setError('Connection lost. Please refresh the page.');
+        }
+      };
+    } catch (err) {
+      console.error('[SystemStatus] Failed to create EventSource:', err);
+      setError('Failed to connect to system metrics stream');
     }
   }, []);
 
+  const disconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    setConnected(false);
+  }, []);
+
   useEffect(() => {
-    addListener(handleMessage);
-
-    // Track connection state
-    const checkConnection = () => {
-      setConnected(globalWs?.readyState === WebSocket.OPEN);
-    };
-
-    const interval = setInterval(checkConnection, 1000);
-
-    return () => {
-      removeListener(handleMessage);
-      clearInterval(interval);
-    };
-  }, [handleMessage]);
+    connect();
+    return () => disconnect();
+  }, [connect, disconnect]);
 
   // Manual refresh trigger - dispatches event for backwards compatibility
   const refreshApps = useCallback(() => {
@@ -225,6 +176,7 @@ export function useSystemStatus(): UseSystemStatusReturn {
     runningApps,
     installedApps,
     connected,
+    error,
     refreshApps,
   };
 }

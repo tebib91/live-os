@@ -3,9 +3,7 @@
 "use client";
 
 import { getWallpapers, updateSettings } from "@/app/actions/settings";
-import { getSystemInfo } from "@/app/actions/system";
-import { getUptime } from "@/app/actions/system";
-import { getStorageInfo, getSystemStatus } from "@/app/actions/system-status";
+import { getSystemInfo, getUptime } from "@/app/actions/system";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -45,8 +44,10 @@ export function SettingsDialog({
   onWallpaperChange,
   currentWallpaper,
 }: SettingsDialogProps) {
-  const [systemStatus, setSystemStatus] = useState<any>(null);
-  const [storageInfo, setStorageInfo] = useState<any>(null);
+  // Real-time metrics from SSE stream
+  const { systemStats, storageStats } = useSystemStatus();
+
+  // Static data - fetched once when dialog opens
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [wallpapers, setWallpapers] = useState<WallpaperOption[]>([]);
   const [wallpapersLoading, setWallpapersLoading] = useState(false);
@@ -55,26 +56,14 @@ export function SettingsDialog({
   const [uptimeSeconds, setUptimeSeconds] = useState<number>(0);
   const router = useRouter();
 
+  // Fetch static data once when dialog opens
   useEffect(() => {
     if (open) {
-      fetchSystemData();
       fetchSystemInfo();
       fetchWallpapers();
       fetchUptime();
-
-      const interval = setInterval(fetchSystemData, 3000);
-      return () => clearInterval(interval);
     }
   }, [open]);
-
-  const fetchSystemData = async () => {
-    const [status, storage] = await Promise.all([
-      getSystemStatus(),
-      getStorageInfo(),
-    ]);
-    setSystemStatus(status);
-    setStorageInfo(storage);
-  };
 
   const fetchSystemInfo = async () => {
     const info = await getSystemInfo();
@@ -129,7 +118,7 @@ export function SettingsDialog({
     return "red";
   };
 
-  const hardware: HardwareInfo | undefined = systemStatus?.hardware;
+  const hardware: HardwareInfo | undefined = systemStats?.hardware;
 
   const uptimeLabel = () => {
     const seconds = uptimeSeconds || 0;
@@ -203,8 +192,8 @@ export function SettingsDialog({
             <SettingsSidebar
               currentWallpaper={currentWallpaper}
               systemInfo={systemInfo}
-              storageInfo={storageInfo}
-              systemStatus={systemStatus}
+              storageInfo={storageStats}
+              systemStatus={systemStats}
               formatBytes={formatBytes}
               getMetricColor={getMetricColor}
             />
@@ -236,14 +225,16 @@ export function SettingsDialog({
           </div>
         </ScrollArea>
 
-        <WifiDialog open={wifiDialogOpen} onOpenChange={setWifiDialogOpen} />
+        {wifiDialogOpen && (
+          <WifiDialog open={wifiDialogOpen} onOpenChange={setWifiDialogOpen} />
+        )}
         <SystemDetailsDialog
           open={systemDetailsOpen}
           onOpenChange={setSystemDetailsOpen}
           hardware={hardware}
-          cpuUsage={systemStatus?.cpu?.usage}
-          cpuPower={systemStatus?.cpu?.power}
-          memory={systemStatus?.memory}
+          cpuUsage={systemStats?.cpu?.usage}
+          cpuPower={systemStats?.cpu?.power}
+          memory={systemStats?.memory}
         />
       </DialogContent>
     </Dialog>

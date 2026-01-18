@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, RefreshCw, Shield, Wifi } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { AlertTriangle, Loader2, RefreshCw, Shield, Wifi, WifiOff } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 type WifiDialogProps = {
   open: boolean;
@@ -16,39 +16,51 @@ type WifiDialogProps = {
 export function WifiDialog({ open, onOpenChange }: WifiDialogProps) {
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [selectedSsid, setSelectedSsid] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    console.log('[WifiDialog] Starting WiFi scan...');
+    setLoading(true);
+    setScanError(null);
+    setWarning(null);
+    setConnectError(null);
+    try {
+      const result = await listWifiNetworks();
+      console.log('[WifiDialog] Scan result:', result);
+      setNetworks(result.networks);
+      if (result.error) {
+        setScanError(result.error);
+      } else if (result.warning) {
+        setWarning(result.warning);
+      }
+    } catch (err) {
+      console.error('[WifiDialog] Scan error:', err);
+      setScanError('Failed to load Wi-Fi networks: ' + ((err as Error)?.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (open) {
       refresh();
     }
-  }, [open]);
-
-  const refresh = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const list = await listWifiNetworks();
-      setNetworks(list);
-    } catch (err) {
-      setError('Failed to load Wi-Fi networks');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [open, refresh]);
 
   const handleConnect = async (network: WifiNetwork) => {
     const needsPassword = network.security && network.security !== '--';
     if (needsPassword && password.trim().length === 0) {
-      setError('Password required for secured network');
+      setConnectError('Password required for secured network');
       return;
     }
 
     setConnecting(true);
-    setError(null);
+    setConnectError(null);
     const result = await connectToWifi(
       network.ssid,
       needsPassword ? password : undefined
@@ -59,7 +71,7 @@ export function WifiDialog({ open, onOpenChange }: WifiDialogProps) {
       setPassword('');
       onOpenChange(false);
     } else {
-      setError(result.error || 'Failed to connect');
+      setConnectError(result.error || 'Failed to connect');
     }
   };
 
@@ -103,7 +115,31 @@ export function WifiDialog({ open, onOpenChange }: WifiDialogProps) {
               </div>
             )}
 
-            {!loading && networks.length === 0 && (
+            {!loading && scanError && (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+                <div className="flex items-start gap-3">
+                  <WifiOff className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-300">WiFi Scan Failed</p>
+                    <p className="text-xs text-red-300/80 mt-1 whitespace-pre-line">{scanError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!loading && !scanError && warning && networks.length === 0 && (
+              <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-300">No Networks Found</p>
+                    <p className="text-xs text-yellow-300/80 mt-1 whitespace-pre-line">{warning}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!loading && !scanError && !warning && networks.length === 0 && (
               <div className="text-sm text-white/60">No networks found.</div>
             )}
 
@@ -115,7 +151,7 @@ export function WifiDialog({ open, onOpenChange }: WifiDialogProps) {
                   key={network.ssid + network.signal}
                   onClick={() => {
                     setSelectedSsid(network.ssid);
-                    setError(null);
+                    setConnectError(null);
                   }}
                   className={`w-full text-left rounded-xl border p-3 transition-all backdrop-blur-md ${
                     selected
@@ -177,7 +213,11 @@ export function WifiDialog({ open, onOpenChange }: WifiDialogProps) {
               );
             })}
 
-            {error && <p className="text-sm text-red-300">{error}</p>}
+            {connectError && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
+                <p className="text-sm text-red-300">{connectError}</p>
+              </div>
+            )}
           </div>
         </ScrollArea>
       </DialogContent>
