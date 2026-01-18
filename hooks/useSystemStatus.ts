@@ -26,6 +26,9 @@ export interface AppUsage {
   name: string;
   icon: string;
   cpuUsage: number;
+  memoryUsage: number;
+  memoryLimit: number;
+  memoryPercent: number;
 }
 
 export interface InstalledApp {

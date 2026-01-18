@@ -35,6 +35,9 @@ export interface AppUsage {
   name: string;
   icon: string;
   cpuUsage: number;
+  memoryUsage: number; // in bytes
+  memoryLimit: number; // in bytes
+  memoryPercent: number;
 }
 
 export interface InstalledApp {
@@ -225,25 +228,62 @@ async function collectSystemMetrics(): Promise<SystemUpdateMessage['data']> {
 }
 
 /**
- * Collect running Docker containers and their CPU usage
+ * Parse memory string from docker stats (e.g., "1.5GiB", "256MiB", "100KiB")
+ */
+function parseMemoryString(memStr: string): number {
+  const match = memStr.match(/^([\d.]+)(\w+)$/);
+  if (!match) return 0;
+
+  const value = parseFloat(match[1]);
+  const unit = match[2].toLowerCase();
+
+  switch (unit) {
+    case 'gib':
+    case 'gb':
+      return value * 1024 * 1024 * 1024;
+    case 'mib':
+    case 'mb':
+      return value * 1024 * 1024;
+    case 'kib':
+    case 'kb':
+      return value * 1024;
+    case 'b':
+      return value;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Collect running Docker containers and their CPU/memory usage
  */
 async function collectRunningAppUsage(): Promise<AppUsage[]> {
   try {
     const { stdout } = await execAsync(
-      'docker stats --no-stream --format "{{.Name}}\t{{.CPUPerc}}"'
+      'docker stats --no-stream --format "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}"'
     );
 
     if (!stdout.trim()) return [];
 
     const lines = stdout.trim().split('\n');
     return lines.map((line) => {
-      const [name, cpuStr] = line.split('\t');
+      const [name, cpuStr, memUsageStr, memPercStr] = line.split('\t');
       const cpuUsage = parseFloat(cpuStr?.replace('%', '') || '0');
+      const memPercent = parseFloat(memPercStr?.replace('%', '') || '0');
+
+      // Parse memory usage: "256MiB / 16GiB" format
+      const memParts = memUsageStr?.split(' / ') || [];
+      const memoryUsage = parseMemoryString(memParts[0]?.trim() || '0');
+      const memoryLimit = parseMemoryString(memParts[1]?.trim() || '0');
+
       return {
         id: name,
         name: name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
         icon: DEFAULT_APP_ICON,
         cpuUsage: isNaN(cpuUsage) ? 0 : cpuUsage,
+        memoryUsage: isNaN(memoryUsage) ? 0 : memoryUsage,
+        memoryLimit: isNaN(memoryLimit) ? 0 : memoryLimit,
+        memoryPercent: isNaN(memPercent) ? 0 : memPercent,
       };
     }).sort((a, b) => b.cpuUsage - a.cpuUsage);
   } catch {

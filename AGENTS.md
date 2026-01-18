@@ -17,6 +17,7 @@
 - Strict TypeScript; prefer `.tsx` with the `@/` alias. Keep files kebab-case, components PascalCase, utilities camelCase.
 - Default to server components; add `'use client'` only when hooks/state are needed.
 - Two-space indentation; avoid `any`; let ESLint drive formatting (no repo-level Prettier).
+- Keep React components under roughly 300–350 lines; split UI and logic into smaller pieces when approaching that size.
 
 ## Testing Guidelines
 - Current automation is `npm run test-apps`. Add targeted tests for new logic (parsers, Prisma access, WebSocket handlers).

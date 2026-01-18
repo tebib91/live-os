@@ -18,8 +18,16 @@ interface ChartDataPoint {
   value: number;
 }
 
+type SelectedMetric = 'cpu' | 'memory' | null;
+
 const cardClassName =
   "bg-black/30 backdrop-blur-xl rounded-2xl p-5 border border-white/15 shadow-lg shadow-black/25";
+
+const clickableCardClassName =
+  "bg-black/30 backdrop-blur-xl rounded-2xl p-5 border border-white/15 shadow-lg shadow-black/25 cursor-pointer transition-all hover:border-white/30 hover:bg-black/40";
+
+const selectedCardClassName =
+  "bg-black/40 backdrop-blur-xl rounded-2xl p-5 border border-cyan-500/50 shadow-lg shadow-cyan-500/10 cursor-pointer ring-1 ring-cyan-500/30";
 
 export function SystemMonitorDialog({
   open,
@@ -28,6 +36,9 @@ export function SystemMonitorDialog({
   // Get real-time data from WebSocket
   const { systemStats, storageStats, networkStats, runningApps, connected } =
     useSystemStatus();
+
+  // Selected metric for breakdown view
+  const [selectedMetric, setSelectedMetric] = useState<SelectedMetric>(null);
 
   // History arrays for charts
   const [cpuHistory, setCpuHistory] = useState<ChartDataPoint[]>([]);
@@ -99,6 +110,7 @@ export function SystemMonitorDialog({
       setGpuHistory([]);
       setNetworkUploadHistory([]);
       setNetworkDownloadHistory([]);
+      setSelectedMetric(null);
     }
   }, [open]);
 
@@ -137,6 +149,26 @@ export function SystemMonitorDialog({
   };
 
   const formatMbps = (value: number) => value.toFixed(2);
+
+  const formatMemorySize = (bytes: number) => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  };
+
+  const handleCardClick = (metric: SelectedMetric) => {
+    setSelectedMetric(selectedMetric === metric ? null : metric);
+  };
+
+  // Get apps sorted by selected metric
+  const sortedAppsByMetric = [...runningApps].sort((a, b) => {
+    if (selectedMetric === 'memory') {
+      return b.memoryUsage - a.memoryUsage;
+    }
+    return b.cpuUsage - a.cpuUsage;
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -183,7 +215,10 @@ export function SystemMonitorDialog({
             {/* Top 4 Metrics Grid with Charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* CPU Card with Chart */}
-              <div className={cardClassName}>
+              <div
+                className={selectedMetric === 'cpu' ? selectedCardClassName : clickableCardClassName}
+                onClick={() => handleCardClick('cpu')}
+              >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="text-xs text-white/40 -tracking-[0.01em] uppercase">
@@ -198,7 +233,7 @@ export function SystemMonitorDialog({
                     {currentSystemStats.cpu.usage}%
                   </div>
                   <div className="text-xs text-white/40 -tracking-[0.01em]">
-                    8 threads
+                    Click to view by app
                   </div>
                   {/* Mini Chart */}
                   <div className="h-12 -mx-2">
@@ -243,7 +278,10 @@ export function SystemMonitorDialog({
               </div>
 
               {/* Memory Card with Chart */}
-              <div className={cardClassName}>
+              <div
+                className={selectedMetric === 'memory' ? selectedCardClassName : clickableCardClassName}
+                onClick={() => handleCardClick('memory')}
+              >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="text-xs text-white/40 -tracking-[0.01em] uppercase">
@@ -262,11 +300,7 @@ export function SystemMonitorDialog({
                     </span>
                   </div>
                   <div className="text-xs text-white/40 -tracking-[0.01em]">
-                    {formatBytes(
-                      currentSystemStats.memory.total -
-                        currentSystemStats.memory.used
-                    )}{" "}
-                    left
+                    Click to view by app
                   </div>
                   {/* Mini Chart */}
                   <div className="h-12 -mx-2">
@@ -417,6 +451,67 @@ export function SystemMonitorDialog({
               </div>
 
             </div>
+
+            {/* App Breakdown Panel - Shows when CPU or Memory card is selected */}
+            {selectedMetric && (
+              <div className={cardClassName}>
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white/90 -tracking-[0.01em]">
+                      {selectedMetric === 'cpu' ? 'CPU Usage by Application' : 'Memory Usage by Application'}
+                    </h3>
+                    <p className="text-xs text-white/40">
+                      {selectedMetric === 'cpu' ? 'Sorted by CPU usage' : 'Sorted by memory usage'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedMetric(null)}
+                    className="text-xs text-white/40 hover:text-white/60 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {!connected && (
+                    <div className="text-xs text-white/40 py-2">
+                      Connecting to server...
+                    </div>
+                  )}
+                  {connected && sortedAppsByMetric.length === 0 && (
+                    <div className="text-xs text-white/40 py-2">
+                      No running apps detected.
+                    </div>
+                  )}
+                  {sortedAppsByMetric.map((app) => (
+                    <div
+                      key={app.id}
+                      className="flex items-center justify-between py-2 hover:bg-white/5 rounded-lg px-2 -mx-2 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden">
+                          <img
+                            src={app.icon || "/default-application-icon.png"}
+                            alt={app.name}
+                            className="w-6 h-6 object-contain"
+                            onError={(event) => {
+                              event.currentTarget.src = "/default-application-icon.png";
+                            }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium text-white/90 -tracking-[0.01em]">
+                          {app.name}
+                        </span>
+                      </div>
+                      <span className="text-sm font-medium text-white/90 -tracking-[0.01em]">
+                        {selectedMetric === 'cpu'
+                          ? `${app.cpuUsage.toFixed(1)}%`
+                          : formatMemorySize(app.memoryUsage)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Network Chart */}
             <div className={cardClassName}>
