@@ -1,10 +1,17 @@
 import { getNetworkStats, getStorageInfo, getSystemStatus } from '@/app/actions/system-status';
+import prisma from '@/lib/prisma';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+const CONTAINER_PREFIX = process.env.CONTAINER_PREFIX || '';
 
 type MetricsPayload = {
   type: 'metrics';
   systemStatus: unknown;
   storageInfo: unknown;
   networkStats: unknown;
+  installedApps: unknown;
 };
 
 export type InstallProgressPayload = {
@@ -56,6 +63,90 @@ export function sendInstallProgress(update: InstallProgressPayload) {
   broadcast(update);
 }
 
+async function getInstalledApps() {
+  try {
+    const [knownApps, storeApps] = await Promise.all([
+      prisma.installedApp.findMany(),
+      prisma.app.findMany(),
+    ]);
+    const metaByContainer = new Map(
+      knownApps.map((app) => [app.containerName, app])
+    );
+    const storeMetaById = new Map(storeApps.map((app) => [app.appId, app]));
+
+    const { stdout } = await execAsync(
+      'docker ps -a --format "{{.Names}}\\t{{.Status}}\\t{{.Image}}"'
+    );
+
+    if (!stdout.trim()) return [];
+
+    const lines = stdout.trim().split('\n');
+    return await Promise.all(
+      lines.map(async (line) => {
+        const [containerName, status] = line.split('\t');
+
+        let appStatus: 'running' | 'stopped' | 'error' = 'error';
+        if (status.toLowerCase().startsWith('up')) {
+          appStatus = 'running';
+        } else if (status.toLowerCase().includes('exited')) {
+          appStatus = 'stopped';
+        }
+
+        const meta = metaByContainer.get(containerName);
+        const appId = meta?.appId || getAppIdFromContainerName(containerName);
+        const storeMeta = appId ? storeMetaById.get(appId) : undefined;
+        const hostPort = await resolveHostPort(containerName);
+
+        return {
+          id: containerName,
+          appId,
+          name:
+            meta?.name ||
+            storeMeta?.title ||
+            storeMeta?.name ||
+            containerName.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+          icon: meta?.icon || storeMeta?.icon || '/default-application-icon.png',
+          status: appStatus,
+          webUIPort: hostPort ? Number(hostPort) : undefined,
+          containerName,
+          installedAt: meta?.createdAt?.getTime?.() || Date.now(),
+        };
+      })
+    );
+  } catch (error) {
+    console.error('[SSE] Failed to collect installed apps:', error);
+    return [];
+  }
+}
+
+async function resolveHostPort(containerName: string): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync(
+      `docker inspect -f '{{json .NetworkSettings.Ports}}' ${containerName}`
+    );
+
+    const ports = JSON.parse(stdout || "{}") as Record<
+      string,
+      { HostIp: string; HostPort: string }[] | null
+    >;
+
+    const firstMapping = Object.values(ports).find(
+      (mappings) => Array.isArray(mappings) && mappings.length > 0
+    );
+
+    return firstMapping?.[0]?.HostPort ?? null;
+  } catch (error) {
+    console.error(`[SSE] resolveHostPort: failed for ${containerName}:`, error);
+    return null;
+  }
+}
+
+function getAppIdFromContainerName(name: string): string {
+  return CONTAINER_PREFIX
+    ? name.replace(new RegExp(`^${CONTAINER_PREFIX}`), "")
+    : name;
+}
+
 function hasFastClients() {
   for (const client of clients) {
     if (client.fast) return true;
@@ -67,12 +158,13 @@ async function pollAndBroadcast() {
   if (isPolling || clients.size === 0) return;
   isPolling = true;
   try {
-    const [systemStatus, storageInfo, networkStats] = await Promise.all([
+    const [systemStatus, storageInfo, networkStats, installedApps] = await Promise.all([
       getSystemStatus(),
       getStorageInfo(),
       getNetworkStats(),
+      getInstalledApps(),
     ]);
-    latestPayload = { type: 'metrics', systemStatus, storageInfo, networkStats };
+    latestPayload = { type: 'metrics', systemStatus, storageInfo, networkStats, installedApps };
     broadcast(latestPayload);
   } catch (error) {
     console.error('[SSE] Metrics fetch error:', error);

@@ -75,6 +75,7 @@ interface MetricsMessage {
   systemStatus?: SystemStats;
   storageInfo?: StorageStats;
   networkStats?: NetworkStats;
+  installedApps?: InstalledApp[];
 }
 
 interface ErrorMessage {
@@ -210,6 +211,7 @@ function connectEventSource(wantFast: boolean) {
             systemStats: data.systemStatus ?? sharedState.systemStats,
             storageStats: data.storageInfo ?? sharedState.storageStats,
             networkStats: data.networkStats ?? sharedState.networkStats,
+            installedApps: data.installedApps ?? sharedState.installedApps,
             error: null,
           });
         } else if (data.type === 'install-progress') {
