@@ -149,13 +149,13 @@ export function WallpaperSection({
     <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/15 shadow-lg shadow-black/25">
       <div className="mb-4">
         <h4 className="text-lg font-semibold text-white mb-1">Wallpaper</h4>
-        <p className="text-sm text-white/60">
-          Your LiveOS wallpaper and theme
-        </p>
+        <p className="text-sm text-white/60">Your LiveOS wallpaper and theme</p>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide ">
         {wallpapersLoading && (
-          <div className="text-xs text-white/60 py-2">Loading wallpapers...</div>
+          <div className="text-xs text-white/60 py-2">
+            Loading wallpapers...
+          </div>
         )}
         {!wallpapersLoading && wallpapers.length === 0 && (
           <div className="text-xs text-white/60 py-2">
@@ -210,7 +210,9 @@ export function WifiSection({ onOpenDialog, ssid, quality }: WifiSectionProps) {
           <div className="flex items-center gap-2 text-xs text-white/60">
             <Wifi className="h-3.5 w-3.5" />
             <span className="text-white">{wifiLabel}</span>
-            {qualityLabel && <span className="text-white/60">• {qualityLabel}</span>}
+            {qualityLabel && (
+              <span className="text-white/60">• {qualityLabel}</span>
+            )}
           </div>
         </div>
         <Button
@@ -255,7 +257,10 @@ type FirewallSectionProps = {
   enabled?: boolean;
 };
 
-export function FirewallSection({ onOpenDialog, enabled }: FirewallSectionProps) {
+export function FirewallSection({
+  onOpenDialog,
+  enabled,
+}: FirewallSectionProps) {
   return (
     <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/15 shadow-lg shadow-black/25">
       <div className="flex items-start justify-between">
@@ -266,7 +271,11 @@ export function FirewallSection({ onOpenDialog, enabled }: FirewallSectionProps)
           <div className="flex items-center gap-2 text-xs text-white/60">
             <Shield className="h-3.5 w-3.5" />
             <span className="text-white">
-              {enabled === undefined ? "Unknown" : enabled ? "Enabled" : "Disabled"}
+              {enabled === undefined
+                ? "Unknown"
+                : enabled
+                  ? "Enabled"
+                  : "Disabled"}
             </span>
           </div>
         </div>

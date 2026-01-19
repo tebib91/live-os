@@ -22,7 +22,7 @@ export function SettingsSidebar({
   const cpuThreads = systemStatus?.hardware?.cpu?.cores;
 
   return (
-    <div className="w-80 p-6 space-y-4 border-r border-white/5 bg-gradient-to-b from-white/10 via-transparent to-transparent">
+    <div className="w-80 p-6 space-y-4 border-r border-white/5 bg-gradient-to-b from-white/10 via-transparent to-transparent flex-shrink-0">
       {/* System Preview Card */}
       <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/15 bg-black/40 backdrop-blur-xl shadow-inner shadow-black/30">
         {currentWallpaper && (

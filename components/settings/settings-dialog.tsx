@@ -2,6 +2,7 @@
 
 "use client";
 
+import { getFirewallStatus } from "@/app/actions/firewall";
 import { getWallpapers, updateSettings } from "@/app/actions/settings";
 import { getSystemInfo, getUptime } from "@/app/actions/system";
 import { Button } from "@/components/ui/button";
@@ -14,10 +15,11 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { SettingsSidebar } from "./settings-sidebar";
+import { FirewallDialog } from "./firewall";
+import { HardwareInfo } from "./hardware-utils";
 import {
   AccountSection,
   DeviceInfoSection,
@@ -28,11 +30,9 @@ import {
   WallpaperSection,
   WifiSection,
 } from "./sections";
+import { SettingsSidebar } from "./settings-sidebar";
 import { SystemDetailsDialog } from "./system-details-dialog";
 import { WifiDialog } from "./wifi-dialog";
-import { FirewallDialog } from "./firewall";
-import { HardwareInfo } from "./hardware-utils";
-import { getFirewallStatus } from "@/app/actions/firewall";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -56,7 +56,9 @@ export function SettingsDialog({
   const [wallpapersLoading, setWallpapersLoading] = useState(false);
   const [wifiDialogOpen, setWifiDialogOpen] = useState(false);
   const [firewallDialogOpen, setFirewallDialogOpen] = useState(false);
-  const [firewallEnabled, setFirewallEnabled] = useState<boolean | undefined>(undefined);
+  const [firewallEnabled, setFirewallEnabled] = useState<boolean | undefined>(
+    undefined,
+  );
   const [systemDetailsOpen, setSystemDetailsOpen] = useState(false);
   const [uptimeSeconds, setUptimeSeconds] = useState<number>(0);
   const router = useRouter();
@@ -126,7 +128,7 @@ export function SettingsDialog({
   };
 
   const getMetricColor = (
-    percentage: number
+    percentage: number,
   ): "cyan" | "green" | "yellow" | "red" => {
     if (percentage < 80) return "cyan";
     if (percentage < 90) return "yellow";
@@ -202,8 +204,8 @@ export function SettingsDialog({
           </Button>
         </div>
 
-        <ScrollArea className="h-[calc(90vh-120px)]">
-          <div className="flex">
+        <ScrollArea className="h-[calc(90vh-120px)] w-full">
+          <div className="flex min-h-0 w-full overflow-hidden">
             <SettingsSidebar
               currentWallpaper={currentWallpaper}
               systemInfo={systemInfo}
@@ -213,7 +215,7 @@ export function SettingsDialog({
               getMetricColor={getMetricColor}
             />
 
-            <div className="flex-1 bg-white/5 p-6 space-y-4 backdrop-blur-xl">
+            <div className="w-20 flex-1 min-w-0 bg-white/5 p-6 space-y-4 backdrop-blur-xl">
               <DeviceInfoSection
                 systemInfo={systemInfo}
                 uptimeLabel={uptimeLabel()}

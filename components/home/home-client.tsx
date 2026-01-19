@@ -11,7 +11,10 @@ import { LockScreen } from "@/components/lock-screen";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { SystemMonitorDialog } from "@/components/system-monitor";
 import { TerminalDialog } from "@/components/terminal/terminal-dialog";
+import { WidgetGrid, WidgetSelector } from "@/components/widgets";
+import { useWidgets } from "@/hooks/useWidgets";
 import { VERSION } from "@/lib/config";
+import { LayoutGrid } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const DEFAULT_WALLPAPER = "/wallpapers/pexels-philippedonn.jpg";
@@ -27,10 +30,22 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [widgetSelectorOpen, setWidgetSelectorOpen] = useState(false);
   const [wallpaper, setWallpaper] = useState(
     initialWallpaper ?? DEFAULT_WALLPAPER
   );
   const [locked, setLocked] = useState(false);
+
+  // Widget system
+  const {
+    selectedIds,
+    widgetData,
+    toggleWidget,
+    isSelected,
+    canSelectMore,
+    shakeTrigger,
+    isLoading: widgetsLoading,
+  } = useWidgets();
 
   const sampleApps = [
     {
@@ -123,6 +138,31 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
 
       {/* Main Content */}
       <main className="relative flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 sm:items-start z-0">
+        {/* Widgets Section */}
+        <div className="w-full mb-4">
+          {!widgetsLoading && selectedIds.length > 0 && (
+            <div className="relative">
+              <WidgetGrid selectedIds={selectedIds} widgetData={widgetData} />
+              <button
+                onClick={() => setWidgetSelectorOpen(true)}
+                className="absolute -top-2 -right-2 z-10 h-8 w-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors"
+                title="Edit widgets"
+              >
+                <LayoutGrid className="h-4 w-4 text-white/70" />
+              </button>
+            </div>
+          )}
+          {!widgetsLoading && selectedIds.length === 0 && (
+            <button
+              onClick={() => setWidgetSelectorOpen(true)}
+              className="w-full py-8 border-2 border-dashed border-white/20 rounded-2xl hover:border-white/30 hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+            >
+              <LayoutGrid className="h-5 w-5 text-white/50" />
+              <span className="text-white/50">Add widgets</span>
+            </button>
+          )}
+        </div>
+
         <InstalledAppsGrid />
 
         {/* Dock */}
@@ -155,6 +195,18 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
 
         {/* Terminal Dialog */}
         <TerminalDialog open={terminalOpen} onOpenChange={setTerminalOpen} />
+
+        {/* Widget Selector Dialog */}
+        <WidgetSelector
+          open={widgetSelectorOpen}
+          onOpenChange={setWidgetSelectorOpen}
+          selectedIds={selectedIds}
+          widgetData={widgetData}
+          toggleWidget={toggleWidget}
+          isSelected={isSelected}
+          canSelectMore={canSelectMore}
+          shakeTrigger={shakeTrigger}
+        />
       </main>
 
       <LockScreen open={locked} onUnlock={handleUnlock} />
