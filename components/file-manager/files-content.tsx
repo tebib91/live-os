@@ -2,8 +2,17 @@
 
 import { type FileSystemItem } from '@/app/actions/filesystem';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileIcon, Loader2 } from 'lucide-react';
-import { type MouseEvent } from 'react';
+import {
+  Container,
+  FileCode,
+  FileJson,
+  FileSpreadsheet,
+  FileText,
+  FileType,
+  Loader2,
+  TerminalSquare,
+} from 'lucide-react';
+import { JSX, type MouseEvent, useMemo } from 'react';
 
 interface FilesContentProps {
   loading: boolean;
@@ -16,6 +25,31 @@ interface FilesContentProps {
 
 const formatSize = (size: number) => `${(size / 1024).toFixed(1)} KB`;
 
+const extensionBadge = (name: string) => {
+  if (/^dockerfile$/i.test(name)) return { label: 'DOCKER', icon: <Container className="w-4 h-4" /> };
+  const parts = name.toLowerCase().split('.');
+  const ext = parts.length > 1 ? parts.pop() || '' : '';
+  if (!ext) return { label: 'TXT', icon: <FileText className="w-4 h-4" /> };
+  if (ext === 'json') return { label: 'JSON', icon: <FileJson className="w-4 h-4" /> };
+  if (['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'].includes(ext))
+    return { label: ext.toUpperCase(), icon: <FileCode className="w-4 h-4" /> };
+  if (['yml', 'yaml'].includes(ext))
+    return { label: 'YAML', icon: <FileCode className="w-4 h-4" /> };
+  if (['md', 'markdown'].includes(ext))
+    return { label: 'MD', icon: <FileText className="w-4 h-4" /> };
+  if (['css', 'scss', 'less'].includes(ext))
+    return { label: ext.toUpperCase(), icon: <FileCode className="w-4 h-4" /> };
+  if (['py', 'rb', 'php', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'hpp'].includes(ext))
+    return { label: ext.toUpperCase(), icon: <FileCode className="w-4 h-4" /> };
+  if (['sql', 'csv'].includes(ext))
+    return { label: ext.toUpperCase(), icon: <FileSpreadsheet className="w-4 h-4" /> };
+  if (['env', 'ini', 'conf', 'config', 'toml'].includes(ext))
+    return { label: ext.toUpperCase(), icon: <FileType className="w-4 h-4" /> };
+  if (['sh', 'bash', 'zsh'].includes(ext))
+    return { label: 'SHELL', icon: <TerminalSquare className="w-4 h-4" /> };
+  return { label: ext.toUpperCase(), icon: <FileText className="w-4 h-4" /> };
+};
+
 export function FilesContent({
   loading,
   viewMode,
@@ -24,6 +58,15 @@ export function FilesContent({
   onOpenNative,
   onContextMenu,
 }: FilesContentProps) {
+  const badges = useMemo(() => {
+    const map = new Map<string, { label: string; icon: JSX.Element }>();
+    items.forEach((item) => {
+      if (item.type === 'directory') return;
+      map.set(item.path, extensionBadge(item.name));
+    });
+    return map;
+  }, [items]);
+
   return (
     <ScrollArea className="flex-1">
       <div className="p-6">
@@ -55,8 +98,13 @@ export function FilesContent({
                     </div>
                   </div>
                 ) : (
-                  <div className="w-20 h-16 flex items-center justify-center">
-                    <FileIcon className="w-12 h-12 text-blue-400" />
+                  <div className="w-20 h-16 flex items-center justify-center relative">
+                    <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center shadow-lg shadow-black/30">
+                      {badges.get(item.path)?.icon || <FileText className="w-6 h-6 text-blue-300" />}
+                    </div>
+                    <div className="absolute -bottom-2 px-2 py-0.5 rounded-full border border-white/10 bg-white/10 text-[10px] uppercase tracking-[0.18em] text-white/70">
+                      {badges.get(item.path)?.label || 'TXT'}
+                    </div>
                   </div>
                 )}
 
@@ -88,7 +136,14 @@ export function FilesContent({
                     </div>
                   </div>
                 ) : (
-                  <FileIcon className="w-8 h-8 text-blue-400 flex-shrink-0" />
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center shadow-md shadow-black/20">
+                      {badges.get(item.path)?.icon || <FileText className="w-5 h-5 text-blue-300" />}
+                    </div>
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-white/60">
+                      {badges.get(item.path)?.label || 'TXT'}
+                    </span>
+                  </div>
                 )}
                 <div className="flex-1 text-left">
                   <div className="text-sm font-medium text-white/90 -tracking-[0.01em]">

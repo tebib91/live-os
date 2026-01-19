@@ -8,7 +8,7 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 const PRIMARY_HOME_ROOT = process.env.LIVEOS_HOME || '/DATA';
-const FALLBACK_HOME_ROOT = path.join(process.cwd(), 'data');
+const FALLBACK_HOME_ROOT = path.join(process.cwd(), 'DATA');
 const DEFAULT_DIRECTORIES = ['apps', 'Downloads', 'Documents', 'Photos', 'Devices'] as const;
 let resolvedHomeRoot = PRIMARY_HOME_ROOT;
 

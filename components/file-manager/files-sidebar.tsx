@@ -10,6 +10,7 @@ interface FilesSidebarProps {
   shortcuts: DefaultDirectory[];
   onNavigate: (path: string) => void;
   getShortcutPath: (name: string) => string;
+  onOpenNetwork: () => void;
 }
 
 export function FilesSidebar({
@@ -17,6 +18,7 @@ export function FilesSidebar({
   shortcuts,
   onNavigate,
   getShortcutPath,
+  onOpenNetwork,
 }: FilesSidebarProps) {
   const homeLabel = homePath.split('/').filter(Boolean).pop() || 'Home';
 
@@ -91,7 +93,7 @@ export function FilesSidebar({
 
           <button
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10"
-            onClick={() => onNavigate(getShortcutPath('Devices'))}
+            onClick={onOpenNetwork}
           >
             <div className="relative w-4 h-4 flex-shrink-0">
               <div className="w-full h-full rounded-sm bg-gradient-to-br from-cyan-400 via-cyan-500 to-cyan-600 shadow-sm">

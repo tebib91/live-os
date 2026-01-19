@@ -297,10 +297,12 @@ export function useFilesDialog(open: boolean) {
 
   const handleContextMenu = (event: React.MouseEvent, item: FileSystemItem) => {
     event.preventDefault();
-    const menuWidth = 220;
+    const menuWidth = 240;
     const menuHeight = 260;
-    const posX = Math.min(event.clientX, window.innerWidth - menuWidth - 8);
-    const posY = Math.min(event.clientY, window.innerHeight - menuHeight - 8);
+    const preferredX = event.clientX;
+    const preferredY = event.clientY;
+    const posX = Math.min(Math.max(preferredX, 8), window.innerWidth - menuWidth - 8);
+    const posY = Math.min(Math.max(preferredY, 8), window.innerHeight - menuHeight - 8);
     setContextMenu({ x: posX, y: posY, item });
   };
 

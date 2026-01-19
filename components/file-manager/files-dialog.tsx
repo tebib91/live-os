@@ -5,9 +5,11 @@ import { FileCreationRow } from '@/components/file-manager/file-creation-row';
 import { FileEditorModal } from '@/components/file-manager/file-editor-modal';
 import { FilesContent } from '@/components/file-manager/files-content';
 import { FilesContextMenu } from '@/components/file-manager/file-context-menu';
+import { NetworkStorageDialog } from '@/components/file-manager/network-storage-dialog';
 import { FilesSidebar } from '@/components/file-manager/files-sidebar';
 import { FilesToolbar } from '@/components/file-manager/files-toolbar';
 import { useFilesDialog } from '@/components/file-manager/use-files-dialog';
+import { useState } from 'react';
 
 interface FilesDialogProps {
   open: boolean;
@@ -71,6 +73,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     closeContextMenu,
     isTextLike,
   } = useFilesDialog(open);
+  const [networkDialogOpen, setNetworkDialogOpen] = useState(false);
 
   const isDirty = editorContent !== editorOriginalContent;
 
@@ -87,6 +90,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
             shortcuts={shortcuts}
             onNavigate={navigate}
             getShortcutPath={shortcutPath}
+            onOpenNetwork={() => setNetworkDialogOpen(true)}
           />
 
           <div className="flex-1 flex flex-col bg-white/5 backdrop-blur-xl">
@@ -179,6 +183,8 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
         onChangeContent={setEditorContent}
         onSave={saveEditor}
       />
+
+      <NetworkStorageDialog open={networkDialogOpen} onOpenChange={setNetworkDialogOpen} />
     </Dialog>
   );
 }
