@@ -1,6 +1,7 @@
 "use client";
 
 import { AppStoreDialog } from "@/components/app-store/app-store-dialog";
+import { InstallProgressOverlay } from "@/components/app-store/install-progress-overlay";
 import { FilesDialog } from "@/components/file-manager";
 import { InstalledAppsGrid } from "@/components/installed-apps/installed-apps-grid";
 import { DockOs } from "@/components/layout/dock";
@@ -13,6 +14,7 @@ import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { SystemMonitorDialog } from "@/components/system-monitor";
 import { TerminalDialog } from "@/components/terminal/terminal-dialog";
 import { WidgetGrid, WidgetSelector } from "@/components/widgets";
+import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { useWidgets } from "@/hooks/useWidgets";
 import { VERSION } from "@/lib/config";
 import { LayoutGrid } from "lucide-react";
@@ -37,6 +39,8 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
     initialWallpaper ?? DEFAULT_WALLPAPER
   );
   const [locked, setLocked] = useState(false);
+
+  const { installProgress } = useSystemStatus();
 
   // Widget system
   const {
@@ -330,6 +334,8 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
           isSelected={isSelected}
           shakeTrigger={shakeTrigger}
         />
+
+        <InstallProgressOverlay installs={installProgress} />
 
         {/* Keyboard Shortcuts */}
         <KeyboardShortcutsDialog

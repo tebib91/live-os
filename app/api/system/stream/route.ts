@@ -7,6 +7,16 @@ type MetricsPayload = {
   networkStats: unknown;
 };
 
+export type InstallProgressPayload = {
+  type: 'install-progress';
+  appId: string;
+  name: string;
+  icon: string;
+  progress: number; // 0-1
+  status: 'starting' | 'running' | 'completed' | 'error';
+  message?: string;
+};
+
 type Client = {
   controller: ReadableStreamDefaultController<Uint8Array>;
   fast: boolean;
@@ -40,6 +50,10 @@ function broadcast(data: object) {
   if (clients.size === 0) {
     stopPoller();
   }
+}
+
+export function sendInstallProgress(update: InstallProgressPayload) {
+  broadcast(update);
 }
 
 function hasFastClients() {

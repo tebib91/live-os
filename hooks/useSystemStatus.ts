@@ -42,6 +42,15 @@ export interface InstalledApp {
   installedAt: number;
 }
 
+export interface InstallProgress {
+  appId: string;
+  name: string;
+  icon: string;
+  progress: number; // 0-1
+  status: 'starting' | 'running' | 'completed' | 'error';
+  message?: string;
+}
+
 export interface UseSystemStatusReturn {
   // System metrics
   systemStats: SystemStats | null;
@@ -51,6 +60,7 @@ export interface UseSystemStatusReturn {
 
   // Installed apps
   installedApps: InstalledApp[];
+  installProgress: InstallProgress[];
 
   // Connection state
   connected: boolean;
@@ -60,13 +70,22 @@ export interface UseSystemStatusReturn {
   refreshApps: () => void;
 }
 
-interface SSEMessage {
-  type: 'metrics' | 'error';
+interface MetricsMessage {
+  type: 'metrics';
   systemStatus?: SystemStats;
   storageInfo?: StorageStats;
   networkStats?: NetworkStats;
+}
+
+interface ErrorMessage {
+  type: 'error';
   message?: string;
 }
+
+type SSEMessage =
+  | MetricsMessage
+  | ErrorMessage
+  | (InstallProgress & { type: 'install-progress' });
 
 type SharedState = {
   systemStats: SystemStats | null;
@@ -74,6 +93,7 @@ type SharedState = {
   networkStats: NetworkStats | null;
   runningApps: AppUsage[];
   installedApps: InstalledApp[];
+  installProgress: InstallProgress[];
   connected: boolean;
   error: string | null;
 };
@@ -90,6 +110,7 @@ let sharedState: SharedState = {
   networkStats: null,
   runningApps: [],
   installedApps: [],
+  installProgress: [],
   connected: false,
   error: null,
 };
@@ -115,6 +136,19 @@ function updateSharedState(update: Partial<SharedState>) {
 
   sharedState = nextState;
   notifySubscribers();
+}
+
+function updateInstallProgress(
+  prev: InstallProgress[],
+  update: InstallProgress
+): InstallProgress[] {
+  const filtered = prev.filter((p) => p.appId !== update.appId);
+
+  if (update.status === 'completed' || update.status === 'error') {
+    return filtered;
+  }
+
+  return [...filtered, update];
 }
 
 function stopEventSource() {
@@ -177,6 +211,10 @@ function connectEventSource(wantFast: boolean) {
             storageStats: data.storageInfo ?? sharedState.storageStats,
             networkStats: data.networkStats ?? sharedState.networkStats,
             error: null,
+          });
+        } else if (data.type === 'install-progress') {
+          updateSharedState({
+            installProgress: updateInstallProgress(sharedState.installProgress, data),
           });
         } else if (data.type === 'error') {
           console.error('[SystemStatus] Server error:', data.message);
@@ -246,6 +284,7 @@ export function useSystemStatus(options: { fast?: boolean } = {}): UseSystemStat
     networkStats: state.networkStats,
     runningApps: state.runningApps,
     installedApps: state.installedApps,
+    installProgress: state.installProgress,
     connected: state.connected,
     error: state.error,
     refreshApps,

@@ -4,6 +4,10 @@
 import type { InstallConfig, InstalledApp } from "@/components/app-store/types";
 import prisma from "@/lib/prisma";
 import { triggerAppsUpdate } from "@/lib/system-status/websocket-server";
+import {
+  sendInstallProgress,
+  type InstallProgressPayload,
+} from "@/app/api/system/stream/route";
 import { exec } from "child_process";
 import fs from "fs/promises";
 import path from "path";
@@ -16,6 +20,7 @@ const execAsync = promisify(exec);
 const CONTAINER_PREFIX = process.env.CONTAINER_PREFIX || "";
 const DEFAULT_APP_ICON = "/icons/default-application-icon.png";
 const STORES_ROOT = path.join(process.cwd(), "public", "external-apps");
+const FALLBACK_APP_NAME = "Application";
 
 async function resolveHostPort(containerName: string): Promise<string | null> {
   try {
@@ -40,19 +45,25 @@ async function resolveHostPort(containerName: string): Promise<string | null> {
 }
 
 async function recordInstalledApp(appId: string, containerName: string): Promise<void> {
+  const meta = await getAppMeta(appId);
+
+  await prisma.installedApp.upsert({
+    where: { containerName },
+    update: { appId, name: meta.name, icon: meta.icon },
+    create: { appId, name: meta.name, icon: meta.icon, containerName },
+  });
+}
+
+async function getAppMeta(appId: string) {
   const appMeta = await prisma.app.findFirst({
     where: { appId },
     orderBy: { createdAt: "desc" },
   });
 
-  const name = appMeta?.title || appMeta?.name || appId;
-  const icon = appMeta?.icon || DEFAULT_APP_ICON;
-
-  await prisma.installedApp.upsert({
-    where: { containerName },
-    update: { appId, name, icon },
-    create: { appId, name, icon, containerName },
-  });
+  return {
+    name: appMeta?.title || appMeta?.name || appId || FALLBACK_APP_NAME,
+    icon: appMeta?.icon || DEFAULT_APP_ICON,
+  };
 }
 
 /**
@@ -121,10 +132,28 @@ export async function installApp(
   );
 
   try {
+    const meta = await getAppMeta(appId);
+    const emitProgress = (
+      progress: number,
+      message: string,
+      status: InstallProgressPayload["status"] = "running"
+    ) =>
+      sendInstallProgress({
+        type: "install-progress",
+        appId,
+        name: meta.name,
+        icon: meta.icon,
+        progress,
+        status,
+        message,
+      });
+
+    emitProgress(0.05, "Preparing install", "starting");
     // Validate inputs
     console.log("[Docker] installApp: Validating app ID...");
     if (!validateAppId(appId)) {
       console.warn(`[Docker] installApp: ❌ Invalid app ID: "${appId}"`);
+      emitProgress(1, "Invalid app ID", "error");
       return { success: false, error: "Invalid app ID" };
     }
 
@@ -133,6 +162,7 @@ export async function installApp(
     for (const port of config.ports) {
       if (!validatePort(port.published)) {
         console.warn(`[Docker] installApp: ❌ Invalid port: ${port.published}`);
+        emitProgress(1, `Invalid port: ${port.published}`, "error");
         return { success: false, error: `Invalid port: ${port.published}` };
       }
     }
@@ -145,6 +175,7 @@ export async function installApp(
     for (const volume of config.volumes) {
       if (!validatePath(volume.source)) {
         console.warn(`[Docker] installApp: ❌ Invalid path: ${volume.source}`);
+        emitProgress(1, `Invalid path: ${volume.source}`, "error");
         return { success: false, error: `Invalid path: ${volume.source}` };
       }
     }
@@ -157,11 +188,13 @@ export async function installApp(
       console.warn(
         `[Docker] installApp: ❌ Compose file not found for "${appId}" in external stores`
       );
+      emitProgress(1, "Compose file not found", "error");
       return { success: false, error: "App not found in imported stores." };
     }
 
     const { appDir, composePath } = resolvedCompose;
     console.log(`[Docker] installApp: Using compose at ${composePath}`);
+    emitProgress(0.2, "Configuring install");
 
     // Build environment variables
     console.log("[Docker] installApp: Building environment variables...");
@@ -197,6 +230,7 @@ export async function installApp(
     // Execute docker compose up (using Compose V2 syntax)
     const command = `cd "${appDir}" && docker compose -f "${composePath}" up -d`;
     console.log(`[Docker] installApp: Executing: ${command}`);
+    emitProgress(0.35, "Pulling images");
     const { stdout, stderr } = await execAsync(command, { env });
 
     if (stdout)
@@ -210,9 +244,11 @@ export async function installApp(
     ) {
       console.error("[Docker] installApp: stderr:", stderr);
     }
+    emitProgress(0.9, "Finalizing install");
 
     await recordInstalledApp(appId, containerName);
     await triggerAppsUpdate();
+    emitProgress(1, "Installation complete", "completed");
     console.log(`[Docker] installApp: ✅ Successfully installed "${appId}"`);
     return { success: true };
   } catch (error: any) {
@@ -220,6 +256,15 @@ export async function installApp(
       `[Docker] installApp: ❌ Error installing "${appId}":`,
       error
     );
+    sendInstallProgress({
+      type: "install-progress",
+      appId,
+      name: appId,
+      icon: DEFAULT_APP_ICON,
+      progress: 1,
+      status: "error",
+      message: "Installation failed",
+    });
     return {
       success: false,
       error: error.message || "Failed to install app",
