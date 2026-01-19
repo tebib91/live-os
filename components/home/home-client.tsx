@@ -6,6 +6,7 @@ import { InstalledAppsGrid } from "@/components/installed-apps/installed-apps-gr
 import { DockOs } from "@/components/layout/dock";
 import { StatusBar } from "@/components/layout/status-icons";
 import { UserMenu } from "@/components/layout/user-menu";
+import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts/keyboard-shortcuts-dialog";
 import { WallpaperLayout } from "@/components/layout/wallpaper-layout";
 import { LockScreen } from "@/components/lock-screen";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
@@ -31,6 +32,7 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
   const [filesOpen, setFilesOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [widgetSelectorOpen, setWidgetSelectorOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [wallpaper, setWallpaper] = useState(
     initialWallpaper ?? DEFAULT_WALLPAPER
   );
@@ -42,7 +44,6 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
     widgetData,
     toggleWidget,
     isSelected,
-    canSelectMore,
     shakeTrigger,
     isLoading: widgetsLoading,
   } = useWidgets();
@@ -109,10 +110,72 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
   };
 
   useEffect(() => {
+    const isTypingElement = (el: Element | null) => {
+      if (!el) return false;
+      const tag = el.tagName.toLowerCase();
+      return (
+        tag === "input" ||
+        tag === "textarea" ||
+        (el as HTMLElement).isContentEditable ||
+        tag === "select"
+      );
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey && event.key.toLowerCase() === "l") {
+      if (isTypingElement(event.target as Element | null)) return;
+      const key = event.key.toLowerCase();
+
+      if (event.metaKey && key === "l") {
         event.preventDefault();
         setLocked(true);
+        return;
+      }
+
+      if (event.metaKey && key === "k") {
+        event.preventDefault();
+        setAppStoreOpen(true);
+        return;
+      }
+
+      if (event.metaKey && key === ",") {
+        event.preventDefault();
+        setSettingsOpen(true);
+        return;
+      }
+
+      if (event.metaKey && (key === "/" || event.key === "?")) {
+        event.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
+
+      if (!event.metaKey && (event.key === "?" || (key === "/" && event.shiftKey))) {
+        event.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
+
+      if (event.metaKey && key === "t") {
+        event.preventDefault();
+        setTerminalOpen(true);
+        return;
+      }
+
+      if (event.metaKey && key === "e") {
+        event.preventDefault();
+        setWidgetSelectorOpen(true);
+        return;
+      }
+
+      if (event.metaKey && key === "f") {
+        event.preventDefault();
+        setFilesOpen(true);
+        return;
+      }
+
+      if (event.metaKey && key === "m") {
+        event.preventDefault();
+        setMonitorOpen(true);
       }
     };
 
@@ -123,6 +186,67 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
   const handleUnlock = () => {
     setLocked(false);
   };
+
+  const shortcutSections = [
+    {
+      title: "Global",
+      items: [
+        {
+          title: "Open search",
+          description: "Find and install apps",
+          keys: ["Cmd", "K"],
+          onSelect: () => setAppStoreOpen(true),
+        },
+        {
+          title: "Open settings",
+          description: "Tweak LiveOS preferences",
+          keys: ["Cmd", ","],
+          onSelect: () => setSettingsOpen(true),
+        },
+        {
+          title: "Lock LiveOS",
+          description: "Quickly lock your desktop",
+          keys: ["Cmd", "L"],
+          onSelect: () => setLocked(true),
+        },
+        {
+          title: "Show shortcuts",
+          description: "Reveal this cheat sheet",
+          keys: ["Cmd", "/"],
+          onSelect: () => setShortcutsOpen(true),
+        },
+      ],
+    },
+    {
+      title: "Apps",
+      items: [
+        {
+          title: "Files",
+          description: "Open file manager",
+          keys: ["Cmd", "F"],
+          onSelect: () => setFilesOpen(true),
+        },
+        {
+          title: "Terminal",
+          description: "Toggle the terminal",
+          keys: ["Cmd", "T"],
+          onSelect: () => setTerminalOpen(true),
+        },
+        {
+          title: "System Monitor",
+          description: "Inspect system stats",
+          keys: ["Cmd", "M"],
+          onSelect: () => setMonitorOpen(true),
+        },
+        {
+          title: "Edit widgets",
+          description: "Customize dashboard layout",
+          keys: ["Cmd", "E"],
+          onSelect: () => setWidgetSelectorOpen(true),
+        },
+      ],
+    },
+  ];
 
   return (
     <WallpaperLayout
@@ -204,8 +328,14 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
           widgetData={widgetData}
           toggleWidget={toggleWidget}
           isSelected={isSelected}
-          canSelectMore={canSelectMore}
           shakeTrigger={shakeTrigger}
+        />
+
+        {/* Keyboard Shortcuts */}
+        <KeyboardShortcutsDialog
+          open={shortcutsOpen}
+          onOpenChange={setShortcutsOpen}
+          sections={shortcutSections}
         />
       </main>
 

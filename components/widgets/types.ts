@@ -13,7 +13,8 @@ export type WidgetType =
   | "list-widget"
   | "list-emoji"
   | "files-list"
-  | "files-grid";
+  | "files-grid"
+  | "weather";
 
 // Base widget configuration
 export interface WidgetConfig {
@@ -118,6 +119,12 @@ export interface FilesGridData {
   title?: string;
 }
 
+export interface WeatherWidgetData {
+  location: string;
+  latitude: string;
+  longitude: string;
+}
+
 // Union type for all widget data
 export type WidgetData =
   | TextWithProgressData
@@ -128,7 +135,8 @@ export type WidgetData =
   | ListWidgetData
   | ListEmojiData
   | FilesListData
-  | FilesGridData;
+  | FilesGridData
+  | WeatherWidgetData;
 
 // Complete widget with config and data
 export interface WidgetInstance<T extends WidgetData = WidgetData> {

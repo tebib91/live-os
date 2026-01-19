@@ -12,6 +12,7 @@ import type {
   TwoStatsGaugeData,
   FilesListData,
   FilesGridData,
+  WeatherWidgetData,
 } from "@/components/widgets/types";
 import {
   AVAILABLE_WIDGETS,
@@ -222,6 +223,14 @@ export function useWidgets(): UseWidgetsReturn {
       };
       dataMap.set("liveos:four-stats", { type: "four-stats", data: fourStatsData });
     }
+
+    // Weather widget (static location for now)
+    const weatherData: WeatherWidgetData = {
+      location: "San Francisco, CA",
+      latitude: "37.7749",
+      longitude: "-122.4194",
+    };
+    dataMap.set("liveos:weather", { type: "weather", data: weatherData });
 
     // Files widgets (placeholder data)
     const filesListData: FilesListData = {

@@ -1,13 +1,12 @@
-'use client';
+"use client";
 
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
-import Image from 'next/image';
-import { useState } from 'react';
-import { Download, Sparkles } from 'lucide-react';
-import { AppDetailDialog } from './app-detail-dialog';
-import type { App } from './types';
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Download, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { useState } from "react";
+import { AppDetailDialog } from "./app-detail-dialog";
+import type { App } from "./types";
 
 interface AppCardProps {
   app: App;
@@ -34,7 +33,7 @@ export function AppCard({ app }: AppCardProps) {
                 alt={app.title}
                 fill
                 className="object-cover"
-                onError={() => setIconSrc('/default-application-icon.png')}
+                onError={() => setIconSrc("/default-application-icon.png")}
               />
             </div>
 
@@ -52,7 +51,7 @@ export function AppCard({ app }: AppCardProps) {
               </div>
 
               <p className="text-sm text-zinc-200/90 line-clamp-2 leading-relaxed">
-                {app.tagline || app.overview || 'No description available'}
+                {app.tagline || app.overview || "No description available"}
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-1">

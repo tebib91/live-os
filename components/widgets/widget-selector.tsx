@@ -1,7 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import {
-  button,
   card,
   dialog as dialogTokens,
   text,
@@ -14,10 +14,9 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { LayoutGrid, X } from "lucide-react";
+import { X } from "lucide-react";
 import { getWidgetSections, MAX_WIDGETS } from "./constants";
 import type { AvailableWidget, WidgetData, WidgetType } from "./types";
-import { WidgetChecker } from "./widget-checker";
 import { WidgetSection } from "./widget-section";
 import { Widget } from "./widgets";
 
@@ -28,7 +27,6 @@ interface WidgetSelectorProps {
   widgetData: Map<string, { type: WidgetType; data: WidgetData }>;
   toggleWidget: (id: string) => void;
   isSelected: (id: string) => boolean;
-  canSelectMore: boolean;
   shakeTrigger: number;
 }
 
@@ -39,7 +37,6 @@ export function WidgetSelector({
   widgetData,
   toggleWidget,
   isSelected,
-  canSelectMore,
   shakeTrigger,
 }: WidgetSelectorProps) {
   const sections = getWidgetSections();
@@ -49,35 +46,41 @@ export function WidgetSelector({
       <DialogContent
         className={cn(
           dialogTokens.content,
-          "w-full max-w-[1100px] max-h-[85vh] overflow-hidden flex flex-col",
+          "max-w-[900px] sm:max-w-[1000px] max-h-[85vh] overflow-hidden flex flex-col",
         )}
       >
-        <DialogHeader className={cn(dialogTokens.header, "px-6 py-4")}>
+        <DialogHeader className="px-8 py-5 border-b border-white/5 bg-gradient-to-r from-white/10 via-white/5 to-transparent backdrop-blur">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
-                <LayoutGrid className="h-5 w-5 text-cyan-400" />
-              </div>
-              <div>
-                <DialogTitle className={text.heading}>Edit Widgets</DialogTitle>
-                <p className={text.muted}>
-                  Select up to {MAX_WIDGETS} widgets ({selectedIds.length}/
-                  {MAX_WIDGETS})
-                </p>
+              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white/70">
+                Widgets
+              </span>
+              <div className="flex items-center gap-3">
+                <div>
+                  <DialogTitle className="text-3xl font-semibold text-white drop-shadow">
+                    Edit widgets
+                  </DialogTitle>
+                  <p className={cn(text.muted, "text-sm text-white/70")}>
+                    Select up to {MAX_WIDGETS} widgets ({selectedIds.length}/
+                    {MAX_WIDGETS})
+                  </p>
+                </div>
               </div>
             </div>
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => onOpenChange(false)}
-              className={button.closeIcon}
+              className="h-10 w-10 rounded-full border border-white/15 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
             >
               <X className="h-5 w-5" />
-            </button>
+            </Button>
           </div>
         </DialogHeader>
 
         {/* Preview area */}
-        <div className="px-6 py-4 border-b border-white/5">
-          <p className={cn(text.label, "uppercase tracking-wider mb-3")}>
+        <div className="px-6 py-3 border-b border-white/5">
+          <p className={cn(text.label, "uppercase tracking-wider mb-2")}>
             Preview
           </p>
           <motion.div
@@ -85,7 +88,7 @@ export function WidgetSelector({
             initial={shakeTrigger > 0 ? { x: 0 } : false}
             animate={shakeTrigger > 0 ? { x: [-5, 5, -5, 5, 0] } : {}}
             transition={{ duration: 0.4 }}
-            className="grid grid-cols-3 gap-3"
+            className="grid grid-cols-3 gap-2"
           >
             {[0, 1, 2].map((slot) => {
               const widgetId = selectedIds[slot];
@@ -95,12 +98,12 @@ export function WidgetSelector({
                 <div
                   key={slot}
                   className={cn(
-                    "aspect-[4/3] rounded-xl overflow-hidden",
+                    "rounded-xl overflow-hidden",
                     !widgetInfo && "border-2 border-dashed border-white/20",
                   )}
                 >
                   {widgetInfo ? (
-                    <div className="h-full scale-[0.85] origin-center">
+                    <div className="h-full  origin-center">
                       <Widget type={widgetInfo.type} data={widgetInfo.data} />
                     </div>
                   ) : (
@@ -115,21 +118,20 @@ export function WidgetSelector({
         </div>
 
         {/* Widget selection area */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+        <div className="flex-1 overflow-y-auto scrollbar-hide px-6 py-4 space-y-5">
           {sections.map((section) => (
             <div key={section.appId}>
               <WidgetSection
                 appName={section.appName}
                 appIcon={section.appIcon}
               />
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {section.widgets.map((widget) => (
                   <WidgetPreviewCard
                     key={widget.id}
                     widget={widget}
                     widgetData={widgetData}
                     isSelected={isSelected(widget.id)}
-                    canSelect={canSelectMore}
                     onToggle={() => toggleWidget(widget.id)}
                   />
                 ))}
@@ -146,7 +148,6 @@ interface WidgetPreviewCardProps {
   widget: AvailableWidget;
   widgetData: Map<string, { type: WidgetType; data: WidgetData }>;
   isSelected: boolean;
-  canSelect: boolean;
   onToggle: () => void;
 }
 
@@ -154,7 +155,6 @@ function WidgetPreviewCard({
   widget,
   widgetData,
   isSelected,
-  canSelect,
   onToggle,
 }: WidgetPreviewCardProps) {
   const info = widgetData.get(widget.id);
@@ -163,22 +163,16 @@ function WidgetPreviewCard({
     <div
       className={cn(
         card.base,
-        "relative overflow-hidden cursor-pointer transition-all",
+        "relative cursor-pointer transition-all h-full flex flex-col items-stretch p-2 gap-1",
         isSelected && card.selected,
         !isSelected && card.hover,
       )}
       onClick={onToggle}
     >
-      <WidgetChecker
-        checked={isSelected}
-        disabled={!canSelect}
-        onChange={onToggle}
-      />
-
       {/* Mini widget preview */}
-      <div className="aspect-[4/3] p-2">
+      <div className="aspect-[4/3] p-1">
         {info ? (
-          <div className="h-full scale-[0.6] origin-top-left">
+          <div className="h-full origin-top-left">
             <Widget type={info.type} data={info.data} />
           </div>
         ) : (
@@ -189,9 +183,11 @@ function WidgetPreviewCard({
       </div>
 
       {/* Widget name */}
-      <div className="px-3 pb-3">
-        <p className={cn(text.valueSmall, "truncate")}>{widget.name}</p>
-        <p className={cn(text.muted, "truncate")}>{widget.description}</p>
+      <div className="px-2 pb-2">
+        <p className={cn(text.valueSmall, "truncate text-sm")}>{widget.name}</p>
+        <p className={cn(text.muted, "truncate text-xs")}>
+          {widget.description}
+        </p>
       </div>
     </div>
   );

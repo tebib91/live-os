@@ -92,6 +92,15 @@ export const AVAILABLE_WIDGETS: AvailableWidget[] = [
     name: "Favorites",
     description: "Favorite folders grid",
   },
+  {
+    id: "liveos:weather",
+    type: "weather",
+    appId: "liveos",
+    appName: "LiveOS",
+    appIcon: LIVEOS_ICON,
+    name: "Weather",
+    description: "Local forecast with live animations",
+  },
 ];
 
 // Group widgets by app

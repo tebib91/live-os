@@ -1,8 +1,8 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import type { WidgetData, WidgetType } from "./types";
 import { Widget } from "./widgets";
-import type { WidgetType, WidgetData } from "./types";
 
 interface WidgetGridProps {
   selectedIds: string[];

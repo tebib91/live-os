@@ -450,18 +450,18 @@ This document tracks features needed to reach feature parity with UmbrelOS and C
   - **Estimated effort:** 2 days
 
 ### 12. User Experience Improvements
-- [ ] **Dashboard Customization**
-  - [ ] Drag-and-drop widgets
-  - [ ] Widget library
-  - [ ] Custom layouts
-  - [ ] Save/load layouts
+- [x] **Dashboard Customization**
+  - [x] Drag-and-drop widgets
+  - [x] Widget library
+  - [x] Custom layouts
+  - [x] Save/load layouts
   - **Priority:** MEDIUM
   - **Estimated effort:** 3-4 days
 
 - [ ] **Widgets System**
-  - [ ] System status widget
-  - [ ] App status widget
-  - [ ] Storage widget
+  - [x] System status widget
+  - [x] App status widget
+  - [x] Storage widget
   - [ ] Network widget
   - [ ] Custom widgets
   - **Priority:** MEDIUM

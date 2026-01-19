@@ -13,6 +13,7 @@ import type {
   ListEmojiData,
   FilesListData,
   FilesGridData,
+  WeatherWidgetData,
 } from "../types";
 
 import { TextWithProgressWidget } from "./text-with-progress";
@@ -24,6 +25,7 @@ import { ListWidget } from "./list-widget";
 import { ListEmojiWidget } from "./list-emoji";
 import { FilesListWidget } from "./files-list";
 import { FilesGridWidget } from "./files-grid";
+import { WeatherWidget } from "./weather";
 
 interface WidgetProps {
   type: WidgetType;
@@ -53,6 +55,8 @@ export function Widget({ type, data, selected, onClick }: WidgetProps) {
         return <FilesListWidget data={data as FilesListData} />;
       case "files-grid":
         return <FilesGridWidget data={data as FilesGridData} />;
+      case "weather":
+        return <WeatherWidget data={data as WeatherWidgetData} />;
       default:
         return (
           <div className="text-white/40 text-sm">Unknown widget type</div>
@@ -62,7 +66,7 @@ export function Widget({ type, data, selected, onClick }: WidgetProps) {
 
   return (
     <WidgetContainer selected={selected} onClick={onClick}>
-      {renderWidget()}
+      <div className="h-full w-full">{renderWidget()}</div>
     </WidgetContainer>
   );
 }
@@ -77,3 +81,4 @@ export { ListWidget } from "./list-widget";
 export { ListEmojiWidget } from "./list-emoji";
 export { FilesListWidget } from "./files-list";
 export { FilesGridWidget } from "./files-grid";
+export { WeatherWidget } from "./weather";
