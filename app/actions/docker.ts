@@ -44,8 +44,12 @@ async function resolveHostPort(containerName: string): Promise<string | null> {
   }
 }
 
-async function recordInstalledApp(appId: string, containerName: string): Promise<void> {
-  const meta = await getAppMeta(appId);
+async function recordInstalledApp(
+  appId: string,
+  containerName: string,
+  override?: { name?: string; icon?: string }
+): Promise<void> {
+  const meta = await getAppMeta(appId, override);
 
   await prisma.installedApp.upsert({
     where: { containerName },
@@ -54,15 +58,20 @@ async function recordInstalledApp(appId: string, containerName: string): Promise
   });
 }
 
-async function getAppMeta(appId: string) {
+async function getAppMeta(appId: string, override?: { name?: string; icon?: string }) {
   const appMeta = await prisma.app.findFirst({
     where: { appId },
     orderBy: { createdAt: "desc" },
   });
 
   return {
-    name: appMeta?.title || appMeta?.name || appId || FALLBACK_APP_NAME,
-    icon: appMeta?.icon || DEFAULT_APP_ICON,
+    name:
+      override?.name ||
+      appMeta?.title ||
+      appMeta?.name ||
+      appId ||
+      FALLBACK_APP_NAME,
+    icon: override?.icon || appMeta?.icon || DEFAULT_APP_ICON,
   };
 }
 
@@ -124,15 +133,18 @@ type RunningAppUsage = {
  */
 export async function installApp(
   appId: string,
-  config: InstallConfig
+  config: InstallConfig,
+  metaOverride?: { name?: string; icon?: string }
 ): Promise<{ success: boolean; error?: string }> {
   console.log(`[Docker] installApp: Starting installation for app "${appId}"`);
   console.log(
     `[Docker] installApp: Config - Ports: ${config.ports.length}, Volumes: ${config.volumes.length}, Env vars: ${config.environment.length}`
   );
 
+  let meta = { name: appId, icon: DEFAULT_APP_ICON };
+
   try {
-    const meta = await getAppMeta(appId);
+    meta = await getAppMeta(appId, metaOverride);
     const emitProgress = (
       progress: number,
       message: string,
@@ -246,7 +258,7 @@ export async function installApp(
     }
     emitProgress(0.9, "Finalizing install");
 
-    await recordInstalledApp(appId, containerName);
+    await recordInstalledApp(appId, containerName, metaOverride);
     await triggerAppsUpdate();
     emitProgress(1, "Installation complete", "completed");
     console.log(`[Docker] installApp: ✅ Successfully installed "${appId}"`);
@@ -259,8 +271,8 @@ export async function installApp(
     sendInstallProgress({
       type: "install-progress",
       appId,
-      name: appId,
-      icon: DEFAULT_APP_ICON,
+      name: meta.name,
+      icon: meta.icon,
       progress: 1,
       status: "error",
       message: "Installation failed",

@@ -78,7 +78,10 @@ export function AppInstallDialog({
     setInstalling(true);
 
     try {
-      const result = await installApp(app.id, config);
+      const result = await installApp(app.id, config, {
+        name: app.title || app.name,
+        icon: app.icon,
+      });
 
       if (result.success) {
         toast.success('Application installed successfully!');
