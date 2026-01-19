@@ -37,6 +37,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     editorOpen,
     editorPath,
     editorContent,
+    editorOriginalContent,
     editorSaving,
     editorLanguage,
     setViewMode,
@@ -70,6 +71,8 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     closeContextMenu,
     isTextLike,
   } = useFilesDialog(open);
+
+  const isDirty = editorContent !== editorOriginalContent;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -171,6 +174,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
         content={editorContent}
         language={editorLanguage}
         saving={editorSaving}
+        isDirty={isDirty}
         onClose={closeEditor}
         onChangeContent={setEditorContent}
         onSave={saveEditor}

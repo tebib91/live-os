@@ -4,6 +4,7 @@ import { AppStoreDialog } from "@/components/app-store/app-store-dialog";
 import { FilesDialog } from "@/components/file-manager";
 import { InstalledAppsGrid } from "@/components/installed-apps/installed-apps-grid";
 import { DockOs } from "@/components/layout/dock";
+import { StatusBar } from "@/components/layout/status-icons";
 import { UserMenu } from "@/components/layout/user-menu";
 import { WallpaperLayout } from "@/components/layout/wallpaper-layout";
 import { LockScreen } from "@/components/lock-screen";
@@ -113,9 +114,11 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
       className="flex items-center justify-center font-sans"
       wallpaper={wallpaper}
     >
-      {/* User Menu - Top Right */}
+      {/* Status Bar - Top Right */}
       <div className="fixed top-4 right-4 z-50">
-        <UserMenu />
+        <StatusBar>
+          <UserMenu />
+        </StatusBar>
       </div>
 
       {/* Main Content */}

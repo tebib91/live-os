@@ -43,7 +43,6 @@ export function WallpaperLayout({
             className={`object-cover transition-all duration-700 ${
               isTransitioning ? "opacity-0 scale-[1.02]" : "opacity-100"
             }`}
-            quality={100}
             unoptimized={isLocalWallpaper(activeWallpaper)}
           />
         </div>
@@ -57,7 +56,6 @@ export function WallpaperLayout({
               sizes="100vw"
               priority
               className="object-cover opacity-100 transition-all duration-700"
-              quality={100}
               unoptimized={isLocalWallpaper(transitionWallpaper)}
               onLoadingComplete={handleTransitionComplete}
             />

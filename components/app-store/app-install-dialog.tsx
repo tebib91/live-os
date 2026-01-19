@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
+import { getAppComposeContent } from '@/app/actions/appstore';
 import { installApp } from '@/app/actions/docker';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,10 +15,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Settings2 } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { CustomDeployDialog, type CustomDeployInitialData } from './custom-deploy-dialog';
 import type { App, InstallConfig } from './types';
 
 interface AppInstallDialogProps {
@@ -39,6 +41,9 @@ export function AppInstallDialog({
     environment: [],
   });
   const [installing, setInstalling] = useState(false);
+  const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false);
+  const [customizeData, setCustomizeData] = useState<CustomDeployInitialData | null>(null);
+  const [loadingCompose, setLoadingCompose] = useState(false);
 
   useEffect(() => {
     if (open && app.container) {
@@ -106,6 +111,40 @@ export function AppInstallDialog({
     const newEnv = [...config.environment];
     newEnv[index].value = value;
     setConfig({ ...config, environment: newEnv });
+  };
+
+  const handleCustomizeInstall = async () => {
+    if (!app.composePath) {
+      toast.error('No compose file available for this app');
+      return;
+    }
+
+    setLoadingCompose(true);
+    try {
+      const result = await getAppComposeContent(app.composePath);
+      if (result.success && result.content) {
+        setCustomizeData({
+          appName: app.id,
+          dockerCompose: result.content,
+          appIcon: app.icon,
+          appTitle: app.title,
+        });
+        setCustomizeDialogOpen(true);
+      } else {
+        toast.error(result.error || 'Failed to load compose file');
+      }
+    } catch (error) {
+      console.error('Failed to load compose:', error);
+      toast.error('Failed to load compose file');
+    } finally {
+      setLoadingCompose(false);
+    }
+  };
+
+  const handleCustomizeSuccess = () => {
+    setCustomizeDialogOpen(false);
+    onOpenChange(false);
+    onInstallSuccess?.();
   };
 
   return (
@@ -214,14 +253,27 @@ export function AppInstallDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={installing}
+            disabled={installing || loadingCompose}
             className="bg-white/10 border-white/20 hover:bg-white/20"
           >
             Cancel
           </Button>
           <Button
+            variant="outline"
+            onClick={handleCustomizeInstall}
+            disabled={installing || loadingCompose || !app.composePath}
+            className="bg-white/10 border-white/20 hover:bg-white/20"
+          >
+            {loadingCompose ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Settings2 className="mr-2 h-4 w-4" />
+            )}
+            {loadingCompose ? 'Loading...' : 'Customize Install'}
+          </Button>
+          <Button
             onClick={handleInstall}
-            disabled={installing}
+            disabled={installing || loadingCompose}
             className="bg-blue-500 hover:bg-blue-600 text-white"
           >
             {installing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -229,6 +281,16 @@ export function AppInstallDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Customize Deploy Dialog */}
+      {customizeData && (
+        <CustomDeployDialog
+          open={customizeDialogOpen}
+          onOpenChange={setCustomizeDialogOpen}
+          initialData={customizeData}
+          onDeploySuccess={handleCustomizeSuccess}
+        />
+      )}
     </Dialog>
   );
 }

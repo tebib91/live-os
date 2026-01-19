@@ -6,6 +6,7 @@ import {
   LogOut,
   Power,
   RotateCw,
+  Shield,
   User,
   Wifi,
 } from "lucide-react";
@@ -243,6 +244,40 @@ export function LanguageSection() {
         >
           <Globe className="h-4 w-4 mr-2" />
           English
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+type FirewallSectionProps = {
+  onOpenDialog: () => void;
+  enabled?: boolean;
+};
+
+export function FirewallSection({ onOpenDialog, enabled }: FirewallSectionProps) {
+  return (
+    <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/15 shadow-lg shadow-black/25">
+      <div className="flex items-start justify-between">
+        <div>
+          <h4 className="text-sm font-semibold text-white -tracking-[0.01em] mb-1">
+            Firewall
+          </h4>
+          <div className="flex items-center gap-2 text-xs text-white/60">
+            <Shield className="h-3.5 w-3.5" />
+            <span className="text-white">
+              {enabled === undefined ? "Unknown" : enabled ? "Enabled" : "Disabled"}
+            </span>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="border border-white/15 bg-white/10 hover:bg-white/20 text-white shadow-sm"
+          onClick={onOpenDialog}
+        >
+          <Shield className="h-4 w-4 mr-2" />
+          Manage rules
         </Button>
       </div>
     </div>

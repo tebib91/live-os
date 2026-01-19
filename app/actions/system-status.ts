@@ -247,7 +247,7 @@ export async function getSystemStatus() {
     const usedMemory = mem.total - mem.available;
     const tempValue = Number.isFinite(temperature.main)
       ? Math.round(temperature.main)
-      : 38;
+      : 0;
     const powerWatts = estimatePowerWatts(cpuUsage);
 
     const hardware = hardwareBase

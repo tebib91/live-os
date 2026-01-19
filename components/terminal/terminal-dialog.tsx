@@ -1,9 +1,18 @@
 'use client';
 
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { X, Maximize2, Minimize2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useSystemStatus } from '@/hooks/useSystemStatus';
+import { ChevronDown, Container, Maximize2, Minimize2, Server, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Terminal } from 'xterm';
 import type { FitAddon } from 'xterm-addon-fit';
 import type { WebLinksAddon } from 'xterm-addon-web-links';
@@ -14,23 +23,54 @@ interface TerminalDialogProps {
 }
 
 export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
+  const { runningApps } = useSystemStatus({ fast: true });
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [targetId, setTargetId] = useState<string>('host');
+
+  const targets = useMemo(
+    () => [
+      {
+        id: 'host',
+        label: 'LiveOS Host',
+        badge: 'OS',
+        icon: <Server className="h-4 w-4 text-emerald-300" />,
+      },
+      ...runningApps.map((app) => ({
+        id: app.id,
+        label: app.name,
+        badge: 'Docker',
+        icon: <Container className="h-4 w-4 text-sky-300" />,
+      })),
+    ],
+    [runningApps]
+  );
+
+  const activeTarget = targets.find((t) => t.id === targetId) ?? targets[0];
 
   useEffect(() => {
-    if (!open || !terminalRef.current) return;
+    console.log('TerminalDialog open state changed:', open);
+    if (!open) return;
 
     let term: Terminal | null = null;
     let fitAddon: FitAddon | null = null;
     let webLinksAddon: WebLinksAddon | null = null;
     let ws: WebSocket | null = null;
+    let resizeHandler: (() => void) | null = null;
+    let rafId: number | null = null;
 
     // Dynamically import and initialize xterm to avoid SSR issues
     const initTerminal = async () => {
+      const container = terminalRef.current;
+      if (!container) {
+        rafId = requestAnimationFrame(initTerminal);
+        return;
+      }
+
       const { Terminal } = await import('xterm');
       const { FitAddon } = await import('xterm-addon-fit');
       const { WebLinksAddon } = await import('xterm-addon-web-links');
@@ -91,6 +131,12 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
         console.log('Terminal WebSocket connected');
         setStatusMessage(null);
         term?.writeln('\x1b[1;32mConnected to server terminal\x1b[0m');
+        if (activeTarget?.id && activeTarget.id !== 'host') {
+          term?.writeln(
+            `\x1b[1;34mAttaching to ${activeTarget.label} (docker exec -it ${activeTarget.id})\x1b[0m`
+          );
+          ws!.send(`docker exec -it ${activeTarget.id} /bin/sh\n`);
+        }
         term?.writeln('');
       };
 
@@ -138,26 +184,29 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
       };
 
       window.addEventListener('resize', handleResize);
+      resizeHandler = handleResize;
 
       // Store cleanup function
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        ws?.close();
-        term?.dispose();
-      };
     };
 
     // Initialize terminal
     initTerminal().catch((error) => {
       console.error('Failed to initialize terminal:', error);
+      setStatusMessage('Failed to initialize terminal. Check console for details.');
     });
 
     // Cleanup on unmount
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      if (resizeHandler) {
+        window.removeEventListener('resize', resizeHandler);
+      }
       ws?.close();
       term?.dispose();
     };
-  }, [open]);
+  }, [open, activeTarget?.id, activeTarget?.label]);
 
   // Handle maximize/minimize
   const toggleMaximize = () => {
@@ -194,6 +243,64 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="h-10 rounded-full border border-white/15 bg-white/10 hover:bg-white/15 text-white/80 hover:text-white px-3 flex items-center gap-2"
+                >
+                  {activeTarget?.icon}
+                  <span className="text-xs font-medium truncate max-w-[120px]">
+                    {activeTarget?.label || 'Select'}
+                  </span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="min-w-[220px] bg-white/10 border-white/10 backdrop-blur-xl text-white"
+              >
+                <DropdownMenuLabel className="text-white/80">
+                  Connect to
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    setTargetId('host');
+                    setStatusMessage(null);
+                  }}
+                  className="flex items-center gap-2 text-white/90"
+                >
+                  <Server className="h-4 w-4 text-emerald-300" />
+                  <span>LiveOS Host Shell</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-white/10" />
+                {targets.filter((t) => t.id !== 'host').length === 0 && (
+                  <DropdownMenuItem disabled className="text-white/50">
+                    No running Docker apps
+                  </DropdownMenuItem>
+                )}
+                {targets
+                  .filter((t) => t.id !== 'host')
+                  .map((target) => (
+                    <DropdownMenuItem
+                      key={target.id}
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        setTargetId(target.id);
+                        setStatusMessage(`Connecting to ${target.label}...`);
+                      }}
+                      className="flex items-center gap-2 text-white/90"
+                    >
+                      <Container className="h-4 w-4 text-sky-300" />
+                      <div className="flex flex-col">
+                        <span>{target.label}</span>
+                        <span className="text-[11px] text-white/60">docker exec</span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="ghost"
               size="icon"

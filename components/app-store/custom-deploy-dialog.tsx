@@ -14,24 +14,47 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, FileCode, Loader2, Upload, X } from "lucide-react";
-import { useState } from "react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+
+export interface CustomDeployInitialData {
+  appName?: string;
+  dockerCompose?: string;
+  appIcon?: string;
+  appTitle?: string;
+}
 
 interface CustomDeployDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialData?: CustomDeployInitialData;
+  onDeploySuccess?: () => void;
 }
 
 export function CustomDeployDialog({
   open,
   onOpenChange,
+  initialData,
+  onDeploySuccess,
 }: CustomDeployDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [appName, setAppName] = useState("");
-  const [dockerCompose, setDockerCompose] = useState("");
+  const [appName, setAppName] = useState(initialData?.appName ?? "");
+  const [dockerCompose, setDockerCompose] = useState(initialData?.dockerCompose ?? "");
   const [deployMethod, setDeployMethod] = useState<"compose" | "run">(
-    "compose"
+    initialData?.dockerCompose ? "compose" : "compose"
   );
+
+  // Update state when initialData changes (for customize install)
+  useEffect(() => {
+    if (open && initialData) {
+      if (initialData.appName) setAppName(initialData.appName);
+      if (initialData.dockerCompose) {
+        setDockerCompose(initialData.dockerCompose);
+        setDeployMethod("compose");
+      }
+    }
+  }, [open, initialData]);
 
   // Docker run fields
   const [imageName, setImageName] = useState("");
@@ -102,6 +125,9 @@ export function CustomDeployDialog({
 
         // Trigger refresh of installed apps
         window.dispatchEvent(new CustomEvent("refreshInstalledApps"));
+
+        // Call success callback if provided
+        onDeploySuccess?.();
       } else {
         toast.error(result.error || "Failed to deploy application");
       }
@@ -135,16 +161,36 @@ export function CustomDeployDialog({
           style={{ borderColor: "rgba(255, 255, 255, 0.15)" }}
         >
           <div className="flex items-center justify-between gap-4">
-            <div>
-              <DialogTitle className="text-2xl font-semibold text-white">
-                Custom Docker Deploy
-              </DialogTitle>
-              <DialogDescription
-                id="custom-deploy-description"
-                className="text-sm text-zinc-300 mt-1"
-              >
-                Deploy your own Docker container or compose file
-              </DialogDescription>
+            <div className="flex items-center gap-4">
+              {initialData?.appIcon && (
+                <div className="relative w-12 h-12 flex-shrink-0">
+                  <Image
+                    src={initialData.appIcon}
+                    alt={initialData.appTitle || "App"}
+                    fill
+                    className="object-contain rounded-lg"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = "/icons/default-app-icon.png";
+                    }}
+                  />
+                </div>
+              )}
+              <div>
+                <DialogTitle className="text-2xl font-semibold text-white">
+                  {initialData?.appTitle
+                    ? `Customize ${initialData.appTitle}`
+                    : "Custom Docker Deploy"}
+                </DialogTitle>
+                <DialogDescription
+                  id="custom-deploy-description"
+                  className="text-sm text-zinc-300 mt-1"
+                >
+                  {initialData?.appTitle
+                    ? "Modify the configuration before deploying"
+                    : "Deploy your own Docker container or compose file"}
+                </DialogDescription>
+              </div>
             </div>
             <Button
               variant="ghost"

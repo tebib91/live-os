@@ -7,8 +7,10 @@ import path from 'path';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
-const HOME_ROOT = process.env.LIVEOS_HOME || '/DATA';
+const PRIMARY_HOME_ROOT = process.env.LIVEOS_HOME || '/DATA';
+const FALLBACK_HOME_ROOT = path.join(process.cwd(), 'data');
 const DEFAULT_DIRECTORIES = ['apps', 'Downloads', 'Documents', 'Photos', 'Devices'] as const;
+let resolvedHomeRoot = PRIMARY_HOME_ROOT;
 
 export interface FileSystemItem {
   name: string;
@@ -31,14 +33,29 @@ export type DefaultDirectory = {
   path: string;
 };
 
+async function ensureHomeRoot(): Promise<string> {
+  try {
+    await fs.mkdir(resolvedHomeRoot, { recursive: true });
+    return resolvedHomeRoot;
+  } catch (error: any) {
+    if (error?.code !== 'EACCES') {
+      throw error;
+    }
+
+    // Fall back to a workspace-local data directory when /DATA is not writable (e.g. local dev)
+    resolvedHomeRoot = FALLBACK_HOME_ROOT;
+    await fs.mkdir(resolvedHomeRoot, { recursive: true });
+    console.warn(`[Filesystem] Falling back to ${resolvedHomeRoot} because ${PRIMARY_HOME_ROOT} is not writable`);
+    return resolvedHomeRoot;
+  }
+}
+
 async function ensureDefaultDirectories(): Promise<DefaultDirectory[]> {
   const directories: DefaultDirectory[] = [];
-
-  // Ensure home root exists
-  await fs.mkdir(HOME_ROOT, { recursive: true });
+  const homeRoot = await ensureHomeRoot();
 
   for (const dir of DEFAULT_DIRECTORIES) {
-    const target = path.join(HOME_ROOT, dir);
+    const target = path.join(homeRoot, dir);
     directories.push({ name: dir, path: target });
     try {
       await fs.mkdir(target, { recursive: true });
@@ -53,11 +70,13 @@ async function ensureDefaultDirectories(): Promise<DefaultDirectory[]> {
 /**
  * Validate and sanitize path to prevent directory traversal attacks
  */
-function validatePath(requestedPath: string): { valid: boolean; sanitized: string } {
+async function validatePath(requestedPath: string): Promise<{ valid: boolean; sanitized: string }> {
   try {
+    const homeRoot = await ensureHomeRoot();
+
     // Default to home directory if no path provided
     if (!requestedPath || requestedPath === '') {
-      requestedPath = HOME_ROOT;
+      requestedPath = homeRoot;
     }
 
     // Resolve to absolute path and normalize
@@ -68,13 +87,14 @@ function validatePath(requestedPath: string): { valid: boolean; sanitized: strin
 
     for (const blocked of blockedPaths) {
       if (sanitized.startsWith(blocked)) {
-        return { valid: false, sanitized: HOME_ROOT };
+        return { valid: false, sanitized: homeRoot };
       }
     }
 
     return { valid: true, sanitized };
   } catch {
-    return { valid: false, sanitized: HOME_ROOT };
+    const fallback = await ensureHomeRoot();
+    return { valid: false, sanitized: fallback };
   }
 }
 
@@ -85,7 +105,7 @@ export async function readDirectory(dirPath: string): Promise<DirectoryContent> 
   try {
     await ensureDefaultDirectories();
 
-    const { valid, sanitized } = validatePath(dirPath);
+    const { valid, sanitized } = await validatePath(dirPath);
     if (!valid) {
       throw new Error('Invalid path');
     }
@@ -159,7 +179,7 @@ export async function createDirectory(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Validate parent path
-    const { valid, sanitized } = validatePath(parentPath);
+    const { valid, sanitized } = await validatePath(parentPath);
     if (!valid) {
       return { success: false, error: 'Invalid parent path' };
     }
@@ -194,7 +214,7 @@ export async function createDirectory(
  */
 export async function deleteItem(itemPath: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const { valid, sanitized } = validatePath(itemPath);
+    const { valid, sanitized } = await validatePath(itemPath);
     if (!valid) {
       return { success: false, error: 'Invalid path' };
     }
@@ -224,7 +244,7 @@ export async function renameItem(
   newName: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { valid, sanitized } = validatePath(oldPath);
+    const { valid, sanitized } = await validatePath(oldPath);
     if (!valid) {
       return { success: false, error: 'Invalid path' };
     }
@@ -263,7 +283,7 @@ export async function createFile(
   fileName: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { valid, sanitized } = validatePath(parentPath);
+    const { valid, sanitized } = await validatePath(parentPath);
     if (!valid) {
       return { success: false, error: 'Invalid parent path' };
     }
@@ -293,7 +313,7 @@ export async function writeFileContent(
   content: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { valid, sanitized } = validatePath(filePath);
+    const { valid, sanitized } = await validatePath(filePath);
     if (!valid) {
       return { success: false, error: 'Invalid path' };
     }
@@ -311,7 +331,7 @@ export async function writeFileContent(
  */
 export async function getDiskUsage(dirPath: string): Promise<{ size: string; error?: string }> {
   try {
-    const { valid, sanitized } = validatePath(dirPath);
+    const { valid, sanitized } = await validatePath(dirPath);
     if (!valid) {
       return { size: '0', error: 'Invalid path' };
     }
@@ -334,7 +354,7 @@ export async function readFileContent(
   filePath: string
 ): Promise<{ content: string; error?: string }> {
   try {
-    const { valid, sanitized } = validatePath(filePath);
+    const { valid, sanitized } = await validatePath(filePath);
     if (!valid) {
       return { content: '', error: 'Invalid path' };
     }
@@ -361,15 +381,16 @@ export async function getDefaultDirectories(): Promise<{
   home: string;
   directories: DefaultDirectory[];
 }> {
+  const home = await ensureHomeRoot();
   const directories = await ensureDefaultDirectories();
-  return { home: HOME_ROOT, directories };
+  return { home, directories };
 }
 
 export async function openPath(
   targetPath: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { valid, sanitized } = validatePath(targetPath);
+    const { valid, sanitized } = await validatePath(targetPath);
     if (!valid) {
       return { success: false, error: 'Invalid path' };
     }

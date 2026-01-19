@@ -21,6 +21,7 @@ import { SettingsSidebar } from "./settings-sidebar";
 import {
   AccountSection,
   DeviceInfoSection,
+  FirewallSection,
   LanguageSection,
   SystemDetailsCard,
   WallpaperOption,
@@ -29,7 +30,9 @@ import {
 } from "./sections";
 import { SystemDetailsDialog } from "./system-details-dialog";
 import { WifiDialog } from "./wifi-dialog";
+import { FirewallDialog } from "./firewall";
 import { HardwareInfo } from "./hardware-utils";
+import { getFirewallStatus } from "@/app/actions/firewall";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -52,6 +55,8 @@ export function SettingsDialog({
   const [wallpapers, setWallpapers] = useState<WallpaperOption[]>([]);
   const [wallpapersLoading, setWallpapersLoading] = useState(false);
   const [wifiDialogOpen, setWifiDialogOpen] = useState(false);
+  const [firewallDialogOpen, setFirewallDialogOpen] = useState(false);
+  const [firewallEnabled, setFirewallEnabled] = useState<boolean | undefined>(undefined);
   const [systemDetailsOpen, setSystemDetailsOpen] = useState(false);
   const [uptimeSeconds, setUptimeSeconds] = useState<number>(0);
   const router = useRouter();
@@ -62,6 +67,7 @@ export function SettingsDialog({
       fetchSystemInfo();
       fetchWallpapers();
       fetchUptime();
+      fetchFirewallStatus();
     }
   }, [open]);
 
@@ -76,6 +82,15 @@ export function SettingsDialog({
       setUptimeSeconds(seconds);
     } catch (error) {
       console.error("Failed to load uptime:", error);
+    }
+  };
+
+  const fetchFirewallStatus = async () => {
+    try {
+      const result = await getFirewallStatus();
+      setFirewallEnabled(result.status.enabled);
+    } catch (error) {
+      console.error("Failed to load firewall status:", error);
     }
   };
 
@@ -218,6 +233,10 @@ export function SettingsDialog({
                 ssid={hardware?.wifi?.ssid}
                 quality={hardware?.wifi?.quality}
               />
+              <FirewallSection
+                onOpenDialog={() => setFirewallDialogOpen(true)}
+                enabled={firewallEnabled}
+              />
               <LanguageSection />
               {hardware && (
                 <SystemDetailsCard
@@ -231,6 +250,15 @@ export function SettingsDialog({
 
         {wifiDialogOpen && (
           <WifiDialog open={wifiDialogOpen} onOpenChange={setWifiDialogOpen} />
+        )}
+        {firewallDialogOpen && (
+          <FirewallDialog
+            open={firewallDialogOpen}
+            onOpenChange={(open) => {
+              setFirewallDialogOpen(open);
+              if (!open) fetchFirewallStatus();
+            }}
+          />
         )}
         <SystemDetailsDialog
           open={systemDetailsOpen}

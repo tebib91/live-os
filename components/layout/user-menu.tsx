@@ -1,7 +1,6 @@
 "use client";
 
 import { getCurrentUser, logout, type AuthUser } from "@/app/actions/auth";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,13 +38,9 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 rounded-full bg-zinc-800 hover:bg-zinc-700 border border-zinc-700"
-        >
-          <User className="h-5 w-5 text-zinc-400" />
-        </Button>
+        <button className="flex items-center justify-center hover:opacity-80 transition-opacity">
+          <User className="h-4 w-4 text-white/80" />
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"

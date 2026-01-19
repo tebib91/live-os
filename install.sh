@@ -506,6 +506,56 @@ install_nmcli() {
     fi
 }
 
+# Install UFW firewall
+install_firewall() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_dry "Install UFW firewall"
+        return
+    fi
+
+    print_status "Checking for UFW firewall..."
+
+    if command -v ufw >/dev/null 2>&1; then
+        print_status "UFW already installed"
+    else
+        print_status "Installing UFW firewall..."
+
+        if [ -x "$(command -v apt-get)" ]; then
+            apt-get update
+            apt-get install -y ufw
+        elif [ -x "$(command -v dnf)" ]; then
+            dnf install -y ufw
+        elif [ -x "$(command -v yum)" ]; then
+            yum install -y ufw
+        else
+            print_error "Unsupported package manager. Please install UFW manually."
+            print_error "Firewall management in LiveOS will not work without UFW."
+            return
+        fi
+    fi
+
+    if command -v ufw >/dev/null 2>&1; then
+        print_status "UFW installed successfully"
+
+        # Allow LiveOS port through firewall
+        print_status "Configuring firewall to allow LiveOS port ($HTTP_PORT)..."
+        ufw allow "$HTTP_PORT/tcp" comment "LiveOS HTTP" 2>/dev/null || true
+
+        # Allow SSH to prevent lockout
+        ufw allow ssh comment "SSH" 2>/dev/null || true
+
+        # Check if firewall is enabled
+        if ufw status | grep -q "Status: active"; then
+            print_status "UFW firewall is active"
+        else
+            print_info "UFW is installed but not enabled."
+            print_info "You can enable it from LiveOS settings or run: sudo ufw enable"
+        fi
+    else
+        print_error "UFW installation failed. Firewall management will not be available."
+    fi
+}
+
 # Install Docker if needed
 install_docker() {
     if [ "$DRY_RUN" -eq 1 ]; then

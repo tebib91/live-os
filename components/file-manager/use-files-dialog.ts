@@ -25,20 +25,57 @@ export interface ContextMenuState {
   item: FileSystemItem | null;
 }
 
-const isTextLike = (fileName: string) =>
-  /\.(txt|md|log|json|ya?ml|js|ts|jsx|tsx|html|css)$/i.test(fileName);
+const TEXT_EXTENSIONS =
+  /\.(txt|md|log|json|ya?ml|js|ts|jsx|tsx|html|css|scss|less|sh|bash|zsh|env|toml|ini|conf|config|dockerfile|go|rs|py|rb|php|java|c|cpp|h|hpp|sql|prisma)$/i;
+
+const LANGUAGE_BY_EXT: Record<string, string> = {
+  json: 'json',
+  md: 'markdown',
+  markdown: 'markdown',
+  yml: 'yaml',
+  yaml: 'yaml',
+  ts: 'typescript',
+  tsx: 'typescript',
+  js: 'javascript',
+  jsx: 'javascript',
+  html: 'html',
+  css: 'css',
+  scss: 'scss',
+  less: 'less',
+  sh: 'shell',
+  bash: 'shell',
+  zsh: 'shell',
+  env: 'properties',
+  toml: 'toml',
+  ini: 'properties',
+  conf: 'properties',
+  config: 'properties',
+  dockerfile: 'dockerfile',
+  go: 'go',
+  rs: 'rust',
+  py: 'python',
+  rb: 'ruby',
+  php: 'php',
+  java: 'java',
+  c: 'c',
+  cpp: 'cpp',
+  h: 'cpp',
+  hpp: 'cpp',
+  sql: 'sql',
+  prisma: 'prisma',
+};
+
+const isTextLike = (fileName: string) => {
+  if (/dockerfile$/i.test(fileName)) return true;
+  return TEXT_EXTENSIONS.test(fileName);
+};
 
 const guessLanguage = (filePath: string) => {
-  if (filePath.endsWith('.json')) return 'json';
-  if (filePath.endsWith('.md')) return 'markdown';
-  if (filePath.endsWith('.yml') || filePath.endsWith('.yaml')) return 'yaml';
-  if (filePath.endsWith('.ts')) return 'typescript';
-  if (filePath.endsWith('.tsx')) return 'typescript';
-  if (filePath.endsWith('.js')) return 'javascript';
-  if (filePath.endsWith('.jsx')) return 'javascript';
-  if (filePath.endsWith('.html')) return 'html';
-  if (filePath.endsWith('.css')) return 'css';
-  return 'plaintext';
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith('dockerfile')) return 'dockerfile';
+  const parts = lower.split('.');
+  const ext = parts.length > 1 ? parts.pop() || '' : '';
+  return LANGUAGE_BY_EXT[ext] || 'plaintext';
 };
 
 const toDirectoryItem = (itemPath: string, label: string): FileSystemItem => ({
@@ -76,6 +113,7 @@ export function useFilesDialog(open: boolean) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorPath, setEditorPath] = useState('');
   const [editorContent, setEditorContent] = useState('');
+  const [editorOriginalContent, setEditorOriginalContent] = useState('');
   const [editorSaving, setEditorSaving] = useState(false);
 
   useEffect(() => {
@@ -206,6 +244,7 @@ export function useFilesDialog(open: boolean) {
       }
       setEditorPath(filePath);
       setEditorContent(result.content);
+      setEditorOriginalContent(result.content);
       setEditorOpen(true);
     } catch (error) {
       console.error(error);
@@ -285,6 +324,7 @@ export function useFilesDialog(open: boolean) {
     if (result.success) {
       toast.success('File saved');
       loadDirectory(currentPath);
+      setEditorOriginalContent(editorContent);
       setEditorOpen(false);
     } else {
       toast.error(result.error || 'Failed to save file');
@@ -435,6 +475,7 @@ export function useFilesDialog(open: boolean) {
     editorOpen,
     editorPath,
     editorContent,
+    editorOriginalContent,
     editorSaving,
     editorLanguage,
     // actions
@@ -443,6 +484,7 @@ export function useFilesDialog(open: boolean) {
     setNewFolderName,
     setNewFileName,
     setEditorContent,
+    setEditorOriginalContent,
     closeEditor: () => setEditorOpen(false),
     navigate: handleNavigate,
     goToParent: handleGoToParent,

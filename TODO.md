@@ -10,31 +10,32 @@ This document tracks features needed to reach feature parity with UmbrelOS and C
 ---
 
 ## 🔍 Gaps vs CasaOS/UmbrelOS (add to roadmap)
-- [ ] Real app catalog with install/uninstall status, progress, and logs
-- [ ] Docker/compose lifecycle controls (start/stop/restart, health, port/resource config)
-- [ ] Live system dashboard (CPU/RAM/disk/network, temps, alerts)
-- [ ] File manager with upload/download, permissions, and external drive visibility
-- [ ] Settings for hostname/timezone/locale, networking, SSH toggle, backups, updates, notifications
+- [x] Real app catalog with install/uninstall status, progress, and logs
+- [x] Docker/compose lifecycle controls (start/stop/restart, health, port/resource config)
+- [x] Live system dashboard (CPU/RAM/disk/network, temps, alerts)
+- [~] File manager with upload/download, permissions, and external drive visibility
+- [~] Settings for hostname/timezone/locale, networking, SSH toggle, backups, updates, notifications
 - [ ] Multi-user accounts, roles, 2FA, session management, and audit logs
-- [ ] Idle lock/timeout, rate limiting, and remote logout/device approvals
+- [x] Idle lock/timeout, rate limiting, and remote logout/device approvals
 - [ ] Scheduled backups, restore, and OTA updates with changelog and rollback
 - [ ] Onboarding wizard with device checks, network setup, and storage selection
 - [ ] Remote access/sharing (reverse proxy/relay, LAN discovery, QR pairing)
-- [ ] Desktop UX polish (dynamic dock/app grid, quick settings tray, notification center, widgets)
+- [~] Desktop UX polish (dynamic dock/app grid, quick settings tray, notification center, widgets)
 
 ---
 
 ## 🔴 Phase 1: Security & Stability (Critical)
 
 ### 1. User Authentication & Security
-- [ ] **Login System**
-  - [ ] Username/Pin authentication
-  - [ ] Session management with JWT/cookies
-  - [ ] Login page UI
-  - [ ] Logout functionality
-  - [ ] "Remember me" option
+- [x] **Login System**
+  - [x] Username/Pin authentication
+  - [x] Session management with JWT/cookies
+  - [x] Login page UI
+  - [x] Logout functionality
+  - [x] "Remember me" option
   - **Priority:** CRITICAL
   - **Estimated effort:** 2-3 days
+  - **Status:** COMPLETED
 
 - [ ] **User Management**
   - [ ] Create/edit/delete users
@@ -221,13 +222,14 @@ This document tracks features needed to reach feature parity with UmbrelOS and C
   - **Estimated effort:** 4-5 days
 
 ### 6. Network Management
-- [ ] **Wi-Fi Configuration**
-  - [ ] Scan available networks
-  - [ ] Connect to Wi-Fi
-  - [ ] Save Wi-Fi credentials
-  - [ ] Signal strength display
+- [x] **Wi-Fi Configuration**
+  - [x] Scan available networks
+  - [x] Connect to Wi-Fi
+  - [x] Save Wi-Fi credentials
+  - [x] Signal strength display
   - **Priority:** HIGH
   - **Estimated effort:** 2 days
+  - **Status:** COMPLETED
 
 - [ ] **Static IP Configuration**
   - [ ] Set static IP address
@@ -253,25 +255,26 @@ This document tracks features needed to reach feature parity with UmbrelOS and C
   - **Priority:** MEDIUM
   - **Estimated effort:** 2-3 days
 
-- [ ] **Firewall Management**
-  - [ ] UFW/iptables UI
-  - [ ] Allow/deny rules
-  - [ ] Port opening/closing
-  - [ ] Firewall presets (secure, permissive)
+- [x] **Firewall Management**
+  - [x] UFW/iptables UI
+  - [x] Allow/deny rules
+  - [x] Port opening/closing
+  - [x] Firewall presets (secure, permissive)
   - **Priority:** MEDIUM
   - **Estimated effort:** 2 days
 
 ### 7. App Store Enhancements
-- [ ] **Search Functionality**
-  - [ ] Real-time search
-  - [ ] Search by name, description, category
+- [x] **Search Functionality**
+  - [x] Real-time search
+  - [x] Search by name, description, category
   - [ ] Search suggestions
   - [ ] Recent searches
   - **Priority:** HIGH
   - **Estimated effort:** 1 day
+  - **Status:** MOSTLY COMPLETED
 
-- [ ] **Advanced Filters**
-  - [ ] Filter by category
+- [~] **Advanced Filters**
+  - [x] Filter by category
   - [ ] Filter by rating
   - [ ] Filter by popularity
   - [ ] Sort by name/date/popularity
@@ -574,20 +577,29 @@ This document tracks features needed to reach feature parity with UmbrelOS and C
 
 ## ✅ Already Implemented
 
-- [x] System monitoring (CPU, RAM, disk)
+- [x] System monitoring (CPU, RAM, disk, network, temperature)
 - [x] Docker container management (basic)
-- [x] App store (Umbrel format)
+- [x] App store (Umbrel format + CasaOS community stores)
 - [x] Installed apps management
-- [x] File browser with real filesystem
+- [x] File browser with real filesystem (list, create, delete)
 - [x] Terminal access
 - [x] mDNS/.local domain support (Avahi)
-- [x] App installation
+- [x] App installation with configuration
 - [x] App start/stop/restart
 - [x] Container logs viewer
-- [x] Settings panel
-- [x] Real-time metrics
+- [x] Settings panel with system details
+- [x] Real-time metrics via SSE streaming
 - [x] App store dialog with grid/list view
 - [x] System information display
+- [x] User authentication (PIN-based login)
+- [x] Session management with cookies
+- [x] Wi-Fi scanning and connection
+- [x] App store search (real-time)
+- [x] Category filtering in app store
+- [x] Custom Docker deploy (compose & run)
+- [x] Customize install for store apps
+- [x] Status bar with WiFi, battery, date/time
+- [x] Lock screen with PIN
 
 ---
 
@@ -637,5 +649,5 @@ This document tracks features needed to reach feature parity with UmbrelOS and C
 
 ---
 
-**Last Updated**: January 12, 2026
+**Last Updated**: January 19, 2026
 **Maintained By**: LiveOS Development Team

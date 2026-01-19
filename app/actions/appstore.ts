@@ -459,3 +459,39 @@ function resolveAsset(
   const safePath = asset.replace(/^\.?\//, "");
   return `/external-apps/${storeId}/${safePath}`;
 }
+
+/**
+ * Read the docker-compose.yml content for a given app.
+ * Returns the raw YAML content as a string.
+ */
+export async function getAppComposeContent(
+  composePath: string
+): Promise<{ success: boolean; content?: string; error?: string }> {
+  try {
+    if (!composePath) {
+      return { success: false, error: "No compose path provided" };
+    }
+
+    // Resolve the path - composePath might be absolute or relative
+    let fullPath = composePath;
+    if (!path.isAbsolute(composePath)) {
+      fullPath = path.join(process.cwd(), composePath);
+    }
+
+    // Security check - ensure path is within allowed directories
+    const cwd = process.cwd();
+    const resolvedPath = path.resolve(fullPath);
+    if (!resolvedPath.startsWith(cwd) && !resolvedPath.startsWith("/DATA")) {
+      return { success: false, error: "Invalid compose path" };
+    }
+
+    const content = await fs.readFile(resolvedPath, "utf-8");
+    return { success: true, content };
+  } catch (error) {
+    console.error("Failed to read compose file:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to read compose file",
+    };
+  }
+}
