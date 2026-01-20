@@ -8,14 +8,22 @@ import { WifiIcon } from "./wifi-icon";
 
 type StatusBarProps = {
   children?: ReactNode;
+  onWifiClick?: () => void;
 };
 
-export function StatusBar({ children }: StatusBarProps) {
+export function StatusBar({ children, onWifiClick }: StatusBarProps) {
   const status = useStatusData();
 
   return (
     <div className="flex items-center gap-3 px-3 py-2 rounded-full bg-black/30 backdrop-blur-xl border border-white/10">
-      <WifiIcon status={status.wifi} />
+      <button
+        type="button"
+        onClick={onWifiClick}
+        className="rounded-full p-1 hover:bg-white/10 transition-colors"
+        title="Wi-Fi settings"
+      >
+        <WifiIcon status={status.wifi} />
+      </button>
       <BatteryIcon status={status.battery} />
       {children}
       <DateDisplay />

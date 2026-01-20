@@ -1,6 +1,7 @@
 import { getCurrentUser, hasUsers } from "@/app/actions/auth";
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { hasUsersRaw } from "./lib/auth-utils";
 import { SESSION_COOKIE_NAME } from "./lib/config";
 
 const publicRoutes = ["/login", "/setup"];
@@ -32,7 +33,7 @@ export async function proxy(request: NextRequest) {
   const isAuthenticated = currentUser !== null;
   const isPublicRoute = publicRoutes.includes(pathname);
 
-  const hasAnyUsers = await usersExist();
+  const hasAnyUsers = await hasUsersRaw();
 
   // If no users exist yet, force setup for all routes
   if (!hasAnyUsers && pathname !== "/setup") {
@@ -59,7 +60,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\..*|wallpapers).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*|wallpapers).*)"],
 };

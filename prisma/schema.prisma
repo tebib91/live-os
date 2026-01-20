@@ -38,6 +38,11 @@ enum Role {
 model Settings {
   id               Int      @id
   currentWallpaper String?
+  selectedWidgets  Json?
+  userLatitude     Float?
+  userLongitude    Float?
+  userCity         String?
+  userCountry      String?
   updatedAt        DateTime @updatedAt
 }
 

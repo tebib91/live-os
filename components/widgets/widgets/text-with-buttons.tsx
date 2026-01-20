@@ -12,7 +12,7 @@ export function TextWithButtonsWidget({ data }: TextWithButtonsProps) {
   const { title, subtitle, buttons } = data;
 
   return (
-    <div className="flex flex-col h-full justify-between">
+    <div className="flex flex-col h-full justify-between p-3">
       {/* Header */}
       <div>
         <h3 className={cn(text.heading, "mb-1")}>{title}</h3>

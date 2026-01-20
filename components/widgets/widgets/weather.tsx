@@ -52,7 +52,9 @@ export function WeatherWidget({ data }: WeatherWidgetProps) {
     error,
   } = useWeatherData(latitude, longitude);
 
-  const code = Number.isFinite(weatherCode) ? Math.round(weatherCode) : undefined;
+  const code = Number.isFinite(weatherCode)
+    ? Math.round(weatherCode)
+    : undefined;
   const weatherInfo = code !== undefined ? weatherCodes[code] : undefined;
   const iconKey = useMemo(() => getWeatherIconKey(code), [code]);
   const Icon = WEATHER_ICONS[iconKey];
@@ -68,58 +70,48 @@ export function WeatherWidget({ data }: WeatherWidgetProps) {
       <div className="absolute -left-10 -bottom-10 h-24 w-24 rounded-full bg-cyan-500/10 blur-3xl" />
       <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-white/5 blur-3xl" />
 
-      <div className="relative flex h-full flex-col justify-between gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <motion.div
-              animate={{ y: [0, -4, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 shadow-inner shadow-black/20"
-            >
-              <Icon className="h-7 w-7 text-cyan-100 drop-shadow-md" />
-            </motion.div>
-            <div className="flex flex-col">
-              <span className={cn(text.label, "uppercase tracking-wider")}>
-                Weather
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-semibold text-white">
-                  {tempDisplay}
-                  {tempDisplay === "--" ? "" : "°C"}
-                </span>
-                <span className={cn(text.muted, "text-sm text-white/70")}>
-                  {weatherInfo?.label ?? (loading ? "Updating..." : "Unavailable")}
-                </span>
-              </div>
-              <span className="text-sm text-white/70">{location}</span>
-            </div>
-          </div>
+      {/* Live indicator dot */}
+      {!isUnavailable && (
+        <div className="absolute top-3 right-3">
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse block" />
+        </div>
+      )}
 
-          <div className="rounded-xl bg-white/5 px-3 py-2 text-right">
-            <p className={text.label}>Feels like</p>
-            <p className="text-xl font-semibold text-white/90">
-              {feelsDisplay === "--" ? "—" : `${feelsDisplay}°`}
-            </p>
-            <p className={cn(text.muted, "text-xs")}>
-              Humidity {humidityDisplay === "--" ? "—" : `${humidityDisplay}%`}
-            </p>
+      <div className="relative flex h-full flex-col justify-between p-3">
+        <div className="flex items-center gap-2">
+          <motion.div
+            animate={{ y: [0, -3, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 shadow-inner shadow-black/20"
+          >
+            <Icon className="h-5 w-5 text-cyan-100 drop-shadow-md" />
+          </motion.div>
+          <div className="flex flex-col min-w-0">
+            <span className={cn(text.label, "uppercase tracking-wider text-[10px]")}>
+              Weather
+            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-lg font-semibold text-white leading-tight">
+                {tempDisplay}
+                {tempDisplay === "--" ? "" : "°C"}
+              </span>
+              <span className="text-xs text-white/60">
+                {weatherInfo?.label ?? (isUnavailable ? "Waiting..." : "...")}
+              </span>
+            </div>
+            <span className="text-xs text-white/60 truncate">{location}</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-lg bg-white/5 px-3 py-2">
-            <p className={text.labelUppercase}>Condition</p>
-            <p className="text-sm font-semibold text-white">
-              {weatherInfo?.label ?? (isUnavailable ? "Waiting for data" : "Updating...")}
-            </p>
-          </div>
-          <div className="rounded-lg bg-white/5 px-3 py-2">
-            <div className="flex items-center justify-between text-xs text-white/70">
-              <span className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                Live update
-              </span>
-              <span>{weatherInfo ? "Now" : "—"}</span>
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-2 py-1.5">
+          <div className="flex items-center gap-3">
+            <div>
+              <p className={cn(text.label, "text-[10px]")}>Feels like</p>
+              <p className="text-sm font-semibold text-white/90">{feelsDisplay === "--" ? "—" : `${feelsDisplay}°`}</p>
+            </div>
+            <div>
+              <p className={cn(text.label, "text-[10px]")}>Humidity</p>
+              <p className="text-sm font-semibold text-white/90">{humidityDisplay === "--" ? "—" : `${humidityDisplay}%`}</p>
             </div>
           </div>
         </div>

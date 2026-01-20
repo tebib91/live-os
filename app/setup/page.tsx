@@ -57,26 +57,12 @@ export default function SetupPage() {
 
     setLoading(true);
 
-    try {
-      const result = await registerUser(username, pin);
+    const res = await registerUser(username, pin);
 
-      if (result.success) {
-        // Use full page reload to ensure cookie is sent with next request
-        window.location.href = "/";
-      } else {
-        setError(result.error || "Registration failed");
-      }
-    } catch (err) {
-      setError("An unexpected error occurred");
-      console.error("Registration error:", err);
-    } finally {
+    if (res?.success === false) {
+      setError(res.error || "An unknown error occurred");
       setLoading(false);
     }
-  };
-
-  const handlePinChange = (value: string, setter: (value: string) => void) => {
-    const cleaned = value.replace(/\D/g, "").slice(0, 4);
-    setter(cleaned);
   };
 
   if (checkingUsers) {

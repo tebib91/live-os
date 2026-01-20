@@ -101,6 +101,15 @@ export const AVAILABLE_WIDGETS: AvailableWidget[] = [
     name: "Weather",
     description: "Local forecast with live animations",
   },
+  {
+    id: "liveos:thermals",
+    type: "thermals",
+    appId: "liveos",
+    appName: "LiveOS",
+    appIcon: LIVEOS_ICON,
+    name: "Thermals",
+    description: "CPU temps and sensor overview",
+  },
 ];
 
 // Group widgets by app

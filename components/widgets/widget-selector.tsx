@@ -98,12 +98,12 @@ export function WidgetSelector({
                 <div
                   key={slot}
                   className={cn(
-                    "rounded-xl overflow-hidden",
+                    "rounded-xl overflow-hidden h-[160px]",
                     !widgetInfo && "border-2 border-dashed border-white/20",
                   )}
                 >
                   {widgetInfo ? (
-                    <div className="h-full  origin-center">
+                    <div className="h-full">
                       <Widget type={widgetInfo.type} data={widgetInfo.data} />
                     </div>
                   ) : (
@@ -118,14 +118,14 @@ export function WidgetSelector({
         </div>
 
         {/* Widget selection area */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide px-6 py-4 space-y-5">
+        <div className="flex-1 overflow-y-auto scrollbar-hide px-6 py-4 space-y-4">
           {sections.map((section) => (
             <div key={section.appId}>
               <WidgetSection
                 appName={section.appName}
                 appIcon={section.appIcon}
               />
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
                 {section.widgets.map((widget) => (
                   <WidgetPreviewCard
                     key={widget.id}
@@ -163,31 +163,28 @@ function WidgetPreviewCard({
     <div
       className={cn(
         card.base,
-        "relative cursor-pointer transition-all h-full flex flex-col items-stretch p-2 gap-1",
+        "relative cursor-pointer transition-all h-full flex flex-col items-stretch p-1.5 gap-0.5",
         isSelected && card.selected,
         !isSelected && card.hover,
       )}
       onClick={onToggle}
     >
-      {/* Mini widget preview */}
-      <div className="aspect-[4/3] p-1">
+      {/* Mini widget preview - scaled down */}
+      <div className="aspect-[3/2] overflow-hidden rounded-lg">
         {info ? (
-          <div className="h-full origin-top-left">
+          <div className="h-full w-full scale-[0.5] origin-top-left" style={{ width: '200%', height: '200%' }}>
             <Widget type={info.type} data={info.data} />
           </div>
         ) : (
-          <div className="h-full flex items-center justify-center">
-            <span className={text.muted}>No data</span>
+          <div className="h-full flex items-center justify-center bg-white/5 rounded-lg">
+            <span className={cn(text.muted, "text-[10px]")}>No data</span>
           </div>
         )}
       </div>
 
       {/* Widget name */}
-      <div className="px-2 pb-2">
-        <p className={cn(text.valueSmall, "truncate text-sm")}>{widget.name}</p>
-        <p className={cn(text.muted, "truncate text-xs")}>
-          {widget.description}
-        </p>
+      <div className="px-1 pb-1">
+        <p className={cn(text.valueSmall, "truncate text-xs leading-tight")}>{widget.name}</p>
       </div>
     </div>
   );

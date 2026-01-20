@@ -14,7 +14,8 @@ export type WidgetType =
   | "list-emoji"
   | "files-list"
   | "files-grid"
-  | "weather";
+  | "weather"
+  | "thermals";
 
 // Base widget configuration
 export interface WidgetConfig {
@@ -125,6 +126,14 @@ export interface WeatherWidgetData {
   longitude: string;
 }
 
+export interface ThermalsWidgetData {
+  cpuTemperature?: number | null;
+  main?: number | null;
+  max?: number | null;
+  cores?: (number | null)[];
+  socket?: (number | null)[];
+}
+
 // Union type for all widget data
 export type WidgetData =
   | TextWithProgressData
@@ -136,7 +145,8 @@ export type WidgetData =
   | ListEmojiData
   | FilesListData
   | FilesGridData
-  | WeatherWidgetData;
+  | WeatherWidgetData
+  | ThermalsWidgetData;
 
 // Complete widget with config and data
 export interface WidgetInstance<T extends WidgetData = WidgetData> {

@@ -35,11 +35,7 @@ export function AppInstallDialog({
   app,
   onInstallSuccess,
 }: AppInstallDialogProps) {
-  const [config, setConfig] = useState<InstallConfig>({
-    ports: [],
-    volumes: [],
-    environment: [],
-  });
+  const [config, setConfig] = useState<InstallConfig>(getDefaultInstallConfig(app));
   const [installing, setInstalling] = useState(false);
   const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false);
   const [customizeData, setCustomizeData] = useState<CustomDeployInitialData | null>(null);
@@ -47,30 +43,7 @@ export function AppInstallDialog({
 
   useEffect(() => {
     if (open && app.container) {
-      // Initialize with default config from app metadata
-      const defaultPorts = app.container.ports?.map((port: any) => ({
-        container: port.container || port.target?.toString() || '',
-        published: port.published || port.container || port.target?.toString() || '',
-        protocol: port.protocol || 'tcp',
-      })) || [];
-
-      const defaultVolumes = app.container.volumes?.map((vol: any) => ({
-        container: vol.container || vol.target || '',
-        source: vol.source || `/DATA/AppData/${app.id}`,
-      })) || [];
-
-      // Default environment variables
-      const defaultEnv = [
-        { key: 'TZ', value: 'UTC' },
-        { key: 'PUID', value: '1000' },
-        { key: 'PGID', value: '1000' },
-      ];
-
-      setConfig({
-        ports: defaultPorts,
-        volumes: defaultVolumes,
-        environment: defaultEnv,
-      });
+      setConfig(getDefaultInstallConfig(app));
     }
   }, [open, app]);
 
@@ -296,4 +269,31 @@ export function AppInstallDialog({
       )}
     </Dialog>
   );
+}
+
+export function getDefaultInstallConfig(app: App): InstallConfig {
+  const defaultPorts =
+    app.container?.ports?.map((port: any) => ({
+      container: port.container || port.target?.toString() || '',
+      published: port.published || port.container || port.target?.toString() || '',
+      protocol: port.protocol || 'tcp',
+    })) || [];
+
+  const defaultVolumes =
+    app.container?.volumes?.map((vol: any) => ({
+      container: vol.container || vol.target || '',
+      source: vol.source || `/DATA/AppData/${app.id}`,
+    })) || [];
+
+  const defaultEnv = [
+    { key: 'TZ', value: 'UTC' },
+    { key: 'PUID', value: '1000' },
+    { key: 'PGID', value: '1000' },
+  ];
+
+  return {
+    ports: defaultPorts,
+    volumes: defaultVolumes,
+    environment: defaultEnv,
+  };
 }

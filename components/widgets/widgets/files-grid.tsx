@@ -14,7 +14,7 @@ export function FilesGridWidget({ data }: FilesGridProps) {
   const displayFolders = folders.slice(0, 4);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full p-3">
       <h3 className={cn(text.label, "uppercase tracking-wider mb-2")}>
         {title}
       </h3>

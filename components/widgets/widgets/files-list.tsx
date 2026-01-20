@@ -14,7 +14,7 @@ export function FilesListWidget({ data }: FilesListProps) {
   const displayFiles = files.slice(0, 5);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full p-3">
       <h3 className={cn(text.label, "uppercase tracking-wider mb-2")}>
         {title}
       </h3>

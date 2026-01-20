@@ -11,10 +11,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { installApp } from '@/app/actions/docker';
 import Image from 'next/image';
 import { useState } from 'react';
-import { AppInstallDialog } from './app-install-dialog';
+import { toast } from 'sonner';
+import { AppInstallDialog, getDefaultInstallConfig } from './app-install-dialog';
 import type { App } from './types';
+import { Settings2 } from 'lucide-react';
 
 interface AppDetailDialogProps {
   open: boolean;
@@ -25,6 +28,31 @@ interface AppDetailDialogProps {
 
 export function AppDetailDialog({ open, onOpenChange, app, onInstallSuccess }: AppDetailDialogProps) {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
+  const [installing, setInstalling] = useState(false);
+
+  const handleQuickInstall = async () => {
+    setInstalling(true);
+    try {
+      const config = getDefaultInstallConfig(app);
+      const result = await installApp(app.id, config, {
+        name: app.title || app.name,
+        icon: app.icon,
+      });
+
+      if (result.success) {
+        toast.success('Application installed successfully!');
+        onInstallSuccess?.();
+        onOpenChange(false);
+      } else {
+        toast.error(result.error || 'Failed to install application');
+      }
+    } catch (err: unknown) {
+      console.error('Installation error:', err);
+      toast.error('Failed to install application');
+    } finally {
+      setInstalling(false);
+    }
+  };
 
   return (
     <>
@@ -132,12 +160,27 @@ export function AppDetailDialog({ open, onOpenChange, app, onInstallSuccess }: A
           </ScrollArea>
 
           <DialogFooter className="mt-3 sm:mt-4">
-            <Button
-              onClick={() => setShowInstallDialog(true)}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm sm:text-base"
-            >
-              Install
-            </Button>
+            <div className="flex w-full items-center gap-2">
+              <Button
+                onClick={() => {
+                  setShowInstallDialog(true);
+                  onOpenChange(false);
+                }}
+                variant="outline"
+                size="icon"
+                className="border-white/30 bg-white/10 hover:bg-white/20"
+                title="Custom install"
+              >
+                <Settings2 className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={handleQuickInstall}
+                disabled={installing}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm sm:text-base"
+              >
+                {installing ? 'Installing...' : 'Install'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

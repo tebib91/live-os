@@ -14,7 +14,7 @@ export function TwoStatsGaugeWidget({ data }: TwoStatsGaugeProps) {
   const { stats } = data;
 
   return (
-    <div className="flex h-full items-center justify-around">
+    <div className="flex h-full items-center justify-around p-3">
       {stats.map((stat, index) => (
         <ProgressArc
           key={index}

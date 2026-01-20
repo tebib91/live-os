@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getSettings, updateSettings } from "@/app/actions/settings";
 import { useSystemStatus } from "./useSystemStatus";
+import { useUserLocation } from "./useUserLocation";
 import type {
   AvailableWidget,
   WidgetData,
@@ -13,6 +15,7 @@ import type {
   FilesListData,
   FilesGridData,
   WeatherWidgetData,
+  ThermalsWidgetData,
 } from "@/components/widgets/types";
 import {
   AVAILABLE_WIDGETS,
@@ -54,8 +57,21 @@ function formatBytes(bytes: number): string {
 }
 
 // Load initial selection from localStorage
-function getInitialSelectedIds(): string[] {
+async function getInitialSelectedIds(): Promise<string[]> {
+  // Server-side fallback
   if (typeof window === "undefined") return DEFAULT_WIDGET_IDS;
+
+  // Prefer DB-backed settings
+  try {
+    const settings = await getSettings();
+    if (settings.selectedWidgets && settings.selectedWidgets.length > 0) {
+      return settings.selectedWidgets.slice(0, MAX_WIDGETS);
+    }
+  } catch (err) {
+    console.warn("[Widgets] Failed to load settings, falling back to localStorage", err);
+  }
+
+  // Fallback to localStorage
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -71,20 +87,36 @@ function getInitialSelectedIds(): string[] {
 }
 
 export function useWidgets(): UseWidgetsReturn {
-  const [selectedIds, setSelectedIds] = useState<string[]>(getInitialSelectedIds);
+  const [selectedIds, setSelectedIds] = useState<string[]>(DEFAULT_WIDGET_IDS);
   const [shakeTrigger, setShakeTrigger] = useState(0);
-  const [isLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const initializedRef = useRef(false);
 
   const { systemStats, storageStats } = useSystemStatus();
+  const { location: userLocation } = useUserLocation();
+
+  // Load initial selection from DB/localStorage
+  useEffect(() => {
+    void (async () => {
+      const initial = await getInitialSelectedIds();
+      setSelectedIds(initial);
+      initializedRef.current = true;
+      setIsLoading(false);
+    })();
+  }, []);
 
   // Save to localStorage when selection changes (skip initial render)
   useEffect(() => {
-    if (initializedRef.current) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(selectedIds));
-    } else {
-      initializedRef.current = true;
-    }
+    if (!initializedRef.current) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(selectedIds));
+  }, [selectedIds]);
+
+  // Persist to settings table (best-effort)
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    void updateSettings({ selectedWidgets: selectedIds }).catch((err) =>
+      console.error("[Widgets] Failed to persist selection:", err)
+    );
   }, [selectedIds]);
 
   // Toggle widget selection
@@ -120,115 +152,132 @@ export function useWidgets(): UseWidgetsReturn {
   const canSelectMore = selectedIds.length < MAX_WIDGETS;
 
   // Generate widget data from system stats
+  // All widgets are always created - each widget handles its own empty/loading state
   const widgetData = useMemo(() => {
     const dataMap = new Map<string, { type: WidgetType; data: WidgetData }>();
 
+    // Safely extract values with defaults
+    const cpu = systemStats?.cpu ?? { usage: 0, temperature: 0 };
+    const memory = systemStats?.memory ?? { usage: 0, total: 0, used: 0, free: 0 };
+    const storage = storageStats ?? { total: 0, used: 0, usagePercent: 0, health: "—" };
+    const thermals = systemStats?.hardware?.thermals;
+
     // Storage widget
-    if (storageStats) {
-      const storageData: TextWithProgressData = {
-        title: "Storage",
-        value: `${formatBytes(storageStats.used)} / ${formatBytes(storageStats.total)}`,
-        subtext: `${formatBytes(storageStats.total - storageStats.used)} available`,
-        progress: storageStats.usagePercent,
-        color: WIDGET_COLORS.storage,
-      };
-      dataMap.set("liveos:storage", { type: "text-with-progress", data: storageData });
-    }
+    const storageData: TextWithProgressData = {
+      title: "Storage",
+      value: storage.total > 0
+        ? `${formatBytes(storage.used)} / ${formatBytes(storage.total)}`
+        : "Loading...",
+      subtext: storage.total > 0
+        ? `${formatBytes(storage.total - storage.used)} available`
+        : undefined,
+      progress: storage.usagePercent,
+      color: WIDGET_COLORS.storage,
+    };
+    dataMap.set("liveos:storage", { type: "text-with-progress", data: storageData });
 
     // Memory widget
-    if (systemStats?.memory) {
-      const memoryData: TextWithProgressData = {
-        title: "Memory",
-        value: `${formatBytes(systemStats.memory.used)} / ${formatBytes(systemStats.memory.total)}`,
-        subtext: `${formatBytes(systemStats.memory.free)} free`,
-        progress: systemStats.memory.usage,
-        color: WIDGET_COLORS.memory,
-      };
-      dataMap.set("liveos:memory", { type: "text-with-progress", data: memoryData });
-    }
+    const memoryData: TextWithProgressData = {
+      title: "Memory",
+      value: memory.total > 0
+        ? `${formatBytes(memory.used)} / ${formatBytes(memory.total)}`
+        : "Loading...",
+      subtext: memory.total > 0
+        ? `${formatBytes(memory.free)} free`
+        : undefined,
+      progress: memory.usage,
+      color: WIDGET_COLORS.memory,
+    };
+    dataMap.set("liveos:memory", { type: "text-with-progress", data: memoryData });
 
     // System stats (three stats)
-    if (systemStats && storageStats) {
-      const threeStatsData: ThreeStatsData = {
-        stats: [
-          {
-            label: "CPU",
-            value: `${systemStats.cpu.usage.toFixed(0)}%`,
-            color: WIDGET_COLORS.cpu,
-          },
-          {
-            label: "Memory",
-            value: `${systemStats.memory.usage.toFixed(0)}%`,
-            color: WIDGET_COLORS.memory,
-          },
-          {
-            label: "Storage",
-            value: `${storageStats.usagePercent.toFixed(0)}%`,
-            color: WIDGET_COLORS.storage,
-          },
-        ],
-      };
-      dataMap.set("liveos:system-stats", { type: "three-stats", data: threeStatsData });
-    }
+    const threeStatsData: ThreeStatsData = {
+      stats: [
+        {
+          label: "CPU",
+          value: `${cpu.usage.toFixed(0)}%`,
+          color: WIDGET_COLORS.cpu,
+        },
+        {
+          label: "Memory",
+          value: `${memory.usage.toFixed(0)}%`,
+          color: WIDGET_COLORS.memory,
+        },
+        {
+          label: "Storage",
+          value: `${storage.usagePercent.toFixed(0)}%`,
+          color: WIDGET_COLORS.storage,
+        },
+      ],
+    };
+    dataMap.set("liveos:system-stats", { type: "three-stats", data: threeStatsData });
 
     // CPU & Memory gauges
-    if (systemStats) {
-      const gaugeData: TwoStatsGaugeData = {
-        stats: [
-          {
-            label: "CPU",
-            value: systemStats.cpu.usage,
-            displayValue: `${systemStats.cpu.usage.toFixed(0)}%`,
-            color: WIDGET_COLORS.cpu,
-          },
-          {
-            label: "Memory",
-            value: systemStats.memory.usage,
-            displayValue: `${systemStats.memory.usage.toFixed(0)}%`,
-            color: WIDGET_COLORS.memory,
-          },
-        ],
-      };
-      dataMap.set("liveos:cpu-memory", { type: "two-stats-gauge", data: gaugeData });
-    }
+    const gaugeData: TwoStatsGaugeData = {
+      stats: [
+        {
+          label: "CPU",
+          value: cpu.usage,
+          displayValue: `${cpu.usage.toFixed(0)}%`,
+          color: WIDGET_COLORS.cpu,
+        },
+        {
+          label: "Memory",
+          value: memory.usage,
+          displayValue: `${memory.usage.toFixed(0)}%`,
+          color: WIDGET_COLORS.memory,
+        },
+      ],
+    };
+    dataMap.set("liveos:cpu-memory", { type: "two-stats-gauge", data: gaugeData });
 
     // Four stats grid
-    if (systemStats && storageStats) {
-      const fourStatsData: FourStatsData = {
-        stats: [
-          {
-            label: "CPU",
-            value: `${systemStats.cpu.usage.toFixed(0)}%`,
-            subtext: `${systemStats.cpu.temperature.toFixed(0)}°C`,
-            color: WIDGET_COLORS.cpu,
-          },
-          {
-            label: "Memory",
-            value: `${systemStats.memory.usage.toFixed(0)}%`,
-            subtext: formatBytes(systemStats.memory.used),
-            color: WIDGET_COLORS.memory,
-          },
-          {
-            label: "Storage",
-            value: `${storageStats.usagePercent.toFixed(0)}%`,
-            subtext: formatBytes(storageStats.used),
-            color: WIDGET_COLORS.storage,
-          },
-          {
-            label: "Health",
-            value: storageStats.health,
-            color: "#10b981",
-          },
-        ],
-      };
-      dataMap.set("liveos:four-stats", { type: "four-stats", data: fourStatsData });
-    }
+    const fourStatsData: FourStatsData = {
+      stats: [
+        {
+          label: "CPU",
+          value: `${cpu.usage.toFixed(0)}%`,
+          subtext: `${cpu.temperature.toFixed(0)}°C`,
+          color: WIDGET_COLORS.cpu,
+        },
+        {
+          label: "Memory",
+          value: `${memory.usage.toFixed(0)}%`,
+          subtext: memory.total > 0 ? formatBytes(memory.used) : "—",
+          color: WIDGET_COLORS.memory,
+        },
+        {
+          label: "Storage",
+          value: `${storage.usagePercent.toFixed(0)}%`,
+          subtext: storage.total > 0 ? formatBytes(storage.used) : "—",
+          color: WIDGET_COLORS.storage,
+        },
+        {
+          label: "Health",
+          value: storage.health,
+          color: "#10b981",
+        },
+      ],
+    };
+    dataMap.set("liveos:four-stats", { type: "four-stats", data: fourStatsData });
 
-    // Weather widget (static location for now)
+    // Thermals widget
+    const thermalsData: ThermalsWidgetData = {
+      cpuTemperature: systemStats?.hardware?.cpuTemperature ?? null,
+      main: thermals?.main ?? null,
+      max: thermals?.max ?? null,
+      cores: thermals?.cores ?? [],
+      socket: thermals?.socket ?? [],
+    };
+    dataMap.set("liveos:thermals", { type: "thermals", data: thermalsData });
+
+    // Weather widget (uses user's location)
     const weatherData: WeatherWidgetData = {
-      location: "San Francisco, CA",
-      latitude: "37.7749",
-      longitude: "-122.4194",
+      location: userLocation?.city
+        ? `${userLocation.city}${userLocation.country ? `, ${userLocation.country}` : ""}`
+        : "Loading location...",
+      latitude: String(userLocation?.latitude ?? 37.7749),
+      longitude: String(userLocation?.longitude ?? -122.4194),
     };
     dataMap.set("liveos:weather", { type: "weather", data: weatherData });
 
@@ -246,7 +295,7 @@ export function useWidgets(): UseWidgetsReturn {
     dataMap.set("liveos:files-favorites", { type: "files-grid", data: filesGridData });
 
     return dataMap;
-  }, [systemStats, storageStats]);
+  }, [systemStats, storageStats, userLocation]);
 
   return {
     availableWidgets: AVAILABLE_WIDGETS,

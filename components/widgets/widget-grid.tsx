@@ -20,8 +20,8 @@ export function WidgetGrid({
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto mb-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="w-full max-w-4xl mx-auto mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <AnimatePresence mode="popLayout">
           {selectedIds.map((id) => {
             const widgetInfo = widgetData.get(id);

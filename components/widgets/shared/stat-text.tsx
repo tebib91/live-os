@@ -21,9 +21,9 @@ export function StatText({
   className,
 }: StatTextProps) {
   const valueStyles = {
-    sm: "text-lg font-semibold",
-    md: "text-2xl font-bold",
-    lg: "text-3xl font-bold",
+    sm: "text-base font-semibold",
+    md: "text-xl font-bold",
+    lg: "text-2xl font-bold",
   };
 
   return (

@@ -13,13 +13,13 @@ export function TextWithProgressWidget({ data }: TextWithProgressProps) {
   const clampedProgress = Math.min(100, Math.max(0, progress));
 
   return (
-    <div className="flex flex-col h-full justify-between">
+    <div className="flex flex-col h-full justify-between p-3">
       {/* Header */}
       <div>
         <h3 className={cn(text.label, "uppercase tracking-wider mb-1")}>
           {title}
         </h3>
-        <div className="text-2xl font-bold text-white/90 -tracking-[0.02em]">
+        <div className="text-xl font-bold text-white/90 -tracking-[0.02em]">
           {value}
         </div>
         {subtext && <p className={cn(text.muted, "mt-0.5")}>{subtext}</p>}

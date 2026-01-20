@@ -15,7 +15,7 @@ const execAsync = promisify(exec);
 
 const CASA_COMMUNITY_LIST_URL =
   "https://awesome.casaos.io/content/3rd-party-app-stores/list.html";
-const PUBLIC_ROOT = path.join(process.cwd(), "public");
+const PUBLIC_ROOT = path.join(process.cwd());
 const CASA_STORE_ROOT = path.join(PUBLIC_ROOT, "external-apps");
 
 export type CommunityStore = {
@@ -76,7 +76,7 @@ export async function getInstalledApps(): Promise<App[]> {
  */
 export async function importCasaStore(
   url: string,
-  meta?: { name?: string; description?: string }
+  meta?: { name?: string; description?: string },
 ): Promise<{
   success: boolean;
   error?: string;
@@ -146,7 +146,9 @@ export async function importCasaStore(
           developer: app.developer,
           screenshots,
           version: app.version,
-          port: app.port ?? null,
+          port: Number.isFinite(app.port as number)
+            ? (app.port as number)
+            : null,
           path: app.path,
           website: app.website,
           repo: app.repo,
@@ -164,7 +166,9 @@ export async function importCasaStore(
           developer: app.developer,
           screenshots,
           version: app.version,
-          port: app.port ?? null,
+          port: Number.isFinite(app.port as number)
+            ? (app.port as number)
+            : null,
           path: app.path,
           website: app.website,
           repo: app.repo,
@@ -212,7 +216,7 @@ export async function getCasaCommunityStores(): Promise<CommunityStore[]> {
       const description = cleanHtmlText(descriptionMatch?.[1] ?? "");
 
       const sourceUrls = Array.from(
-        section.matchAll(/<code>(https?:\/\/[^<]+?\.zip)\s*<\/code>/gi)
+        section.matchAll(/<code>(https?:\/\/[^<]+?\.zip)\s*<\/code>/gi),
       ).map((match) => match[1]);
       if (sourceUrls.length === 0) continue;
 
@@ -251,7 +255,7 @@ function slugify(value: string): string {
 
 async function extractZipBuffer(
   buffer: Buffer,
-  targetDir: string
+  targetDir: string,
 ): Promise<void> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "liveos-store-"));
   const zipPath = path.join(tmpDir, "store.zip");
@@ -260,7 +264,7 @@ async function extractZipBuffer(
   const extractor = await findZipExtractor();
   if (!extractor) {
     throw new Error(
-      "Failed to extract store archive: unzip/bsdtar/tar not available on this system"
+      "Failed to extract store archive: unzip/bsdtar/tar not available on this system",
     );
   }
 
@@ -269,19 +273,25 @@ async function extractZipBuffer(
     await execAsync(extractor(zipPath, targetDir));
   } catch (error: any) {
     throw new Error(
-      `Failed to extract store archive: ${
-        error?.message ?? "unknown error"
-      }`
+      `Failed to extract store archive: ${error?.message ?? "unknown error"}`,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 }
 
-async function findZipExtractor(): Promise<((zip: string, dest: string) => string) | null> {
-  const candidates: { tool: string; build: (zip: string, dest: string) => string }[] = [
+async function findZipExtractor(): Promise<
+  ((zip: string, dest: string) => string) | null
+> {
+  const candidates: {
+    tool: string;
+    build: (zip: string, dest: string) => string;
+  }[] = [
     { tool: "unzip", build: (zip, dest) => `unzip -oq "${zip}" -d "${dest}"` },
-    { tool: "bsdtar", build: (zip, dest) => `bsdtar -xf "${zip}" -C "${dest}"` },
+    {
+      tool: "bsdtar",
+      build: (zip, dest) => `bsdtar -xf "${zip}" -C "${dest}"`,
+    },
     { tool: "tar", build: (zip, dest) => `tar -xf "${zip}" -C "${dest}"` },
   ];
 
@@ -299,16 +309,16 @@ async function findZipExtractor(): Promise<((zip: string, dest: string) => strin
 
 async function parseCasaStore(
   storeDir: string,
-  storeId: string
+  storeId: string,
 ): Promise<App[]> {
   const files = await listFiles(storeDir);
   const manifestFiles = files.filter(
-    (file) => path.basename(file).toLowerCase() === "app.json"
+    (file) => path.basename(file).toLowerCase() === "app.json",
   );
   const composeFiles = files.filter((file) =>
     ["docker-compose.yml", "docker-compose.yaml"].includes(
-      path.basename(file).toLowerCase()
-    )
+      path.basename(file).toLowerCase(),
+    ),
   );
 
   const apps: Map<string, App> = new Map();
@@ -319,10 +329,16 @@ async function parseCasaStore(
       const manifest = JSON.parse(await fs.readFile(manifestPath, "utf-8"));
       const appDir = path.dirname(manifestPath);
       const appId = manifest.id || manifest.name || path.basename(appDir);
-      const icon = resolveAsset(manifest.icon || manifest.logo, storeId, appDir);
-      const screenshots = Array.isArray(manifest.screenshots || manifest.gallery)
+      const icon = resolveAsset(
+        manifest.icon || manifest.logo,
+        storeId,
+        appDir,
+      );
+      const screenshots = Array.isArray(
+        manifest.screenshots || manifest.gallery,
+      )
         ? (manifest.screenshots || manifest.gallery).map((item: string) =>
-            resolveAsset(item, storeId, appDir)
+            resolveAsset(item, storeId, appDir),
           )
         : [];
 
@@ -330,8 +346,8 @@ async function parseCasaStore(
       const category = Array.isArray(categories)
         ? categories
         : typeof categories === "string"
-        ? [categories]
-        : [];
+          ? [categories]
+          : [];
 
       apps.set(appId, {
         id: appId,
@@ -344,7 +360,10 @@ async function parseCasaStore(
         overview: manifest.description || manifest.tagline || "",
         category: category.filter(Boolean),
         developer:
-          manifest.developer || manifest.author || manifest.maintainer || "Unknown",
+          manifest.developer ||
+          manifest.author ||
+          manifest.maintainer ||
+          "Unknown",
         screenshots,
         version: manifest.version,
         port: manifest.port,
@@ -369,7 +388,7 @@ async function parseCasaStore(
       const icon = resolveAsset(xCasa.icon || xCasa.thumbnail, storeId, appDir);
       const screenshots = Array.isArray(xCasa.screenshots || xCasa.gallery)
         ? (xCasa.screenshots || xCasa.gallery).map((item: string) =>
-            resolveAsset(item, storeId, appDir)
+            resolveAsset(item, storeId, appDir),
           )
         : [];
 
@@ -377,15 +396,12 @@ async function parseCasaStore(
       const category = Array.isArray(categories)
         ? categories
         : typeof categories === "string"
-        ? [categories]
-        : [];
+          ? [categories]
+          : [];
 
       const title = xCasa.title?.en_us || xCasa.title || appId;
       const tagline =
-        xCasa.tagline?.en_us ||
-        xCasa.tagline ||
-        xCasa.description?.en_us ||
-        "";
+        xCasa.tagline?.en_us || xCasa.tagline || xCasa.description?.en_us || "";
       const overview = xCasa.description?.en_us || xCasa.description || tagline;
 
       const ports =
@@ -393,11 +409,17 @@ async function parseCasaStore(
         (Object.values(compose?.services || {}) as any[])?.[0]?.ports;
       const firstPort =
         Array.isArray(ports) && ports.length > 0 ? ports[0] : undefined;
-      const publishedPort =
+      const publishedPortRaw =
         typeof firstPort === "string"
           ? parseInt(firstPort.split(":")[0], 10)
           : typeof firstPort === "object"
-          ? firstPort.published ?? firstPort.target
+            ? (firstPort.published ?? firstPort.target)
+            : undefined;
+      const portNumber: number | undefined =
+        typeof publishedPortRaw === "string"
+          ? parseInt(publishedPortRaw, 10)
+          : typeof publishedPortRaw === "number"
+          ? publishedPortRaw
           : undefined;
 
       apps.set(appId, {
@@ -413,7 +435,7 @@ async function parseCasaStore(
         developer: xCasa.developer || xCasa.author || "Unknown",
         screenshots,
         version: xCasa.version,
-        port: publishedPort,
+        port: Number.isFinite(portNumber as number) ? portNumber : undefined,
         path: xCasa.path,
         website: xCasa.homepage || xCasa.website,
         repo: xCasa.source || xCasa.repo,
@@ -445,7 +467,7 @@ async function listFiles(dir: string): Promise<string[]> {
 function resolveAsset(
   asset: string | undefined,
   storeId: string,
-  appDir: string
+  appDir: string,
 ): string | undefined {
   if (!asset) return undefined;
   if (asset.startsWith("http://") || asset.startsWith("https://")) return asset;
@@ -455,7 +477,8 @@ function resolveAsset(
     return `/${relativeToPublic.replace(/\\/g, "/")}`;
   }
   const relative = path.relative(process.cwd(), absolute);
-  if (relative && !relative.startsWith("..")) return `/${relative.replace(/\\/g, "/")}`;
+  if (relative && !relative.startsWith(".."))
+    return `/${relative.replace(/\\/g, "/")}`;
   const safePath = asset.replace(/^\.?\//, "");
   return `/external-apps/${storeId}/${safePath}`;
 }
@@ -465,7 +488,7 @@ function resolveAsset(
  * Returns the raw YAML content as a string.
  */
 export async function getAppComposeContent(
-  composePath: string
+  composePath: string,
 ): Promise<{ success: boolean; content?: string; error?: string }> {
   try {
     if (!composePath) {
@@ -491,7 +514,8 @@ export async function getAppComposeContent(
     console.error("Failed to read compose file:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to read compose file",
+      error:
+        error instanceof Error ? error.message : "Failed to read compose file",
     };
   }
 }

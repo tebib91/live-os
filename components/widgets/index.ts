@@ -17,6 +17,7 @@ export type {
   FilesListData,
   FilesGridData,
   WeatherWidgetData,
+  ThermalsWidgetData,
 } from "./types";
 
 // Constants
@@ -37,7 +38,7 @@ export { WidgetChecker } from "./widget-checker";
 export { WidgetSection } from "./widget-section";
 
 // Widget components
-export { Widget, WeatherWidget } from "./widgets";
+export { Widget, WeatherWidget, ThermalsWidget } from "./widgets";
 
 // Shared components
 export { StatText, ProgressArc, WidgetIcon } from "./shared";

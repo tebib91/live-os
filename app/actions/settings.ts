@@ -17,6 +17,11 @@ export type WallpaperOption = {
 
 export type SettingsData = {
   currentWallpaper: string | null;
+  selectedWidgets?: string[] | null;
+  userLatitude?: number | null;
+  userLongitude?: number | null;
+  userCity?: string | null;
+  userCountry?: string | null;
 };
 
 function formatWallpaperName(filename: string): string {
@@ -51,10 +56,17 @@ export async function getWallpapers(): Promise<WallpaperOption[]> {
 export async function getSettings(): Promise<SettingsData> {
   try {
     const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-    return { currentWallpaper: settings?.currentWallpaper ?? null };
+    return {
+      currentWallpaper: settings?.currentWallpaper ?? null,
+      selectedWidgets: (settings?.selectedWidgets as string[] | null) ?? null,
+      userLatitude: settings?.userLatitude ?? null,
+      userLongitude: settings?.userLongitude ?? null,
+      userCity: settings?.userCity ?? null,
+      userCountry: settings?.userCountry ?? null,
+    };
   } catch (error) {
     console.error('Failed to load settings:', error);
-    return { currentWallpaper: null };
+    return { currentWallpaper: null, selectedWidgets: null };
   }
 }
 
@@ -72,9 +84,25 @@ export async function updateSettings(
       }
     }
 
-    const data: Partial<SettingsData> = {};
+    // Build update data object
+    const data: Record<string, unknown> = {};
     if (input.currentWallpaper !== undefined) {
       data.currentWallpaper = input.currentWallpaper;
+    }
+    if (input.selectedWidgets !== undefined) {
+      data.selectedWidgets = input.selectedWidgets;
+    }
+    if (input.userLatitude !== undefined) {
+      data.userLatitude = input.userLatitude;
+    }
+    if (input.userLongitude !== undefined) {
+      data.userLongitude = input.userLongitude;
+    }
+    if (input.userCity !== undefined) {
+      data.userCity = input.userCity;
+    }
+    if (input.userCountry !== undefined) {
+      data.userCountry = input.userCountry;
     }
 
     const settings = await prisma.settings.upsert({
@@ -86,9 +114,16 @@ export async function updateSettings(
       update: data,
     });
 
-    return { currentWallpaper: settings.currentWallpaper ?? null };
+    return {
+      currentWallpaper: settings.currentWallpaper ?? null,
+      selectedWidgets: (settings.selectedWidgets as string[] | null) ?? null,
+      userLatitude: settings.userLatitude ?? null,
+      userLongitude: settings.userLongitude ?? null,
+      userCity: settings.userCity ?? null,
+      userCountry: settings.userCountry ?? null,
+    };
   } catch (error) {
     console.error('Failed to update settings:', error);
-    return { currentWallpaper: null };
+    return { currentWallpaper: null, selectedWidgets: null };
   }
 }

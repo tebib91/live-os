@@ -28,27 +28,44 @@ export type AggregateSettings = {
 
 export type SettingsAvgAggregateOutputType = {
   id: number | null
+  userLatitude: number | null
+  userLongitude: number | null
 }
 
 export type SettingsSumAggregateOutputType = {
   id: number | null
+  userLatitude: number | null
+  userLongitude: number | null
 }
 
 export type SettingsMinAggregateOutputType = {
   id: number | null
   currentWallpaper: string | null
+  userLatitude: number | null
+  userLongitude: number | null
+  userCity: string | null
+  userCountry: string | null
   updatedAt: Date | null
 }
 
 export type SettingsMaxAggregateOutputType = {
   id: number | null
   currentWallpaper: string | null
+  userLatitude: number | null
+  userLongitude: number | null
+  userCity: string | null
+  userCountry: string | null
   updatedAt: Date | null
 }
 
 export type SettingsCountAggregateOutputType = {
   id: number
   currentWallpaper: number
+  selectedWidgets: number
+  userLatitude: number
+  userLongitude: number
+  userCity: number
+  userCountry: number
   updatedAt: number
   _all: number
 }
@@ -56,27 +73,44 @@ export type SettingsCountAggregateOutputType = {
 
 export type SettingsAvgAggregateInputType = {
   id?: true
+  userLatitude?: true
+  userLongitude?: true
 }
 
 export type SettingsSumAggregateInputType = {
   id?: true
+  userLatitude?: true
+  userLongitude?: true
 }
 
 export type SettingsMinAggregateInputType = {
   id?: true
   currentWallpaper?: true
+  userLatitude?: true
+  userLongitude?: true
+  userCity?: true
+  userCountry?: true
   updatedAt?: true
 }
 
 export type SettingsMaxAggregateInputType = {
   id?: true
   currentWallpaper?: true
+  userLatitude?: true
+  userLongitude?: true
+  userCity?: true
+  userCountry?: true
   updatedAt?: true
 }
 
 export type SettingsCountAggregateInputType = {
   id?: true
   currentWallpaper?: true
+  selectedWidgets?: true
+  userLatitude?: true
+  userLongitude?: true
+  userCity?: true
+  userCountry?: true
   updatedAt?: true
   _all?: true
 }
@@ -170,6 +204,11 @@ export type SettingsGroupByArgs<ExtArgs extends runtime.Types.Extensions.Interna
 export type SettingsGroupByOutputType = {
   id: number
   currentWallpaper: string | null
+  selectedWidgets: runtime.JsonValue | null
+  userLatitude: number | null
+  userLongitude: number | null
+  userCity: string | null
+  userCountry: string | null
   updatedAt: Date
   _count: SettingsCountAggregateOutputType | null
   _avg: SettingsAvgAggregateOutputType | null
@@ -199,12 +238,22 @@ export type SettingsWhereInput = {
   NOT?: Prisma.SettingsWhereInput | Prisma.SettingsWhereInput[]
   id?: Prisma.IntFilter<"Settings"> | number
   currentWallpaper?: Prisma.StringNullableFilter<"Settings"> | string | null
+  selectedWidgets?: Prisma.JsonNullableFilter<"Settings">
+  userLatitude?: Prisma.FloatNullableFilter<"Settings"> | number | null
+  userLongitude?: Prisma.FloatNullableFilter<"Settings"> | number | null
+  userCity?: Prisma.StringNullableFilter<"Settings"> | string | null
+  userCountry?: Prisma.StringNullableFilter<"Settings"> | string | null
   updatedAt?: Prisma.DateTimeFilter<"Settings"> | Date | string
 }
 
 export type SettingsOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   currentWallpaper?: Prisma.SortOrderInput | Prisma.SortOrder
+  selectedWidgets?: Prisma.SortOrderInput | Prisma.SortOrder
+  userLatitude?: Prisma.SortOrderInput | Prisma.SortOrder
+  userLongitude?: Prisma.SortOrderInput | Prisma.SortOrder
+  userCity?: Prisma.SortOrderInput | Prisma.SortOrder
+  userCountry?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
@@ -214,12 +263,22 @@ export type SettingsWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.SettingsWhereInput[]
   NOT?: Prisma.SettingsWhereInput | Prisma.SettingsWhereInput[]
   currentWallpaper?: Prisma.StringNullableFilter<"Settings"> | string | null
+  selectedWidgets?: Prisma.JsonNullableFilter<"Settings">
+  userLatitude?: Prisma.FloatNullableFilter<"Settings"> | number | null
+  userLongitude?: Prisma.FloatNullableFilter<"Settings"> | number | null
+  userCity?: Prisma.StringNullableFilter<"Settings"> | string | null
+  userCountry?: Prisma.StringNullableFilter<"Settings"> | string | null
   updatedAt?: Prisma.DateTimeFilter<"Settings"> | Date | string
 }, "id">
 
 export type SettingsOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   currentWallpaper?: Prisma.SortOrderInput | Prisma.SortOrder
+  selectedWidgets?: Prisma.SortOrderInput | Prisma.SortOrder
+  userLatitude?: Prisma.SortOrderInput | Prisma.SortOrder
+  userLongitude?: Prisma.SortOrderInput | Prisma.SortOrder
+  userCity?: Prisma.SortOrderInput | Prisma.SortOrder
+  userCountry?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.SettingsCountOrderByAggregateInput
   _avg?: Prisma.SettingsAvgOrderByAggregateInput
@@ -234,75 +293,132 @@ export type SettingsScalarWhereWithAggregatesInput = {
   NOT?: Prisma.SettingsScalarWhereWithAggregatesInput | Prisma.SettingsScalarWhereWithAggregatesInput[]
   id?: Prisma.IntWithAggregatesFilter<"Settings"> | number
   currentWallpaper?: Prisma.StringNullableWithAggregatesFilter<"Settings"> | string | null
+  selectedWidgets?: Prisma.JsonNullableWithAggregatesFilter<"Settings">
+  userLatitude?: Prisma.FloatNullableWithAggregatesFilter<"Settings"> | number | null
+  userLongitude?: Prisma.FloatNullableWithAggregatesFilter<"Settings"> | number | null
+  userCity?: Prisma.StringNullableWithAggregatesFilter<"Settings"> | string | null
+  userCountry?: Prisma.StringNullableWithAggregatesFilter<"Settings"> | string | null
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Settings"> | Date | string
 }
 
 export type SettingsCreateInput = {
   id: number
   currentWallpaper?: string | null
+  selectedWidgets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  userLatitude?: number | null
+  userLongitude?: number | null
+  userCity?: string | null
+  userCountry?: string | null
   updatedAt?: Date | string
 }
 
 export type SettingsUncheckedCreateInput = {
   id: number
   currentWallpaper?: string | null
+  selectedWidgets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  userLatitude?: number | null
+  userLongitude?: number | null
+  userCity?: string | null
+  userCountry?: string | null
   updatedAt?: Date | string
 }
 
 export type SettingsUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   currentWallpaper?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  selectedWidgets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  userLatitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  userLongitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  userCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userCountry?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type SettingsUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   currentWallpaper?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  selectedWidgets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  userLatitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  userLongitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  userCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userCountry?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type SettingsCreateManyInput = {
   id: number
   currentWallpaper?: string | null
+  selectedWidgets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  userLatitude?: number | null
+  userLongitude?: number | null
+  userCity?: string | null
+  userCountry?: string | null
   updatedAt?: Date | string
 }
 
 export type SettingsUpdateManyMutationInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   currentWallpaper?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  selectedWidgets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  userLatitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  userLongitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  userCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userCountry?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type SettingsUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   currentWallpaper?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  selectedWidgets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  userLatitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  userLongitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  userCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userCountry?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type SettingsCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   currentWallpaper?: Prisma.SortOrder
+  selectedWidgets?: Prisma.SortOrder
+  userLatitude?: Prisma.SortOrder
+  userLongitude?: Prisma.SortOrder
+  userCity?: Prisma.SortOrder
+  userCountry?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type SettingsAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  userLatitude?: Prisma.SortOrder
+  userLongitude?: Prisma.SortOrder
 }
 
 export type SettingsMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   currentWallpaper?: Prisma.SortOrder
+  userLatitude?: Prisma.SortOrder
+  userLongitude?: Prisma.SortOrder
+  userCity?: Prisma.SortOrder
+  userCountry?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type SettingsMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   currentWallpaper?: Prisma.SortOrder
+  userLatitude?: Prisma.SortOrder
+  userLongitude?: Prisma.SortOrder
+  userCity?: Prisma.SortOrder
+  userCountry?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type SettingsSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  userLatitude?: Prisma.SortOrder
+  userLongitude?: Prisma.SortOrder
 }
 
 export type IntFieldUpdateOperationsInput = {
@@ -317,33 +433,61 @@ export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
 }
 
+export type NullableFloatFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
 
 
 export type SettingsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   currentWallpaper?: boolean
+  selectedWidgets?: boolean
+  userLatitude?: boolean
+  userLongitude?: boolean
+  userCity?: boolean
+  userCountry?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["settings"]>
 
 export type SettingsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   currentWallpaper?: boolean
+  selectedWidgets?: boolean
+  userLatitude?: boolean
+  userLongitude?: boolean
+  userCity?: boolean
+  userCountry?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["settings"]>
 
 export type SettingsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   currentWallpaper?: boolean
+  selectedWidgets?: boolean
+  userLatitude?: boolean
+  userLongitude?: boolean
+  userCity?: boolean
+  userCountry?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["settings"]>
 
 export type SettingsSelectScalar = {
   id?: boolean
   currentWallpaper?: boolean
+  selectedWidgets?: boolean
+  userLatitude?: boolean
+  userLongitude?: boolean
+  userCity?: boolean
+  userCountry?: boolean
   updatedAt?: boolean
 }
 
-export type SettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "currentWallpaper" | "updatedAt", ExtArgs["result"]["settings"]>
+export type SettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "currentWallpaper" | "selectedWidgets" | "userLatitude" | "userLongitude" | "userCity" | "userCountry" | "updatedAt", ExtArgs["result"]["settings"]>
 
 export type $SettingsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Settings"
@@ -351,6 +495,11 @@ export type $SettingsPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
     currentWallpaper: string | null
+    selectedWidgets: runtime.JsonValue | null
+    userLatitude: number | null
+    userLongitude: number | null
+    userCity: string | null
+    userCountry: string | null
     updatedAt: Date
   }, ExtArgs["result"]["settings"]>
   composites: {}
@@ -777,6 +926,11 @@ export interface Prisma__SettingsClient<T, Null = never, ExtArgs extends runtime
 export interface SettingsFieldRefs {
   readonly id: Prisma.FieldRef<"Settings", 'Int'>
   readonly currentWallpaper: Prisma.FieldRef<"Settings", 'String'>
+  readonly selectedWidgets: Prisma.FieldRef<"Settings", 'Json'>
+  readonly userLatitude: Prisma.FieldRef<"Settings", 'Float'>
+  readonly userLongitude: Prisma.FieldRef<"Settings", 'Float'>
+  readonly userCity: Prisma.FieldRef<"Settings", 'String'>
+  readonly userCountry: Prisma.FieldRef<"Settings", 'String'>
   readonly updatedAt: Prisma.FieldRef<"Settings", 'DateTime'>
 }
     

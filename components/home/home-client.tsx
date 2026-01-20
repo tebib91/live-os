@@ -4,13 +4,14 @@ import { AppStoreDialog } from "@/components/app-store/app-store-dialog";
 import { InstallProgressOverlay } from "@/components/app-store/install-progress-overlay";
 import { FilesDialog } from "@/components/file-manager";
 import { InstalledAppsGrid } from "@/components/installed-apps/installed-apps-grid";
+import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts/keyboard-shortcuts-dialog";
 import { DockOs } from "@/components/layout/dock";
 import { StatusBar } from "@/components/layout/status-icons";
 import { UserMenu } from "@/components/layout/user-menu";
-import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts/keyboard-shortcuts-dialog";
 import { WallpaperLayout } from "@/components/layout/wallpaper-layout";
 import { LockScreen } from "@/components/lock-screen";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
+import { WifiDialog } from "@/components/settings/wifi-dialog";
 import { SystemMonitorDialog } from "@/components/system-monitor";
 import { TerminalDialog } from "@/components/terminal/terminal-dialog";
 import { WidgetGrid, WidgetSelector } from "@/components/widgets";
@@ -35,8 +36,9 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [widgetSelectorOpen, setWidgetSelectorOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [wifiDialogOpen, setWifiDialogOpen] = useState(false);
   const [wallpaper, setWallpaper] = useState(
-    initialWallpaper ?? DEFAULT_WALLPAPER
+    initialWallpaper ?? DEFAULT_WALLPAPER,
   );
   const [locked, setLocked] = useState(false);
 
@@ -109,7 +111,7 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
     setOpenApps((prev) =>
       prev.includes(appId)
         ? prev.filter((id) => id !== appId)
-        : [...prev, appId]
+        : [...prev, appId],
     );
   };
 
@@ -153,7 +155,10 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
         return;
       }
 
-      if (!event.metaKey && (event.key === "?" || (key === "/" && event.shiftKey))) {
+      if (
+        !event.metaKey &&
+        (event.key === "?" || (key === "/" && event.shiftKey))
+      ) {
         event.preventDefault();
         setShortcutsOpen(true);
         return;
@@ -185,6 +190,13 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const handleOpenShortcuts = () => setShortcutsOpen(true);
+    window.addEventListener("openShortcuts", handleOpenShortcuts);
+    return () =>
+      window.removeEventListener("openShortcuts", handleOpenShortcuts);
   }, []);
 
   const handleUnlock = () => {
@@ -258,9 +270,13 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
       wallpaper={wallpaper}
     >
       {/* Status Bar - Top Right */}
-      <div className="fixed top-4 right-4 z-50">
-        <StatusBar>
-          <UserMenu />
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-3 ">
+        <StatusBar
+          onWifiClick={() => {
+            setWifiDialogOpen(true);
+          }}
+        >
+          <UserMenu onOpenSettings={() => setSettingsOpen(true)} />
         </StatusBar>
       </div>
 
@@ -334,6 +350,9 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
           isSelected={isSelected}
           shakeTrigger={shakeTrigger}
         />
+
+        {/* Wi-Fi Networks */}
+        <WifiDialog open={wifiDialogOpen} onOpenChange={setWifiDialogOpen} />
 
         <InstallProgressOverlay installs={installProgress} />
 

@@ -14,7 +14,7 @@ export function ListWidget({ data }: ListWidgetProps) {
   const displayItems = items.slice(0, maxItems);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full p-3">
       <div className="flex-1 space-y-1 overflow-hidden relative">
         {displayItems.map((item) => (
           <div

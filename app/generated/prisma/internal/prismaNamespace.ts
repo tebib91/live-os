@@ -915,6 +915,11 @@ export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeo
 export const SettingsScalarFieldEnum = {
   id: 'id',
   currentWallpaper: 'currentWallpaper',
+  selectedWidgets: 'selectedWidgets',
+  userLatitude: 'userLatitude',
+  userLongitude: 'userLongitude',
+  userCity: 'userCity',
+  userCountry: 'userCountry',
   updatedAt: 'updatedAt'
 } as const
 
@@ -989,14 +994,6 @@ export const NullableJsonNullValueInput = {
 export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
-export const NullsOrder = {
-  first: 'first',
-  last: 'last'
-} as const
-
-export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
-
-
 export const JsonNullValueFilter = {
   DbNull: DbNull,
   JsonNull: JsonNull,
@@ -1012,6 +1009,14 @@ export const QueryMode = {
 } as const
 
 export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
+
+
+export const NullsOrder = {
+  first: 'first',
+  last: 'last'
+} as const
+
+export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
 
 
 

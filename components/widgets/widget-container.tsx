@@ -22,8 +22,7 @@ export function WidgetContainer({
     <div
       className={cn(
         card.base,
-        card.padding.sm,
-        "w-full aspect-[4/3] overflow-hidden flex flex-col",
+        "w-full h-[160px] overflow-hidden",
         isClickable && "cursor-pointer transition-all",
         isClickable && card.hover,
         selected && card.selected,

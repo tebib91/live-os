@@ -11,7 +11,7 @@ export function FourStatsWidget({ data }: FourStatsProps) {
   const { stats } = data;
 
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-2 h-full items-start">
+    <div className="grid grid-cols-2 gap-x-3 gap-y-2 h-full items-start p-3">
       {stats.map((stat, index) => (
         <div key={index} className="flex flex-col justify-start gap-1">
           <StatText
