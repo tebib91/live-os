@@ -33,6 +33,7 @@ export async function hasUsers() {
 export async function registerUser(
   username: string,
   pin: string,
+  options?: { skipRedirect?: boolean },
 ): Promise<AuthResult> {
   console.log("[Auth] registerUser: Starting registration process...");
 
@@ -68,6 +69,17 @@ export async function registerUser(
     path: "/",
     maxAge: SESSION_DURATION / 1000,
   });
+
+  if (options?.skipRedirect) {
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role as Role,
+      },
+    };
+  }
 
   redirect("/"); // 🔥 END. NOTHING AFTER THIS.
 }

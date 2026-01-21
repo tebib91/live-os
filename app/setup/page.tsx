@@ -62,7 +62,7 @@ export default function SetupPage() {
 
     setLoading(true);
 
-    const res = await registerUser(username, pin);
+    const res = await registerUser(username, pin, { skipRedirect: true });
 
     if (res?.success === false) {
       setError(res.error || "An unknown error occurred");

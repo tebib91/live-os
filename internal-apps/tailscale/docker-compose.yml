@@ -1,24 +1,24 @@
-version: "3.8"
-
+---
+version: "3.7"
 services:
-  tailscale:
-    image: tailscale/tailscale:stable
-    container_name: liveos-tailscale
-    hostname: liveos-tailscale
-    network_mode: host
-    privileged: true
-    restart: unless-stopped
+  tailscale-nginx:
+    image: tailscale/tailscale:latest
+    hostname: tailscale-nginx
     environment:
-      # Optional: set TS_AUTHKEY for unattended auth, or leave unset and run "tailscale up" inside the container.
-      # TS_AUTHKEY: "tskey-xxxxxxxxxxxxxxxxxxxx"
-      TS_STATE_DIR: /var/lib/tailscale
+      # - TS_AUTHKEY=tskey-client-notAReal-OAuthClientSecret1Atawk
+      - TS_EXTRA_ARGS=--advertise-tags=tag:container
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
     volumes:
-      - tailscale-state:/var/lib/tailscale
+      - ${PWD}/tailscale-nginx/state:/var/lib/tailscale
+    devices:
       - /dev/net/tun:/dev/net/tun
     cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    command: tailscaled
+      - net_admin
+    restart: unless-stopped
+  nginx:
+    image: nginx
+    depends_on:
+      - tailscale-nginx
+    network_mode: service:tailscale-nginx
 
-volumes:
-  tailscale-state:

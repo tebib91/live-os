@@ -3,6 +3,8 @@ import { HomeClient } from "@/components/home/home-client";
 
 const DEFAULT_WALLPAPER = "/wallpapers/pexels-philippedonn.jpg";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const settings = await getSettings();
   const wallpaper = settings.currentWallpaper ?? DEFAULT_WALLPAPER;

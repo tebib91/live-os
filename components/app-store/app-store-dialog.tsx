@@ -1,20 +1,17 @@
-'use client';
+"use client";
 
-import { getAppStoreApps } from '@/app/actions/appstore';
-import {
-  Dialog,
-  DialogContent,
-} from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
-import { motion } from 'framer-motion';
-import { Loader2, Search, X, FileCode } from 'lucide-react';
-import { useEffect, useState, useMemo } from 'react';
-import { AppCard } from './app-card';
-import { CustomDeployDialog } from './custom-deploy-dialog';
-import type { App } from './types';
-import { Button } from '@/components/ui/button';
-import { CommunityStoreDialog } from './community-store-dialog';
+import { getAppStoreApps } from "@/app/actions/appstore";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { motion } from "framer-motion";
+import { FileCode, Loader2, Search, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AppCard } from "./app-card";
+import { CommunityStoreDialog } from "./community-store-dialog";
+import { CustomDeployDialog } from "./custom-deploy-dialog";
+import type { App } from "./types";
 
 interface AppStoreDialogProps {
   open: boolean;
@@ -25,8 +22,8 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   const [apps, setApps] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [customDeployOpen, setCustomDeployOpen] = useState(false);
   const [communityStoreOpen, setCommunityStoreOpen] = useState(false);
 
@@ -43,8 +40,8 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
       const loadedApps = await getAppStoreApps();
       setApps(loadedApps);
     } catch (err) {
-      console.error('Failed to load apps:', err);
-      setError('Unable to load applications. Please try again.');
+      console.error("Failed to load apps:", err);
+      setError("Unable to load applications. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -53,21 +50,22 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   // Get unique categories
   const categories = useMemo(() => {
     const cats = new Set<string>();
-    apps.forEach(app => {
-      app.category?.forEach(cat => cats.add(cat));
+    apps.forEach((app) => {
+      app.category?.forEach((cat) => cats.add(cat));
     });
-    return ['all', ...Array.from(cats).sort()];
+    return ["all", ...Array.from(cats).sort()];
   }, [apps]);
 
   // Filter apps based on search and category
   const filteredApps = useMemo(() => {
-    return apps.filter(app => {
-      const matchesSearch = searchQuery === '' ||
+    return apps.filter((app) => {
+      const matchesSearch =
+        searchQuery === "" ||
         app.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         app.tagline?.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesCategory = selectedCategory === 'all' ||
-        app.category?.includes(selectedCategory);
+      const matchesCategory =
+        selectedCategory === "all" || app.category?.includes(selectedCategory);
 
       return matchesSearch && matchesCategory;
     });
@@ -79,23 +77,27 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
         showCloseButton={false}
         className="max-w-[95vw] sm:max-w-6xl max-h-[95vh] backdrop-blur-md p-0 gap-0 overflow-hidden"
         style={{
-          background: 'rgba(45, 45, 45, 0.75)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
+          background: "rgba(45, 45, 45, 0.75)",
+          border: "1px solid rgba(255, 255, 255, 0.15)",
           boxShadow: `
             0 4px 16px rgba(0, 0, 0, 0.4),
             0 2px 8px rgba(0, 0, 0, 0.3),
             inset 0 1px 0 rgba(255, 255, 255, 0.15),
             inset 0 -1px 0 rgba(0, 0, 0, 0.2)
-          `
+          `,
         }}
       >
         {/* Header */}
-        <div className="relative px-6 py-5 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.15)' }}>
+        <div
+          className="relative px-6 py-5 border-b"
+          style={{ borderColor: "rgba(255, 255, 255, 0.15)" }}
+        >
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-semibold text-white">App Store</h2>
               <p className="text-sm text-zinc-300 mt-1">
-                {filteredApps.length} {filteredApps.length === 1 ? 'app' : 'apps'} available
+                {filteredApps.length}{" "}
+                {filteredApps.length === 1 ? "app" : "apps"} available
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -105,14 +107,15 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                 onClick={() => setCommunityStoreOpen(true)}
                 className="h-9 text-white hover:text-white transition-all"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  background: "rgba(255, 255, 255, 0.1)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                  e.currentTarget.style.background =
+                    "rgba(255, 255, 255, 0.15)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
                 }}
               >
                 Import CasaOS Store
@@ -123,14 +126,15 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                 onClick={() => setCustomDeployOpen(true)}
                 className="h-9 text-white hover:text-white transition-all"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  background: "rgba(255, 255, 255, 0.1)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                  e.currentTarget.style.background =
+                    "rgba(255, 255, 255, 0.15)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
                 }}
               >
                 <FileCode className="h-4 w-4 mr-2" />
@@ -142,14 +146,15 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                 onClick={() => onOpenChange(false)}
                 className="h-9 w-9 rounded-full text-white transition-all"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: "rgba(255, 255, 255, 0.05)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                  e.currentTarget.style.background =
+                    "rgba(255, 255, 255, 0.05)";
                 }}
               >
                 <X className="h-5 w-5" />
@@ -170,7 +175,10 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
         />
 
         {/* Search Bar */}
-        <div className="px-6 py-4 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.15)' }}>
+        <div
+          className="px-6 py-4 border-b"
+          style={{ borderColor: "rgba(255, 255, 255, 0.15)" }}
+        >
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
             <Input
@@ -179,50 +187,55 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 text-white placeholder:text-zinc-500 focus-visible:ring-white/30"
               style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
               }}
             />
           </div>
         </div>
 
         {/* Category Pills */}
-        <div className="px-6 py-3 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.15)' }}>
-          <ScrollArea className="w-full">
-            <div className="flex gap-2">
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`
+        <div
+          className="px-6 py-3 border-b"
+          style={{ borderColor: "rgba(255, 255, 255, 0.15)" }}
+        >
+          <div className="flex gap-2 pb-1 min-w-full overflow-x-auto scrollbar-hide">
+            {categories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`
                     px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all
-                    ${selectedCategory === category
-                      ? 'text-zinc-900'
-                      : 'text-white'
+                    ${
+                      selectedCategory === category
+                        ? "text-zinc-900"
+                        : "text-white"
                     }
                   `}
-                  style={{
-                    background: selectedCategory === category
-                      ? 'rgba(255, 255, 255, 0.95)'
-                      : 'rgba(255, 255, 255, 0.1)',
-                    border: `1px solid ${selectedCategory === category ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.15)'}`,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (selectedCategory !== category) {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selectedCategory !== category) {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                    }
-                  }}
-                >
-                  {category.charAt(0).toUpperCase() + category.slice(1)}
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
+                style={{
+                  background:
+                    selectedCategory === category
+                      ? "rgba(255, 255, 255, 0.95)"
+                      : "rgba(255, 255, 255, 0.1)",
+                  border: `1px solid ${selectedCategory === category ? "rgba(255, 255, 255, 0.3)" : "rgba(255, 255, 255, 0.15)"}`,
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedCategory !== category) {
+                    e.currentTarget.style.background =
+                      "rgba(255, 255, 255, 0.15)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedCategory !== category) {
+                    e.currentTarget.style.background =
+                      "rgba(255, 255, 255, 0.1)";
+                  }
+                }}
+              >
+                {category.charAt(0).toUpperCase() + category.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Apps Grid */}
@@ -230,7 +243,9 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
           {loading && (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-white" />
-              <span className="text-sm text-zinc-300">Loading applications...</span>
+              <span className="text-sm text-zinc-300">
+                Loading applications...
+              </span>
             </div>
           )}
 
@@ -245,7 +260,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
               <p className="text-zinc-300">No applications found</p>
               {searchQuery ? (
                 <button
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => setSearchQuery("")}
                   className="text-sm text-blue-200 hover:text-blue-100"
                 >
                   Clear search
@@ -269,8 +284,8 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                 hidden: { opacity: 0 },
                 show: {
                   opacity: 1,
-                  transition: { staggerChildren: 0.03 }
-                }
+                  transition: { staggerChildren: 0.03 },
+                },
               }}
               initial="hidden"
               animate="show"
@@ -281,7 +296,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                   key={app.id}
                   variants={{
                     hidden: { opacity: 0, y: 20 },
-                    show: { opacity: 1, y: 0 }
+                    show: { opacity: 1, y: 0 },
                   }}
                 >
                   <AppCard app={app} />
