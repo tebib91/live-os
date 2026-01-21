@@ -20,7 +20,8 @@ const execAsync = promisify(exec);
 // Container name prefix for LiveOS apps
 const CONTAINER_PREFIX = process.env.CONTAINER_PREFIX || "";
 const DEFAULT_APP_ICON = "/icons/default-application-icon.png";
-const STORES_ROOT = path.join(process.cwd(), "public", "external-apps");
+// Root where imported external app stores live (CasaOS ZIPs, etc.)
+const STORES_ROOT = path.join(process.cwd(), "external-apps");
 const FALLBACK_APP_NAME = "Application";
 
 async function resolveHostPort(containerName: string): Promise<string | null> {
@@ -979,6 +980,7 @@ async function findComposeForApp(
   }
 
   try {
+    await fs.mkdir(STORES_ROOT, { recursive: true });
     const storeEntries = await fs.readdir(STORES_ROOT, { withFileTypes: true });
     for (const store of storeEntries) {
       if (!store.isDirectory()) continue;

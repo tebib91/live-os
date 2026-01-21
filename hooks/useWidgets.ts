@@ -25,6 +25,51 @@ import {
 } from "@/components/widgets/constants";
 
 const STORAGE_KEY = "liveos-selected-widgets";
+const THERMALS_MAX_KEY = "liveos-thermals-max";
+const THERMALS_MAX_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+type ThermalsRecord = { value: number; ts: number } | null;
+
+function loadThermalsMax(): ThermalsRecord {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(THERMALS_MAX_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { value?: number; ts?: number };
+    if (
+      typeof parsed.value === "number" &&
+      typeof parsed.ts === "number" &&
+      !Number.isNaN(parsed.value) &&
+      Date.now() - parsed.ts < THERMALS_MAX_WINDOW_MS
+    ) {
+      return { value: parsed.value, ts: parsed.ts };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function nextThermalsMax(prev: ThermalsRecord, reading: number | null | undefined): ThermalsRecord {
+  if (typeof reading !== "number" || Number.isNaN(reading)) return prev;
+  const now = Date.now();
+  const expired = !prev || now - prev.ts > THERMALS_MAX_WINDOW_MS;
+  const candidate = expired ? reading : Math.max(prev.value, reading);
+  const next: ThermalsRecord =
+    !prev || expired || candidate !== prev.value
+      ? { value: candidate, ts: expired ? now : prev.ts }
+      : prev;
+
+  if (next !== prev && typeof window !== "undefined") {
+    try {
+      localStorage.setItem(THERMALS_MAX_KEY, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  }
+
+  return next;
+}
 
 interface UseWidgetsReturn {
   // Available widgets
@@ -90,6 +135,9 @@ export function useWidgets(): UseWidgetsReturn {
   const [selectedIds, setSelectedIds] = useState<string[]>(DEFAULT_WIDGET_IDS);
   const [shakeTrigger, setShakeTrigger] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [thermalsMaxRecord, setThermalsMaxRecord] = useState<ThermalsRecord>(
+    () => loadThermalsMax()
+  );
   const initializedRef = useRef(false);
 
   const { systemStats, storageStats } = useSystemStatus();
@@ -118,6 +166,27 @@ export function useWidgets(): UseWidgetsReturn {
       console.error("[Widgets] Failed to persist selection:", err)
     );
   }, [selectedIds]);
+
+  // Track rolling 24h max temperature for thermals widget
+  useEffect(() => {
+    const reading =
+      systemStats?.hardware?.thermals?.max ??
+      systemStats?.hardware?.cpuTemperature;
+    if (typeof reading !== "number" || Number.isNaN(reading)) return;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setThermalsMaxRecord((prev) => {
+      const next = nextThermalsMax(prev, reading);
+      if (next !== prev) {
+        try {
+          localStorage.setItem(THERMALS_MAX_KEY, JSON.stringify(next));
+        } catch {
+          // ignore storage errors
+        }
+      }
+      return next;
+    });
+  }, [systemStats?.hardware?.thermals?.max, systemStats?.hardware?.cpuTemperature]);
 
   // Toggle widget selection
   const toggleWidget = useCallback(
@@ -265,7 +334,7 @@ export function useWidgets(): UseWidgetsReturn {
     const thermalsData: ThermalsWidgetData = {
       cpuTemperature: systemStats?.hardware?.cpuTemperature ?? null,
       main: thermals?.main ?? null,
-      max: thermals?.max ?? null,
+      max: thermalsMaxRecord?.value ?? thermals?.max ?? null,
       cores: thermals?.cores ?? [],
       socket: thermals?.socket ?? [],
     };
@@ -295,7 +364,7 @@ export function useWidgets(): UseWidgetsReturn {
     dataMap.set("liveos:files-favorites", { type: "files-grid", data: filesGridData });
 
     return dataMap;
-  }, [systemStats, storageStats, userLocation]);
+  }, [systemStats, storageStats, userLocation, thermalsMaxRecord]);
 
   return {
     availableWidgets: AVAILABLE_WIDGETS,

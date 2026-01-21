@@ -298,6 +298,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                     hidden: { opacity: 0, y: 20 },
                     show: { opacity: 1, y: 0 },
                   }}
+                  className="h-full"
                 >
                   <AppCard app={app} />
                 </motion.div>

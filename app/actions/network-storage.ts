@@ -3,7 +3,9 @@
 
 import { execFile } from "child_process";
 import crypto from "crypto";
+import dns from "dns/promises";
 import fs from "fs/promises";
+import net from "net";
 import path from "path";
 import { promisify } from "util";
 
@@ -109,7 +111,15 @@ function buildMountOptions(username?: string, password?: string) {
 }
 
 async function mountShare(share: StoredShare, passwordOverride?: string) {
-  const source = `//${share.host}/${share.share}`;
+  const resolved = await resolveHost(share.host);
+  if (!resolved) {
+    return {
+      success: false as const,
+      error: `Could not resolve host "${share.host}"`,
+    };
+  }
+
+  const source = `//${resolved}/${share.share}`;
   const password = passwordOverride ?? share.password;
 
   try {
@@ -200,6 +210,45 @@ export async function listNetworkShares(): Promise<{ shares: NetworkShare[] }> {
   return { shares: withStatuses };
 }
 
+async function resolveHost(host: string): Promise<string | null> {
+  try {
+    const res = await dns.lookup(host);
+    return res.address || null;
+  } catch {
+    return null;
+  }
+}
+
+async function checkReachable(
+  host: string,
+  timeoutMs = 3000,
+): Promise<{ ok: boolean; error?: string }> {
+  const address = await resolveHost(host);
+  if (!address) {
+    return { ok: false, error: `Could not resolve host "${host}"` };
+  }
+
+  return new Promise((resolve) => {
+    const socket = net.createConnection(
+      { host: address, port: 445, timeout: timeoutMs },
+      () => {
+        socket.destroy();
+        resolve({ ok: true });
+      },
+    );
+
+    socket.on("error", (err) => {
+      socket.destroy();
+      resolve({ ok: false, error: err?.message || "Connection failed" });
+    });
+
+    socket.on("timeout", () => {
+      socket.destroy();
+      resolve({ ok: false, error: "Connection timed out" });
+    });
+  });
+}
+
 export async function addNetworkShare(input: {
   host: string;
   share: string;
@@ -235,6 +284,17 @@ export async function addNetworkShare(input: {
     createdAt: existing?.createdAt || Date.now(),
   };
 
+  // Quick reachability check
+  const reach = await checkReachable(host);
+  if (!reach.ok) {
+    record.lastError = reach.error;
+    const nextShares = existing
+      ? shares.map((s) => (s.id === record.id ? record : s))
+      : [...shares, record];
+    await saveShares(nextShares);
+    return { success: false, error: reach.error, share: await withStatus(record) };
+  }
+
   // Attempt mount immediately
   const mountResult = await mountShare(record);
   if (!mountResult.success) {
@@ -264,6 +324,13 @@ export async function connectNetworkShare(
 
   if (!record) {
     return { success: false, error: "Share not found" };
+  }
+
+  const reach = await checkReachable(record.host);
+  if (!reach.ok) {
+    record.lastError = reach.error;
+    await saveShares(shares.map((s) => (s.id === record.id ? record : s)));
+    return { success: false, error: reach.error, share: await withStatus(record) };
   }
 
   const mountResult = await mountShare(record, password);

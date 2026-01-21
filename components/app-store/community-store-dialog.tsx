@@ -14,10 +14,13 @@ import { Input } from "@/components/ui/input";
 import {
   getCasaCommunityStores,
   importCasaStore,
+  listImportedStores,
+  removeImportedStore,
   type CommunityStore,
 } from "@/app/actions/appstore";
 import { ExternalLink, Loader2, Clipboard, Check, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 
 interface CommunityStoreDialogProps {
   open: boolean;
@@ -37,6 +40,8 @@ export function CommunityStoreDialog({
   const [customUrl, setCustomUrl] = useState("");
   const [importingUrl, setImportingUrl] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [importedStores, setImportedStores] = useState<string[]>([]);
+  const [removingStore, setRemovingStore] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -46,6 +51,8 @@ export function CommunityStoreDialog({
         setError(null);
         const data = await getCasaCommunityStores();
         setStores(data);
+        const imported = await listImportedStores();
+        setImportedStores(imported);
       } catch (err) {
         console.error(err);
         setError("Unable to load CasaOS community stores right now.");
@@ -87,7 +94,24 @@ export function CommunityStoreDialog({
       return;
     }
     setImportSuccess(`Imported ${result.apps ?? 0} apps from ${url}`);
+    const imported = await listImportedStores();
+    setImportedStores(imported);
     onImported?.();
+  };
+
+  const handleRemoveStore = async (slug: string) => {
+    setRemovingStore(slug);
+    try {
+      await removeImportedStore(slug);
+      const imported = await listImportedStores();
+      setImportedStores(imported);
+      onImported?.();
+    } catch (err) {
+      console.error("Failed to remove store", err);
+      setError("Failed to remove store");
+    } finally {
+      setRemovingStore(null);
+    }
   };
 
   const renderStore = (store: CommunityStore) => {
@@ -220,6 +244,36 @@ export function CommunityStoreDialog({
 
         {importSuccess && (
           <div className="text-green-200 text-sm">{importSuccess}</div>
+        )}
+
+        {/* Imported stores */}
+        {importedStores.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-white/80">Imported stores</h4>
+            <div className="space-y-2">
+              {importedStores.map((slug) => (
+                <div
+                  key={slug}
+                  className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                >
+                  <span className="text-white/80 truncate">{slug}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-white/70 hover:text-white"
+                    disabled={removingStore === slug}
+                    onClick={() => handleRemoveStore(slug)}
+                  >
+                    {removingStore === slug ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         <ScrollArea className="h-[50vh] pr-2 space-y-3">

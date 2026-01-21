@@ -26,6 +26,34 @@ export type CommunityStore = {
   repoUrl?: string;
 };
 
+export async function listImportedStores(): Promise<string[]> {
+  try {
+    await fs.mkdir(CASA_STORE_ROOT, { recursive: true });
+    const entries = await fs.readdir(CASA_STORE_ROOT, { withFileTypes: true });
+    return entries
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort((a, b) => a.localeCompare(b));
+  } catch (error) {
+    console.error("Failed to list imported stores:", error);
+    return [];
+  }
+}
+
+export async function removeImportedStore(slug: string): Promise<boolean> {
+  if (!slug) return false;
+  const target = path.join(CASA_STORE_ROOT, slug);
+  try {
+    await fs.rm(target, { recursive: true, force: true });
+    await prisma.store.deleteMany({ where: { slug } });
+    await prisma.app.deleteMany({ where: { store: { slug } } });
+    return true;
+  } catch (error) {
+    console.error("Failed to remove imported store:", error);
+    return false;
+  }
+}
+
 function pickLocalizedText(value: unknown, fallback: string): string {
   if (typeof value === "string") return value;
   if (value && typeof value === "object") {

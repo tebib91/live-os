@@ -18,12 +18,12 @@ export function AppCard({ app }: AppCardProps) {
 
   return (
     <>
-      <Card className="group relative overflow-hidden border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-white/0 text-white backdrop-blur-xl shadow-2xl shadow-black/30 transition-all hover:-translate-y-1 hover:border-white/30 hover:shadow-black/50">
+      <Card className="group relative overflow-hidden border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-white/0 text-white backdrop-blur-xl shadow-2xl shadow-black/30 transition-all hover:-translate-y-1 hover:border-white/30 hover:shadow-black/50 h-full flex flex-col">
         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-blue-500/10 via-cyan-400/10 to-transparent" />
 
         <div
           onClick={() => setIsDetailOpen(true)}
-          className="relative p-5 space-y-4 cursor-pointer"
+          className="relative p-5 space-y-4 cursor-pointer flex-1"
         >
           <div className="flex items-start gap-4">
             {/* App Icon */}
@@ -74,7 +74,7 @@ export function AppCard({ app }: AppCardProps) {
           </div>
 
           {/* Install Button */}
-          <div className="flex items-center justify-between gap-3 pt-1">
+          <div className="flex items-center justify-between gap-3 pt-1 px-5 pb-4">
             <Button
               onClick={(e) => {
                 e.stopPropagation();
