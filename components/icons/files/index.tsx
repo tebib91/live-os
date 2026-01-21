@@ -1,44 +1,12 @@
-import type { ComponentType, SVGProps } from "react";
+import type { ComponentType } from "react";
+import Image from "next/image";
 
-// Export all icons
-export { BaseFileIcon } from "./base-file-icon";
+// Re-export the folder icons
 export { FolderIcon, FolderOpenIcon, FolderEmptyIcon } from "./folder-icon";
-export {
-  PdfIcon,
-  ImageIcon,
-  VideoIcon,
-  AudioIcon,
-  TextIcon,
-  ZipIcon,
-  CodeIcon,
-  SpreadsheetIcon,
-  PresentationIcon,
-  EbookIcon,
-  ExecutableIcon,
-  DiskImageIcon,
-  DesignIcon,
-  UnknownFileIcon,
-} from "./file-icons";
 
-import { FolderIcon } from "./folder-icon";
-import {
-  PdfIcon,
-  ImageIcon,
-  VideoIcon,
-  AudioIcon,
-  TextIcon,
-  ZipIcon,
-  CodeIcon,
-  SpreadsheetIcon,
-  PresentationIcon,
-  EbookIcon,
-  ExecutableIcon,
-  DiskImageIcon,
-  DesignIcon,
-  UnknownFileIcon,
-} from "./file-icons";
-
-type FileIconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+interface FileIconProps {
+  className?: string;
+}
 
 // File type categories
 export type FileCategory =
@@ -204,23 +172,23 @@ const EXTENSION_MAP: Record<string, FileCategory> = {
   afphoto: "design",
 };
 
-// Category to icon component mapping
-const CATEGORY_ICONS: Record<FileCategory, FileIconComponent> = {
-  folder: FolderIcon,
-  image: ImageIcon,
-  video: VideoIcon,
-  audio: AudioIcon,
-  document: TextIcon,
-  pdf: PdfIcon,
-  spreadsheet: SpreadsheetIcon,
-  presentation: PresentationIcon,
-  archive: ZipIcon,
-  code: CodeIcon,
-  ebook: EbookIcon,
-  executable: ExecutableIcon,
-  "disk-image": DiskImageIcon,
-  design: DesignIcon,
-  unknown: UnknownFileIcon,
+// Category to SVG file mapping (using actual Umbrel icons)
+const CATEGORY_ICONS: Record<FileCategory, string> = {
+  folder: "/icons/files/unknown.svg", // Folder uses separate component
+  image: "/icons/files/image.svg",
+  video: "/icons/files/video.svg",
+  audio: "/icons/files/audio.svg",
+  document: "/icons/files/docx.svg",
+  pdf: "/icons/files/pdf.svg",
+  spreadsheet: "/icons/files/csv.svg",
+  presentation: "/icons/files/ppt.svg",
+  archive: "/icons/files/unknown.svg", // zip.svg is too large (3MB)
+  code: "/icons/files/txt.svg",
+  ebook: "/icons/files/txt.svg",
+  executable: "/icons/files/unknown.svg",
+  "disk-image": "/icons/files/unknown.svg", // iso.svg/dmg.svg are too large
+  design: "/icons/files/psd.svg",
+  unknown: "/icons/files/unknown.svg",
 };
 
 /**
@@ -232,21 +200,131 @@ export function getFileCategory(filename: string): FileCategory {
 }
 
 /**
- * Get the appropriate icon component for a file
+ * Get the icon path for a file
  */
-export function getFileIcon(filename: string, isFolder = false): FileIconComponent {
-  if (isFolder) {
-    return FolderIcon;
-  }
+export function getFileIconPath(filename: string): string {
   const category = getFileCategory(filename);
   return CATEGORY_ICONS[category];
 }
 
 /**
- * Get the icon component for a specific category
+ * File icon component that renders the appropriate icon for a file
  */
-export function getCategoryIcon(category: FileCategory): FileIconComponent {
-  return CATEGORY_ICONS[category];
+export function FileIcon({
+  filename,
+  className,
+}: { filename: string } & FileIconProps) {
+  const iconPath = getFileIconPath(filename);
+
+  return (
+    <Image
+      src={iconPath}
+      alt=""
+      width={48}
+      height={56}
+      className={className}
+      style={{ objectFit: "contain" }}
+    />
+  );
+}
+
+/**
+ * Get the appropriate icon component for a file - returns a component that can be rendered
+ */
+export function getFileIcon(filename: string): ComponentType<{ className?: string }> {
+  const iconPath = getFileIconPath(filename);
+
+  return function FileIconWrapper({ className }: { className?: string }) {
+    return (
+      <Image
+        src={iconPath}
+        alt=""
+        width={48}
+        height={56}
+        className={className}
+        style={{ objectFit: "contain", width: "100%", height: "100%" }}
+      />
+    );
+  };
+}
+
+// Individual file type icons for direct use
+export function PdfIcon({ className }: { className?: string }) {
+  return (
+    <Image
+      src="/icons/files/pdf.svg"
+      alt=""
+      width={48}
+      height={56}
+      className={className}
+      style={{ objectFit: "contain", width: "100%", height: "100%" }}
+    />
+  );
+}
+
+export function ImageFileIcon({ className }: { className?: string }) {
+  return (
+    <Image
+      src="/icons/files/image.svg"
+      alt=""
+      width={48}
+      height={56}
+      className={className}
+      style={{ objectFit: "contain", width: "100%", height: "100%" }}
+    />
+  );
+}
+
+export function VideoFileIcon({ className }: { className?: string }) {
+  return (
+    <Image
+      src="/icons/files/video.svg"
+      alt=""
+      width={48}
+      height={56}
+      className={className}
+      style={{ objectFit: "contain", width: "100%", height: "100%" }}
+    />
+  );
+}
+
+export function AudioFileIcon({ className }: { className?: string }) {
+  return (
+    <Image
+      src="/icons/files/audio.svg"
+      alt=""
+      width={48}
+      height={56}
+      className={className}
+      style={{ objectFit: "contain", width: "100%", height: "100%" }}
+    />
+  );
+}
+
+export function TextFileIcon({ className }: { className?: string }) {
+  return (
+    <Image
+      src="/icons/files/txt.svg"
+      alt=""
+      width={48}
+      height={56}
+      className={className}
+      style={{ objectFit: "contain", width: "100%", height: "100%" }}
+    />
+  );
+}
+
+export function UnknownFileIcon({ className }: { className?: string }) {
+  return (
+    <Image
+      src="/icons/files/unknown.svg"
+      alt=""
+      width={48}
+      height={56}
+      className={className}
+      style={{ objectFit: "contain", width: "100%", height: "100%" }}
+    />
+  );
 }
 
 /**
