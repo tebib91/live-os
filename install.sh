@@ -423,6 +423,38 @@ install_archive_tools() {
     fi
 }
 
+install_cifs_utils() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_dry "Install cifs-utils (SMB client for Network Storage mounts)"
+        return
+    fi
+
+    if command -v mount.cifs >/dev/null 2>&1; then
+        print_status "cifs-utils already installed"
+        return
+    fi
+
+    print_status "Installing cifs-utils (required for Network Storage)..."
+
+    if [ -x "$(command -v apt-get)" ]; then
+        apt-get update
+        apt-get install -y cifs-utils
+    elif [ -x "$(command -v dnf)" ]; then
+        dnf install -y cifs-utils
+    elif [ -x "$(command -v yum)" ]; then
+        yum install -y cifs-utils
+    else
+        print_error "Unsupported package manager. Please install cifs-utils manually."
+        return
+    fi
+
+    if command -v mount.cifs >/dev/null 2>&1; then
+        print_status "cifs-utils installed successfully"
+    else
+        print_error "Failed to install cifs-utils. Network Storage mounts will not work until it is installed."
+    fi
+}
+
 # Install Avahi for mDNS/.local domain support
 install_avahi() {
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -861,6 +893,7 @@ if [ "$NO_DEP" -eq 0 ]; then
     install_git
     install_build_tools
     install_archive_tools
+    install_cifs_utils
     install_nodejs
     install_docker
     install_avahi

@@ -86,6 +86,33 @@ ensure_archive_tools() {
     fi
 }
 
+ensure_cifs_utils() {
+    print_status "Ensuring cifs-utils is installed (required for Network Storage)..."
+
+    if command -v mount.cifs >/dev/null 2>&1; then
+        print_status "cifs-utils already installed"
+        return
+    fi
+
+    if [ -x "$(command -v apt-get)" ]; then
+        apt-get update
+        apt-get install -y cifs-utils
+    elif [ -x "$(command -v dnf)" ]; then
+        dnf install -y cifs-utils
+    elif [ -x "$(command -v yum)" ]; then
+        yum install -y cifs-utils
+    else
+        print_error "Unsupported package manager. Please install cifs-utils manually."
+        return
+    fi
+
+    if command -v mount.cifs >/dev/null 2>&1; then
+        print_status "cifs-utils installed successfully"
+    else
+        print_error "cifs-utils installation failed. Network Storage mounts will not work."
+    fi
+}
+
 ensure_migrations_ready() {
     print_status "Checking Prisma migration status..."
     if ! npx prisma migrate status --schema=prisma/schema.prisma; then
@@ -150,6 +177,7 @@ print_status "Installing dependencies..."
 npm install --ignore-scripts
 
 ensure_archive_tools
+ensure_cifs_utils
 ensure_migrations_ready
 
 # Rebuild native modules

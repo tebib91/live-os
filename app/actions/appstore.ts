@@ -26,6 +26,23 @@ export type CommunityStore = {
   repoUrl?: string;
 };
 
+function pickLocalizedText(value: unknown, fallback: string): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const preferred = ["en_us", "en_US", "en", "default"];
+    for (const key of preferred) {
+      const candidate = record[key];
+      if (typeof candidate === "string" && candidate.trim()) return candidate;
+    }
+    const firstString = Object.values(record).find(
+      (v) => typeof v === "string" && v.trim(),
+    );
+    if (typeof firstString === "string") return firstString;
+  }
+  return fallback;
+}
+
 /**
  * Load apps from the persisted store database.
  */
@@ -329,6 +346,15 @@ async function parseCasaStore(
       const manifest = JSON.parse(await fs.readFile(manifestPath, "utf-8"));
       const appDir = path.dirname(manifestPath);
       const appId = manifest.id || manifest.name || path.basename(appDir);
+      const title = pickLocalizedText(
+        manifest.title,
+        typeof manifest.name === "string" ? manifest.name : appId,
+      );
+      const tagline = pickLocalizedText(
+        manifest.tagline || manifest.description,
+        "",
+      );
+      const overview = pickLocalizedText(manifest.description, tagline);
       const icon = resolveAsset(
         manifest.icon || manifest.logo,
         storeId,
@@ -351,13 +377,13 @@ async function parseCasaStore(
 
       apps.set(appId, {
         id: appId,
-        title: manifest.title || manifest.name || appId,
+        title,
         name: appId,
         icon:
           icon ??
           "https://raw.githubusercontent.com/IceWhaleTech/CasaOS-AppStore/master/logo.png",
-        tagline: manifest.tagline || manifest.description || "",
-        overview: manifest.description || manifest.tagline || "",
+        tagline,
+        overview,
         category: category.filter(Boolean),
         developer:
           manifest.developer ||
@@ -399,10 +425,15 @@ async function parseCasaStore(
           ? [categories]
           : [];
 
-      const title = xCasa.title?.en_us || xCasa.title || appId;
-      const tagline =
-        xCasa.tagline?.en_us || xCasa.tagline || xCasa.description?.en_us || "";
-      const overview = xCasa.description?.en_us || xCasa.description || tagline;
+      const title = pickLocalizedText(
+        xCasa.title,
+        appId,
+      );
+      const tagline = pickLocalizedText(
+        xCasa.tagline || xCasa.description,
+        "",
+      );
+      const overview = pickLocalizedText(xCasa.description, tagline);
 
       const ports =
         compose?.services?.[xCasa.main]?.ports ||
