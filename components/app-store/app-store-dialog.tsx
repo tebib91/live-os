@@ -196,7 +196,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
 
         {/* Category Pills */}
         <div
-          className="px-6 py-3 border-b"
+          className="px-6 py-3 border-b overflow-auto"
           style={{ borderColor: "rgba(255, 255, 255, 0.15)" }}
         >
           <div className="flex gap-2 pb-1 min-w-full overflow-x-auto scrollbar-hide">
