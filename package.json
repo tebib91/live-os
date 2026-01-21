@@ -12,7 +12,8 @@
     "update-apps": "bash scripts/update-apps.sh",
     "update-apps:auto": "bash scripts/update-apps.sh --auto-yes",
     "test-apps": "node scripts/test-appstore.js",
-    "db:init": "prisma migrate deploy --schema=prisma/schema.prisma"
+    "db:init": "prisma migrate deploy --schema=prisma/schema.prisma",
+    "prepare": "husky"
   },
   "lint-staged": {
     "*.{js, jsx,ts,tsx}": [

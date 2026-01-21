@@ -704,6 +704,7 @@ setup_liveos() {
     print_status "Installing dependencies (skipping Husky for production)..."
     # Install all dependencies but skip Husky setup scripts
     # Note: TypeScript is needed for build even in production
+    export HUSKY=0
     npm install --ignore-scripts
 
     print_status "Building native modules (node-pty for terminal)..."

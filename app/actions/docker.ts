@@ -8,6 +8,7 @@ import {
   sendInstallProgress,
   type InstallProgressPayload,
 } from "@/app/api/system/stream/route";
+import { logAction } from "./logger";
 import { exec } from "child_process";
 import fs from "fs/promises";
 import path from "path";
@@ -136,6 +137,7 @@ export async function installApp(
   config: InstallConfig,
   metaOverride?: { name?: string; icon?: string }
 ): Promise<{ success: boolean; error?: string }> {
+  await logAction("install:start", { appId });
   console.log(`[Docker] installApp: Starting installation for app "${appId}"`);
   console.log(
     `[Docker] installApp: Config - Ports: ${config.ports.length}, Volumes: ${config.volumes.length}, Env vars: ${config.environment.length}`
@@ -260,6 +262,7 @@ export async function installApp(
 
     await recordInstalledApp(appId, containerName, metaOverride);
     await triggerAppsUpdate();
+    await logAction("install:success", { appId, containerName });
     emitProgress(1, "Installation complete", "completed");
     console.log(`[Docker] installApp: ✅ Successfully installed "${appId}"`);
     return { success: true };
@@ -267,6 +270,11 @@ export async function installApp(
     console.error(
       `[Docker] installApp: ❌ Error installing "${appId}":`,
       error
+    );
+    await logAction(
+      "install:error",
+      { appId, error: error?.message ?? String(error) },
+      "error"
     );
     sendInstallProgress({
       type: "install-progress",
