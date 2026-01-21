@@ -1,0 +1,22 @@
+{
+  "id": "tailscale",
+  "title": "Tailscale",
+  "name": "Tailscale",
+  "tagline": "Mesh VPN for your LiveOS node",
+  "description": "Runs the official Tailscale daemon inside a privileged container with host networking so your LiveOS host joins your tailnet. Persisted state keeps auth across restarts. After install, authenticate via 'tailscale up' or provide TS_AUTHKEY.",
+  "icon": "https://tailscale.com/logo-square.png",
+  "category": ["Networking", "Security"],
+  "developer": "Tailscale Inc.",
+  "version": "stable",
+  "port": null,
+  "compose": "docker-compose.yml",
+  "paths": {
+    "state": "/var/lib/tailscale"
+  },
+  "volumes": [
+    {
+      "container": "/var/lib/tailscale",
+      "source": "tailscale-state"
+    }
+  ]
+}

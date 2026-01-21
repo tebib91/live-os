@@ -499,6 +499,31 @@ install_avahi() {
     else
         print_error "Warning: Avahi daemon not running. .local domains may not work."
     fi
+
+    # Harden Avahi to ignore docker/loopback and bind to the primary interface if provided
+    if [ -w /etc/avahi/avahi-daemon.conf ]; then
+        # Detect the first non-docker, non-loopback interface
+        AVAHI_IFACE="$(ip -o link show | awk -F': ' '!/ lo:| docker| br-| veth/{print $2; exit}')"
+        if [ -n "$AVAHI_IFACE" ]; then
+            print_status "Configuring Avahi to bind to interface: $AVAHI_IFACE (and ignore docker0/lo)"
+            sed -i "s/^#\?use-ipv4=.*/use-ipv4=yes/; s/^#\?use-ipv6=.*/use-ipv6=no/" /etc/avahi/avahi-daemon.conf
+            if grep -q '^allow-interfaces=' /etc/avahi/avahi-daemon.conf; then
+                sed -i "s|^allow-interfaces=.*|allow-interfaces=$AVAHI_IFACE|" /etc/avahi/avahi-daemon.conf
+            else
+                printf "\n[server]\nallow-interfaces=%s\n" "$AVAHI_IFACE" >> /etc/avahi/avahi-daemon.conf
+            fi
+            if grep -q '^deny-interfaces=' /etc/avahi/avahi-daemon.conf; then
+                sed -i "s|^deny-interfaces=.*|deny-interfaces=docker0,lo|" /etc/avahi/avahi-daemon.conf
+            else
+                printf "deny-interfaces=docker0,lo\n" >> /etc/avahi/avahi-daemon.conf
+            fi
+            systemctl restart avahi-daemon 2>/dev/null || service avahi-daemon restart || true
+        else
+            print_error "Could not detect a primary interface to bind Avahi; skipping Avahi hardening."
+        fi
+    else
+        print_error "avahi-daemon.conf not writable; skipping Avahi interface hardening."
+    fi
 }
 
 install_nmcli() {

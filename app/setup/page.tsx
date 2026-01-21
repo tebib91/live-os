@@ -14,6 +14,7 @@ import { VERSION } from "@/lib/config";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { updateSettings } from "../actions/settings";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -23,6 +24,10 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [checkingUsers, setCheckingUsers] = useState(true);
+   const [step, setStep] = useState<"register" | "next">("register");
+   const [locationStatus, setLocationStatus] = useState<string>("");
+   const [locationError, setLocationError] = useState<string | null>(null);
+   const [tailscaleIntent, setTailscaleIntent] = useState<"pending" | "skip" | "go">("pending");
 
   useEffect(() => {
     // Check if users already exist, redirect to login if they do
@@ -62,8 +67,120 @@ export default function SetupPage() {
     if (res?.success === false) {
       setError(res.error || "An unknown error occurred");
       setLoading(false);
+    } else {
+      setStep("next");
+      setLoading(false);
     }
   };
+
+  const handleUseLocation = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationError("Geolocation not supported in this browser");
+      return;
+    }
+    setLocationStatus("Requesting location...");
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setLocationStatus("Saving location...");
+        try {
+          await updateSettings({
+            userLatitude: latitude,
+            userLongitude: longitude,
+          });
+          setLocationStatus("Location saved for widgets and weather.");
+        } catch (err) {
+          setLocationError((err as Error)?.message || "Failed to save location");
+          setLocationStatus("");
+        }
+      },
+      (err) => {
+        setLocationError(err.message || "Failed to get location");
+        setLocationStatus("");
+      },
+      { timeout: 10000, maximumAge: 600000 }
+    );
+  };
+
+  const handleFinish = () => {
+    router.push("/login");
+  };
+
+  if (step === "next") {
+    return (
+      <WallpaperLayout>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl space-y-6 bg-zinc-900/80 backdrop-blur-xl border border-zinc-700/50 rounded-xl p-8 shadow-2xl">
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-bold text-white drop-shadow">Account created</h2>
+              <p className="text-zinc-300">Set these optional preferences now or adjust later in Settings.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-white font-semibold">Location (optional)</div>
+                    <div className="text-sm text-white/70">
+                      Improves weather and widget defaults. Uses browser geolocation one time.
+                    </div>
+                  </div>
+                  <Button variant="ghost" onClick={handleUseLocation} className="border border-white/15 text-white">
+                    Use my location
+                  </Button>
+                </div>
+                {locationStatus && <p className="text-xs text-emerald-300 mt-2">{locationStatus}</p>}
+                {locationError && <p className="text-xs text-red-400 mt-2">{locationError}</p>}
+              </div>
+
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-white font-semibold">Tailscale (optional)</div>
+                    <div className="text-sm text-white/70">
+                      Secure remote access. You can install the internal Tailscale app after login.
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={tailscaleIntent === "go" ? "default" : "ghost"}
+                      className="border border-white/15 text-white"
+                      onClick={() => {
+                        setTailscaleIntent("go");
+                        router.push("/"); // open home after login; install via App Store/internal apps
+                      }}
+                    >
+                      Install later
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="border border-white/15 text-white"
+                      onClick={() => {
+                        setTailscaleIntent("skip");
+                      }}
+                    >
+                      Skip
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-white/60 mt-2">
+                  After logging in, open the App Store or run the internal Tailscale compose under `internal-apps/tailscale`.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={handleFinish} className="bg-blue-600 hover:bg-blue-700 text-white">
+                Go to login
+              </Button>
+            </div>
+          </div>
+        </div>
+      </WallpaperLayout>
+    );
+  }
 
   if (checkingUsers) {
     return (
