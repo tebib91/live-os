@@ -108,6 +108,7 @@ async function validatePath(requestedPath: string): Promise<{ valid: boolean; sa
  */
 export async function readDirectory(dirPath: string): Promise<DirectoryContent> {
   try {
+    console.log("[filesystem] readDirectory requested:", dirPath);
     await ensureDefaultDirectories();
 
     const { valid, sanitized } = await validatePath(dirPath);
@@ -170,7 +171,7 @@ export async function readDirectory(dirPath: string): Promise<DirectoryContent> 
       parent,
     };
   } catch (error: any) {
-    console.error('Read directory error:', error);
+    console.error('Read directory error for path:', dirPath, error);
     throw new Error(error.message || 'Failed to read directory');
   }
 }

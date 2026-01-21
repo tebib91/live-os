@@ -5,6 +5,7 @@
 import { getFirewallStatus } from "@/app/actions/firewall";
 import { getWallpapers, updateSettings } from "@/app/actions/settings";
 import { getSystemInfo, getUptime } from "@/app/actions/system";
+import { listLanDevices, type LanDevice } from "@/app/actions/network";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,6 +26,7 @@ import {
   DeviceInfoSection,
   FirewallSection,
   LanguageSection,
+  NetworkDevicesSection,
   SystemDetailsCard,
   WallpaperOption,
   WallpaperSection,
@@ -61,6 +63,9 @@ export function SettingsDialog({
   );
   const [systemDetailsOpen, setSystemDetailsOpen] = useState(false);
   const [uptimeSeconds, setUptimeSeconds] = useState<number>(0);
+  const [lanDevices, setLanDevices] = useState<LanDevice[]>([]);
+  const [lanDevicesLoading, setLanDevicesLoading] = useState(false);
+  const [lanDevicesError, setLanDevicesError] = useState<string | null>(null);
   const router = useRouter();
 
   // Fetch static data once when dialog opens
@@ -70,6 +75,7 @@ export function SettingsDialog({
       fetchWallpapers();
       fetchUptime();
       fetchFirewallStatus();
+      fetchLanDevices();
     }
   }, [open]);
 
@@ -93,6 +99,22 @@ export function SettingsDialog({
       setFirewallEnabled(result.status.enabled);
     } catch (error) {
       console.error("Failed to load firewall status:", error);
+    }
+  };
+
+  const fetchLanDevices = async () => {
+    setLanDevicesLoading(true);
+    setLanDevicesError(null);
+    try {
+      const result = await listLanDevices();
+      setLanDevices(result.devices);
+      if (result.error) setLanDevicesError(result.error);
+    } catch (error) {
+      console.error("Failed to list LAN devices:", error);
+      setLanDevicesError("Failed to scan network devices");
+      setLanDevices([]);
+    } finally {
+      setLanDevicesLoading(false);
     }
   };
 
@@ -234,6 +256,12 @@ export function SettingsDialog({
                 onOpenDialog={() => setWifiDialogOpen(true)}
                 ssid={hardware?.wifi?.ssid}
                 quality={hardware?.wifi?.quality}
+              />
+              <NetworkDevicesSection
+                devices={lanDevices}
+                loading={lanDevicesLoading}
+                error={lanDevicesError}
+                onRefresh={fetchLanDevices}
               />
               <FirewallSection
                 onOpenDialog={() => setFirewallDialogOpen(true)}

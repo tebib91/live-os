@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
+import { getAppWebUI } from "@/app/actions/docker";
 import type { InstalledApp } from "@/components/app-store/types";
 import { Card } from "@/components/ui/card";
 import {
@@ -10,6 +11,7 @@ import {
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { AppContextMenu } from "./app-context-menu";
 
 export function InstalledAppsGrid() {
@@ -105,6 +107,20 @@ export function InstalledAppsGrid() {
                 whileTap={{ scale: 0.97 }}
                 transition={{ type: "spring", stiffness: 380, damping: 18 }}
                 className="relative"
+                onClick={async () => {
+                  try {
+                    const url = await getAppWebUI(app.appId);
+                    if (url) {
+                      window.open(url, "_blank", "noopener,noreferrer");
+                    } else {
+                      toast.error(
+                        "Unable to determine app URL. Ensure the app is running.",
+                      );
+                    }
+                  } catch {
+                    toast.error("Failed to open app");
+                  }
+                }}
               >
                 <Card className="aspect-square flex flex-col items-center justify-center p-3 sm:p-4 gap-2 bg-white/10 backdrop-blur-xl border border-white/10 hover:border-white/20 hover:bg-white/15 transition-all cursor-pointer shadow-lg shadow-black/30">
                   {/* Status Indicator */}
@@ -114,8 +130,8 @@ export function InstalledAppsGrid() {
                         app.status === "running"
                           ? "bg-emerald-400 shadow-emerald-500/40"
                           : app.status === "stopped"
-                          ? "bg-rose-400 shadow-rose-500/40"
-                          : "bg-amber-300 shadow-amber-400/40"
+                            ? "bg-rose-400 shadow-rose-500/40"
+                            : "bg-amber-300 shadow-amber-400/40"
                       }`}
                       title={app.status}
                     />

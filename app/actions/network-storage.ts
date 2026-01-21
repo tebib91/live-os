@@ -10,6 +10,7 @@ import path from "path";
 import { promisify } from "util";
 
 import { getHomeRoot } from "./filesystem";
+import { logAction } from "./logger";
 
 const execFileAsync = promisify(execFile);
 const STORE_FILENAME = ".network-shares.json";
@@ -76,6 +77,39 @@ async function saveShares(shares: StoredShare[]) {
   await fs.writeFile(storePath, payload, { mode: 0o600 });
 }
 
+function buildMountPath(
+  devicesDir: string,
+  host: string,
+  share: string,
+  existing?: StoredShare,
+  others?: StoredShare[],
+): string {
+  if (existing?.mountPath) return existing.mountPath;
+
+  const baseSlug = `${slugify(host)}-${slugify(share)}` || "share";
+  let candidate = path.join(devicesDir, baseSlug);
+
+  const taken = new Set(
+    (others || [])
+      .filter((s) => s.mountPath)
+      .map((s) => path.resolve(s.mountPath)),
+  );
+
+  if (!taken.has(path.resolve(candidate))) {
+    return candidate;
+  }
+
+  // Deterministic short hash to avoid randomness but keep uniqueness
+  const suffix = crypto
+    .createHash("md5")
+    .update(`${host}/${share}`)
+    .digest("hex")
+    .slice(0, 6);
+  candidate = path.join(devicesDir, `${baseSlug}-${suffix}`);
+
+  return candidate;
+}
+
 async function isMounted(mountPath: string): Promise<boolean> {
   try {
     await execFileAsync("findmnt", ["-n", mountPath]);
@@ -119,6 +153,10 @@ function buildMountOptions(username?: string, password?: string) {
 async function mountShare(share: StoredShare, passwordOverride?: string) {
   const resolved = await resolveHost(share.host);
   if (!resolved) {
+    await logAction("network-storage:resolve-failed", {
+      host: share.host,
+      share: share.share,
+    });
     return {
       success: false as const,
       error: `Could not resolve host "${share.host}"`,
@@ -162,7 +200,11 @@ async function mountShare(share: StoredShare, passwordOverride?: string) {
         "Share not found on server (check the share name/path). Original: " +
         message;
     }
-    console.error("[network-storage] mount failed:", message);
+    await logAction("network-storage:mount-failed", {
+      host: share.host,
+      share: share.share,
+      error: message,
+    });
     return { success: false as const, error: message };
   }
 }
@@ -208,7 +250,7 @@ async function withStatus(share: StoredShare): Promise<NetworkShare> {
 }
 
 export async function listNetworkShares(): Promise<{ shares: NetworkShare[] }> {
-  console.log("[network-storage] listNetworkShares: loading shares");
+  await logAction("network-storage:list", {});
   const shares = await loadShares();
   const withStatuses = await Promise.all(shares.map(withStatus));
 
@@ -217,14 +259,14 @@ export async function listNetworkShares(): Promise<{ shares: NetworkShare[] }> {
     (a, b) => a.host.localeCompare(b.host) || a.share.localeCompare(b.share),
   );
 
-  console.log(
-    `[network-storage] listNetworkShares: returning ${withStatuses.length} share(s)`,
-  );
+  await logAction("network-storage:list:done", {
+    count: withStatuses.length,
+  });
   return { shares: withStatuses };
 }
 
 export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
-  console.log("[network-storage] discoverSmbHosts: starting mDNS scan");
+  await logAction("network-storage:discover:start");
   const hosts: DiscoveredHost[] = [];
   try {
     // avahi-browse -r -t _smb._tcp
@@ -248,11 +290,11 @@ export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
           hosts.push({ name, host, ip });
         }
       });
-    console.log(
-      `[network-storage] discoverSmbHosts: found ${hosts.length} host(s)`,
-    );
-  } catch {
-    console.warn("[network-storage] discoverSmbHosts: discovery failed");
+    await logAction("network-storage:discover:done", { hosts: hosts.length });
+  } catch (err) {
+    await logAction("network-storage:discover:error", {
+      error: (err as Error)?.message || "unknown",
+    });
   }
   return { hosts };
 }
@@ -312,6 +354,10 @@ export async function addNetworkShare(input: {
   username?: string;
   password?: string;
 }): Promise<{ success: boolean; share?: NetworkShare; error?: string }> {
+  await logAction("network-storage:add:start", {
+    host: input.host,
+    share: input.share,
+  });
   const host = input.host.trim();
   const share = input.share.replace(/^[\\/]+/, "").trim();
 
@@ -323,12 +369,7 @@ export async function addNetworkShare(input: {
   const devicesDir = path.join(await getHomeRoot(), "Devices");
   const existing = shares.find((s) => s.host === host && s.share === share);
 
-  const mountPath =
-    existing?.mountPath ||
-    path.join(
-      devicesDir,
-      `${slugify(host)}-${slugify(share)}-${crypto.randomUUID().slice(0, 6)}`,
-    );
+  const mountPath = buildMountPath(devicesDir, host, share, existing, shares);
 
   const record: StoredShare = {
     id: existing?.id || crypto.randomUUID(),
@@ -349,6 +390,11 @@ export async function addNetworkShare(input: {
       ? shares.map((s) => (s.id === record.id ? record : s))
       : [...shares, record];
     await saveShares(nextShares);
+    await logAction("network-storage:add:unreachable", {
+      host,
+      share,
+      error: reach.error,
+    });
     return { success: false, error: reach.error, share: await withStatus(record) };
   }
 
@@ -356,8 +402,14 @@ export async function addNetworkShare(input: {
   const mountResult = await mountShare(record);
   if (!mountResult.success) {
     record.lastError = mountResult.error;
+    await logAction("network-storage:add:mount-failed", {
+      host,
+      share,
+      error: mountResult.error,
+    });
   } else {
     record.lastError = null;
+    await logAction("network-storage:add:mounted", { host, share });
   }
 
   const nextShares = existing
@@ -376,12 +428,11 @@ export async function connectNetworkShare(
   id: string,
   credentials?: { username?: string; password?: string },
 ): Promise<{ success: boolean; share?: NetworkShare; error?: string }> {
-  console.log(`[network-storage] connectNetworkShare: id=${id}`);
+  await logAction("network-storage:connect:start", { id });
   const shares = await loadShares();
   const record = shares.find((s) => s.id === id);
 
   if (!record) {
-    console.warn("[network-storage] connectNetworkShare: share not found");
     return { success: false, error: "Share not found" };
   }
 
@@ -396,21 +447,32 @@ export async function connectNetworkShare(
   if (!reach.ok) {
     record.lastError = reach.error;
     await saveShares(shares.map((s) => (s.id === record.id ? record : s)));
+    await logAction("network-storage:connect:unreachable", {
+      id,
+      host: record.host,
+      error: reach.error,
+    });
     return { success: false, error: reach.error, share: await withStatus(record) };
   }
 
   const mountResult = await mountShare(record, credentials?.password);
   if (!mountResult.success) {
     record.lastError = mountResult.error;
+    await logAction("network-storage:connect:mount-failed", {
+      id,
+      host: record.host,
+      error: mountResult.error,
+    });
   } else {
     record.lastError = null;
+    await logAction("network-storage:connect:mounted", {
+      id,
+      host: record.host,
+    });
   }
 
   await saveShares(shares.map((s) => (s.id === record.id ? record : s)));
 
-  console.log(
-    `[network-storage] connectNetworkShare: completed success=${mountResult.success}`,
-  );
   return {
     success: mountResult.success,
     share: await withStatus(record),
@@ -421,6 +483,7 @@ export async function connectNetworkShare(
 export async function disconnectNetworkShare(
   id: string,
 ): Promise<{ success: boolean; share?: NetworkShare; error?: string }> {
+  await logAction("network-storage:disconnect:start", { id });
   const shares = await loadShares();
   const record = shares.find((s) => s.id === id);
 
@@ -431,8 +494,13 @@ export async function disconnectNetworkShare(
   const result = await unmountShare(record);
   if (!result.success) {
     record.lastError = result.error;
+    await logAction("network-storage:disconnect:failed", {
+      id,
+      error: result.error,
+    });
   } else {
     record.lastError = null;
+    await logAction("network-storage:disconnect:done", { id });
   }
 
   await saveShares(shares.map((s) => (s.id === record.id ? record : s)));
@@ -447,6 +515,7 @@ export async function disconnectNetworkShare(
 export async function removeNetworkShare(
   id: string,
 ): Promise<{ success: boolean; error?: string }> {
+  await logAction("network-storage:remove:start", { id });
   const shares = await loadShares();
   const record = shares.find((s) => s.id === id);
 
@@ -456,9 +525,18 @@ export async function removeNetworkShare(
 
   // Best-effort unmount; ignore failure so the entry can still be removed
   await unmountShare(record);
+  try {
+    await fs.rm(record.mountPath, { recursive: true, force: true });
+  } catch (err) {
+    console.warn(
+      "[network-storage] removeNetworkShare: failed to remove mount dir",
+      err,
+    );
+  }
 
   const remaining = shares.filter((s) => s.id !== id);
   await saveShares(remaining);
 
+  await logAction("network-storage:remove:done", { id });
   return { success: true };
 }

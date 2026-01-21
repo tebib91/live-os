@@ -190,6 +190,7 @@ export function useFilesDialog(open: boolean) {
 
   const handleNavigate = (path: string) => {
     if (!path) return;
+    console.log("[files-dialog] navigate ->", path);
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(path);
     setHistory(newHistory);
@@ -199,12 +200,14 @@ export function useFilesDialog(open: boolean) {
 
   const handleGoToParent = () => {
     if (content?.parent) {
+      console.log("[files-dialog] goToParent ->", content.parent);
       handleNavigate(content.parent);
     }
   };
 
   const handleBack = () => {
     if (historyIndex > 0) {
+      console.log("[files-dialog] back ->", history[historyIndex - 1]);
       setHistoryIndex(historyIndex - 1);
       setCurrentPath(history[historyIndex - 1]);
     }
@@ -212,6 +215,7 @@ export function useFilesDialog(open: boolean) {
 
   const handleForward = () => {
     if (historyIndex < history.length - 1) {
+      console.log("[files-dialog] forward ->", history[historyIndex + 1]);
       setHistoryIndex(historyIndex + 1);
       setCurrentPath(history[historyIndex + 1]);
     }

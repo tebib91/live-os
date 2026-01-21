@@ -9,10 +9,13 @@ import {
   Shield,
   User,
   Wifi,
+  RefreshCw,
+  Network,
 } from "lucide-react";
 import Image from "next/image";
 import { HardwareInfo, formatCpuLabel, formatCpuTemp } from "./hardware-utils";
 import type { SystemInfo } from "./types";
+import type { LanDevice } from "@/app/actions/network";
 
 export type WallpaperOption = {
   id: string;
@@ -289,6 +292,91 @@ export function FirewallSection({
           Manage rules
         </Button>
       </div>
+    </div>
+  );
+}
+
+type NetworkDevicesSectionProps = {
+  devices: LanDevice[];
+  loading?: boolean;
+  error?: string | null;
+  onRefresh?: () => void;
+};
+
+export function NetworkDevicesSection({
+  devices,
+  loading,
+  error,
+  onRefresh,
+}: NetworkDevicesSectionProps) {
+  return (
+    <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/15 shadow-lg shadow-black/25">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h4 className="text-sm font-semibold text-white -tracking-[0.01em] mb-1">
+            Network Devices
+          </h4>
+          <p className="text-xs text-white/60">
+            Devices discovered on your local network
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="border border-white/15 bg-white/10 hover:bg-white/20 text-white text-xs shadow-sm"
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          {loading ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100 mb-3">
+          {error}
+        </div>
+      )}
+
+      {loading && devices.length === 0 && (
+        <p className="text-xs text-white/60">Scanning...</p>
+      )}
+
+      {!loading && devices.length === 0 && !error && (
+        <p className="text-xs text-white/60">No devices found.</p>
+      )}
+
+      {devices.length > 0 && (
+        <div className="divide-y divide-white/10 border border-white/10 rounded-xl overflow-hidden">
+          {devices.slice(0, 12).map((device) => (
+            <div
+              key={`${device.ip}-${device.mac ?? device.name ?? device.source}`}
+              className="flex items-center justify-between px-3 py-2 bg-white/5 text-xs text-white"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 border border-white/15">
+                  <Network className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <div className="font-semibold truncate">
+                    {device.name || "Unknown device"}
+                  </div>
+                  <div className="text-white/60 truncate">
+                    {device.ip}
+                    {device.mac ? ` • ${device.mac}` : ""}
+                  </div>
+                </div>
+              </div>
+              <span className="text-[11px] uppercase tracking-wide text-white/60">
+                {device.source}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
