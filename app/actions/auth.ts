@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Role } from "../generated/prisma/enums";
+import { ensureDefaultCasaStoreInstalled } from "./appstore";
 
 export interface AuthUser {
   id: string;
@@ -58,6 +59,11 @@ export async function registerUser(
   const user = await prisma.user.create({
     data: { username, pin: hashedPin, role: "ADMIN" },
   });
+
+  // Best-effort: pre-load the CasaOS official app store so apps are visible immediately
+  ensureDefaultCasaStoreInstalled().catch((error) =>
+    console.error("[Auth] Failed to bootstrap CasaOS store:", error),
+  );
 
   const session = await createSession(user.id);
 

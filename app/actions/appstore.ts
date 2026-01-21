@@ -17,6 +17,8 @@ const CASA_COMMUNITY_LIST_URL =
   "https://awesome.casaos.io/content/3rd-party-app-stores/list.html";
 const PUBLIC_ROOT = path.join(process.cwd());
 const CASA_STORE_ROOT = path.join(PUBLIC_ROOT, "external-apps");
+const CASA_OFFICIAL_ZIP =
+  "https://github.com/IceWhaleTech/CasaOS-AppStore/archive/refs/heads/main.zip";
 
 export type CommunityStore = {
   id: string;
@@ -230,6 +232,44 @@ export async function importCasaStore(
   } catch (error: any) {
     console.error("Failed to import CasaOS store:", error);
     return { success: false, error: error.message || "Failed to import store" };
+  }
+}
+
+/**
+ * Best-effort bootstrap of the official CasaOS store.
+ * Idempotent: skips if already imported.
+ */
+export async function ensureDefaultCasaStoreInstalled(): Promise<{
+  success: boolean;
+  skipped?: boolean;
+  error?: string;
+}> {
+  const slug = slugify(CASA_OFFICIAL_ZIP);
+  const targetDir = path.join(CASA_STORE_ROOT, slug);
+
+  try {
+    await fs.mkdir(CASA_STORE_ROOT, { recursive: true });
+    const dirExists = await fs
+      .stat(targetDir)
+      .then(() => true)
+      .catch(() => false);
+    const storeExists = await prisma.store.findFirst({ where: { slug } });
+
+    if (dirExists && storeExists) {
+      return { success: true, skipped: true };
+    }
+
+    const result = await importCasaStore(CASA_OFFICIAL_ZIP, {
+      name: "CasaOS Official Store",
+      description: "Preloaded CasaOS application catalog",
+    });
+
+    return result.success
+      ? { success: true, skipped: false }
+      : { success: false, error: result.error };
+  } catch (error: any) {
+    console.error("Failed to ensure default CasaOS store:", error);
+    return { success: false, error: error?.message || "Unknown error" };
   }
 }
 
@@ -543,6 +583,7 @@ async function parseCasaStore(
 }
 
 async function listFiles(dir: string): Promise<string[]> {
+  console.log(`[appstore] listFiles: scanning ${dir}`);
   const results: string[] = [];
   const entries = await fs.readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
@@ -554,6 +595,7 @@ async function listFiles(dir: string): Promise<string[]> {
       results.push(fullPath);
     }
   }
+  console.log(`[appstore] listFiles: found ${results.length} entries under ${dir}`);
   return results;
 }
 

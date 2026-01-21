@@ -208,6 +208,7 @@ async function withStatus(share: StoredShare): Promise<NetworkShare> {
 }
 
 export async function listNetworkShares(): Promise<{ shares: NetworkShare[] }> {
+  console.log("[network-storage] listNetworkShares: loading shares");
   const shares = await loadShares();
   const withStatuses = await Promise.all(shares.map(withStatus));
 
@@ -216,10 +217,14 @@ export async function listNetworkShares(): Promise<{ shares: NetworkShare[] }> {
     (a, b) => a.host.localeCompare(b.host) || a.share.localeCompare(b.share),
   );
 
+  console.log(
+    `[network-storage] listNetworkShares: returning ${withStatuses.length} share(s)`,
+  );
   return { shares: withStatuses };
 }
 
 export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
+  console.log("[network-storage] discoverSmbHosts: starting mDNS scan");
   const hosts: DiscoveredHost[] = [];
   try {
     // avahi-browse -r -t _smb._tcp
@@ -243,8 +248,11 @@ export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
           hosts.push({ name, host, ip });
         }
       });
+    console.log(
+      `[network-storage] discoverSmbHosts: found ${hosts.length} host(s)`,
+    );
   } catch {
-    // ignore discovery failures
+    console.warn("[network-storage] discoverSmbHosts: discovery failed");
   }
   return { hosts };
 }
@@ -368,10 +376,12 @@ export async function connectNetworkShare(
   id: string,
   credentials?: { username?: string; password?: string },
 ): Promise<{ success: boolean; share?: NetworkShare; error?: string }> {
+  console.log(`[network-storage] connectNetworkShare: id=${id}`);
   const shares = await loadShares();
   const record = shares.find((s) => s.id === id);
 
   if (!record) {
+    console.warn("[network-storage] connectNetworkShare: share not found");
     return { success: false, error: "Share not found" };
   }
 
@@ -398,6 +408,9 @@ export async function connectNetworkShare(
 
   await saveShares(shares.map((s) => (s.id === record.id ? record : s)));
 
+  console.log(
+    `[network-storage] connectNetworkShare: completed success=${mountResult.success}`,
+  );
   return {
     success: mountResult.success,
     share: await withStatus(record),

@@ -38,6 +38,13 @@ function dedupeNetworks(networks: WifiNetwork[]): WifiNetwork[] {
   return Array.from(strongestBySsid.values()).sort((a, b) => b.signal - a.signal);
 }
 
+function sanitizeSsid(value: string): string {
+  return value
+    .replace(/^nmcli\s*/i, "")
+    .replace(/^"+|"+$/g, "")
+    .trim();
+}
+
 export async function listWifiNetworks(): Promise<WifiListResult> {
   console.log('[network] listWifiNetworks called');
   const errors: string[] = [];
@@ -71,12 +78,12 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
         networks: dedupeNetworks(
           wifiNetworks
             .map((network) => ({
-              ssid: network.ssid || '',
+              ssid: sanitizeSsid(network.ssid || ''),
               security: Array.isArray(network.security)
                 ? network.security.join(', ')
                 : network.security || '',
               signal: Number(network.quality ?? network.signalLevel ?? 0) || 0,
-              connected: connectedSsids.has(network.ssid || ''),
+              connected: connectedSsids.has(sanitizeSsid(network.ssid || '')),
             }))
             .filter((n) => n.ssid)
         ),
@@ -117,9 +124,10 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
       .map((line) => {
         const [active = '', ssid = '', security = '', signal = '0'] = line.split(':');
         const isActive = active.toLowerCase() === 'yes' || active === '1' || active === 'true';
-        if (isActive && ssid) connectedSsids.add(ssid);
+        const cleanSsid = sanitizeSsid(ssid);
+        if (isActive && cleanSsid) connectedSsids.add(cleanSsid);
         return {
-          ssid,
+          ssid: cleanSsid,
           security,
           signal: Number(signal) || 0,
           connected: isActive,
