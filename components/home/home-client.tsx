@@ -275,9 +275,8 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
           onWifiClick={() => {
             setWifiDialogOpen(true);
           }}
-        >
-          <UserMenu onOpenSettings={() => setSettingsOpen(true)} />
-        </StatusBar>
+        ></StatusBar>
+        <UserMenu onOpenSettings={() => setSettingsOpen(true)} />
       </div>
 
       {/* Main Content */}

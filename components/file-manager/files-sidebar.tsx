@@ -1,9 +1,10 @@
 'use client';
 
 import { type DefaultDirectory } from '@/app/actions/filesystem';
+import { FolderIcon } from '@/components/icons/files';
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Clock, Grid3x3, Home, Plus } from 'lucide-react';
+import { Clock, Grid3x3, Home, Plus, Trash2 } from 'lucide-react';
 
 interface FilesSidebarProps {
   homePath: string;
@@ -73,11 +74,8 @@ export function FilesSidebar({
               className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10"
               onClick={() => onNavigate(shortcut.path)}
             >
-              <div className="relative w-4 h-3.5 flex-shrink-0">
-                <div className="absolute top-0 left-0 w-1.5 h-1 bg-gradient-to-br from-orange-400 to-orange-500 rounded-t"></div>
-                <div className="absolute top-0.5 left-0 w-full h-2.5 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 rounded shadow">
-                  <div className="absolute inset-0 rounded bg-gradient-to-b from-white/20 to-transparent"></div>
-                </div>
+              <div className="w-5 h-4 flex-shrink-0">
+                <FolderIcon className="w-full h-full" />
               </div>
               <span className="text-sm -tracking-[0.01em]">
                 {shortcut.name.charAt(0).toUpperCase() + shortcut.name.slice(1)}
@@ -109,15 +107,7 @@ export function FilesSidebar({
 
       <div className="p-3 border-t border-white/10">
         <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/60 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
-          <div className="relative w-4 h-4 flex-shrink-0">
-            <div className="w-full h-full rounded-sm bg-gradient-to-br from-zinc-500 via-zinc-600 to-zinc-700 shadow-sm">
-              <div className="absolute inset-0 rounded-sm bg-gradient-to-b from-white/20 to-transparent"></div>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                <div className="w-2 h-2.5 border border-zinc-300 border-t-0 rounded-b-sm"></div>
-                <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-2.5 h-0.5 bg-zinc-300 rounded-full"></div>
-              </div>
-            </div>
-          </div>
+          <Trash2 className="w-4 h-4 text-white/50" />
           <span className="text-sm -tracking-[0.01em]">Trash</span>
         </button>
       </div>

@@ -1,8 +1,8 @@
 "use client";
 
+import { FolderIcon, getFileIcon } from "@/components/icons/files";
 import { text } from "@/components/ui/design-tokens";
 import { cn } from "@/lib/utils";
-import { File, Folder } from "lucide-react";
 import type { FilesListData } from "../types";
 
 interface FilesListProps {
@@ -23,29 +23,34 @@ export function FilesListWidget({ data }: FilesListProps) {
         {displayFiles.length === 0 ? (
           <p className={text.muted}>No recent files</p>
         ) : (
-          displayFiles.map((file) => (
-            <div
-              key={file.id}
-              className={cn(
-                "flex items-center gap-2 py-1.5 px-2 rounded-lg",
-                "hover:bg-white/5 transition-colors cursor-pointer"
-              )}
-            >
-              {file.type === "folder" ? (
-                <Folder className="w-4 h-4 text-amber-400 shrink-0" />
-              ) : (
-                <File className="w-4 h-4 text-white/60 shrink-0" />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className={cn(text.valueSmall, "truncate")}>{file.name}</p>
+          displayFiles.map((file) => {
+            const FileIcon = file.type === "folder" ? FolderIcon : getFileIcon(file.name);
+
+            return (
+              <div
+                key={file.id}
+                className={cn(
+                  "flex items-center gap-2 py-1.5 px-2 rounded-lg",
+                  "hover:bg-white/5 transition-colors cursor-pointer"
+                )}
+              >
+                <div className={cn(
+                  "shrink-0",
+                  file.type === "folder" ? "w-5 h-4" : "w-4 h-5"
+                )}>
+                  <FileIcon className="w-full h-full" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={cn(text.valueSmall, "truncate")}>{file.name}</p>
+                </div>
+                {file.modifiedAt && (
+                  <span className={cn(text.muted, "shrink-0")}>
+                    {file.modifiedAt}
+                  </span>
+                )}
               </div>
-              {file.modifiedAt && (
-                <span className={cn(text.muted, "shrink-0")}>
-                  {file.modifiedAt}
-                </span>
-              )}
-            </div>
-          ))
+            );
+          })
         )}
 
         {/* Gradient fade */}

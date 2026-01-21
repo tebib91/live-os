@@ -10,6 +10,7 @@ export type WifiNetwork = {
   ssid: string;
   security: string;
   signal: number;
+  connected?: boolean;
 };
 
 export type WifiListResult = {
@@ -25,6 +26,12 @@ function dedupeNetworks(networks: WifiNetwork[]): WifiNetwork[] {
     const existing = strongestBySsid.get(network.ssid);
     if (!existing || network.signal > existing.signal) {
       strongestBySsid.set(network.ssid, network);
+    } else if (existing) {
+      // Preserve connected flag if any duplicate reports a connection
+      strongestBySsid.set(network.ssid, {
+        ...existing,
+        connected: existing.connected || network.connected,
+      });
     }
   }
 
@@ -34,6 +41,19 @@ function dedupeNetworks(networks: WifiNetwork[]): WifiNetwork[] {
 export async function listWifiNetworks(): Promise<WifiListResult> {
   console.log('[network] listWifiNetworks called');
   const errors: string[] = [];
+  const connectedSsids = new Set<string>();
+
+  // Try to detect the currently connected SSID
+  try {
+    if (typeof si.wifiConnections === 'function') {
+      const connections = await si.wifiConnections();
+      connections?.forEach((conn) => {
+        if (conn?.ssid) connectedSsids.add(conn.ssid);
+      });
+    }
+  } catch {
+    // Ignore connection detection failures
+  }
 
   // Try systeminformation first with timeout
   try {
@@ -56,6 +76,7 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
                 ? network.security.join(', ')
                 : network.security || '',
               signal: Number(network.quality ?? network.signalLevel ?? 0) || 0,
+              connected: connectedSsids.has(network.ssid || ''),
             }))
             .filter((n) => n.ssid)
         ),
@@ -80,14 +101,9 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
       // Rescan might fail if already scanning, continue anyway
     }
 
-    const { stdout, stderr } = await execFileAsync('nmcli', [
-      '-t',
-      '-f',
-      'SSID,SECURITY,SIGNAL',
-      'device',
-      'wifi',
-      'list',
-    ], { timeout: 10000 });
+    const { stdout, stderr } = await execFileAsync('nmcli', ['-t', '-f', 'ACTIVE,SSID,SECURITY,SIGNAL', 'device', 'wifi', 'list'], {
+      timeout: 10000,
+    });
 
     console.log('[network] nmcli stdout:', stdout);
     if (stderr) {
@@ -99,11 +115,14 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
       .map((line) => line.trim())
       .filter(Boolean)
       .map((line) => {
-        const [ssid = '', security = '', signal = '0'] = line.split(':');
+        const [active = '', ssid = '', security = '', signal = '0'] = line.split(':');
+        const isActive = active.toLowerCase() === 'yes' || active === '1' || active === 'true';
+        if (isActive && ssid) connectedSsids.add(ssid);
         return {
           ssid,
           security,
           signal: Number(signal) || 0,
+          connected: isActive,
         };
       })
       .filter((n) => n.ssid)

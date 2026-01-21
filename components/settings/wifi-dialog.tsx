@@ -31,6 +31,10 @@ export function WifiDialog({ open, onOpenChange }: WifiDialogProps) {
     try {
       const result = await listWifiNetworks();
       setNetworks(result.networks);
+      const connected = result.networks.find((n) => n.connected);
+      if (connected?.ssid) {
+        setSelectedSsid(connected.ssid);
+      }
       if (result.error) {
         setScanError(result.error);
       } else if (result.warning) {
@@ -48,6 +52,10 @@ export function WifiDialog({ open, onOpenChange }: WifiDialogProps) {
   }, [open, refresh]);
 
   const handleConnect = async (network: WifiNetwork) => {
+    if (network.connected) {
+      setConnectError("Already connected to this network");
+      return;
+    }
     const needsPassword = network.security && network.security !== "--";
     if (needsPassword && password.trim().length === 0) {
       setConnectError("Password required for secured network");
@@ -110,6 +118,7 @@ export function WifiDialog({ open, onOpenChange }: WifiDialogProps) {
                 selected={selectedSsid === network.ssid}
                 password={password}
                 connecting={connecting}
+                connected={network.connected}
                 onSelect={() => handleSelectNetwork(network.ssid)}
                 onPasswordChange={setPassword}
                 onConnect={() => handleConnect(network)}

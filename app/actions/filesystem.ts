@@ -50,6 +50,11 @@ async function ensureHomeRoot(): Promise<string> {
   }
 }
 
+export async function getHomeRoot(): Promise<string> {
+  // Reuse the same resolution logic used by the filesystem actions
+  return ensureHomeRoot();
+}
+
 async function ensureDefaultDirectories(): Promise<DefaultDirectory[]> {
   const directories: DefaultDirectory[] = [];
   const homeRoot = await ensureHomeRoot();

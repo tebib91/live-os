@@ -11,6 +11,7 @@ interface NetworkItemProps {
   selected: boolean;
   password: string;
   connecting: boolean;
+  connected?: boolean;
   onSelect: () => void;
   onPasswordChange: (value: string) => void;
   onConnect: () => void;
@@ -28,11 +29,13 @@ export function NetworkItem({
   selected,
   password,
   connecting,
+  connected,
   onSelect,
   onPasswordChange,
   onConnect,
 }: NetworkItemProps) {
   const secured = network.security && network.security !== "--";
+  const isConnected = connected || network.connected;
 
   return (
     <button
@@ -62,10 +65,17 @@ export function NetworkItem({
             </div>
           </div>
         </div>
-        <div className="text-xs text-white/60">{network.signal}%</div>
+        <div className="flex items-center gap-2 text-xs text-white/60">
+          {isConnected && (
+            <span className="rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-100 px-2 py-0.5">
+              Connected
+            </span>
+          )}
+          <span>{network.signal}%</span>
+        </div>
       </div>
 
-      {selected && (
+      {selected && !isConnected && (
         <div className="mt-3 space-y-2">
           {secured && (
             <Input

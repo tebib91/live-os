@@ -1,8 +1,8 @@
 "use client";
 
+import { FolderIcon } from "@/components/icons/files";
 import { text } from "@/components/ui/design-tokens";
 import { cn } from "@/lib/utils";
-import { Folder } from "lucide-react";
 import type { FilesGridData } from "../types";
 
 interface FilesGridProps {
@@ -31,8 +31,10 @@ export function FilesGridWidget({ data }: FilesGridProps) {
                 "bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
               )}
             >
-              <Folder className="w-8 h-8 text-amber-400" />
-              <span className={cn(text.muted, "truncate max-w-full text-center")}>
+              <div className="w-10 h-8">
+                <FolderIcon className="w-full h-full drop-shadow" />
+              </div>
+              <span className={cn(text.muted, "truncate max-w-full text-center text-[11px]")}>
                 {folder.name}
               </span>
             </div>

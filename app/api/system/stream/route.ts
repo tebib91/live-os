@@ -72,6 +72,7 @@ async function getInstalledApps() {
     const metaByContainer = new Map(
       knownApps.map((app) => [app.containerName, app])
     );
+    const metaByAppId = new Map(knownApps.map((app) => [app.appId, app]));
     const storeMetaById = new Map(storeApps.map((app) => [app.appId, app]));
 
     const { stdout } = await execAsync(
@@ -81,9 +82,31 @@ async function getInstalledApps() {
     if (!stdout.trim()) return [];
 
     const lines = stdout.trim().split('\n');
+    const normalize = (value: string | undefined) =>
+      (value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+
+    const fuzzyFindAppId = (containerName: string) => {
+      const normalized = normalize(containerName);
+      if (!normalized) return null;
+      const candidates = Array.from(
+        new Set([
+          ...metaByAppId.keys(),
+          ...storeMetaById.keys(),
+        ])
+      );
+      for (const candidate of candidates) {
+        if (normalized.includes(normalize(candidate))) {
+          return candidate;
+        }
+      }
+      return null;
+    };
+
     return await Promise.all(
       lines.map(async (line) => {
-        const [containerName, status] = line.split('\t');
+        const [containerName, status, image] = line.split('\t');
 
         let appStatus: 'running' | 'stopped' | 'error' = 'error';
         if (status.toLowerCase().startsWith('up')) {
@@ -93,23 +116,38 @@ async function getInstalledApps() {
         }
 
         const meta = metaByContainer.get(containerName);
-        const appId = meta?.appId || getAppIdFromContainerName(containerName);
+
+        const appId =
+          meta?.appId ||
+          getAppIdFromContainerName(containerName) ||
+          (image ? image.split('/').pop()?.split(':')[0] : null) ||
+          fuzzyFindAppId(containerName) ||
+          null;
+
+        // If fuzzy matched, prefer DB meta over store meta
+        const dbMeta =
+          meta ||
+          (appId ? metaByAppId.get(appId) : undefined);
         const storeMeta = appId ? storeMetaById.get(appId) : undefined;
         const hostPort = await resolveHostPort(containerName);
 
+        const fallbackName = containerName
+          .replace(/[-_]/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+
         return {
           id: containerName,
-          appId,
+          appId: appId || containerName,
           name:
-            meta?.name ||
+            dbMeta?.name ||
             storeMeta?.title ||
             storeMeta?.name ||
-            containerName.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-          icon: meta?.icon || storeMeta?.icon || '/default-application-icon.png',
+            fallbackName,
+          icon: dbMeta?.icon || storeMeta?.icon || '/default-application-icon.png',
           status: appStatus,
           webUIPort: hostPort ? Number(hostPort) : undefined,
           containerName,
-          installedAt: meta?.createdAt?.getTime?.() || Date.now(),
+          installedAt: dbMeta?.createdAt?.getTime?.() || Date.now(),
         };
       })
     );
