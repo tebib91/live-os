@@ -30,6 +30,12 @@ export type NetworkShare = Omit<StoredShare, "password"> & {
   status: "connected" | "disconnected";
 };
 
+export type DiscoveredHost = {
+  name: string;
+  host: string;
+  ip?: string;
+};
+
 function slugify(input: string) {
   return (
     input
@@ -149,10 +155,13 @@ async function mountShare(share: StoredShare, passwordOverride?: string) {
     );
     return { success: true as const };
   } catch (error: any) {
-    const message =
-      error?.stderr?.toString?.().trim?.() ||
-      error?.message ||
-      "Failed to mount share";
+    const stderr = error?.stderr?.toString?.().trim?.();
+    let message = stderr || error?.message || "Failed to mount share";
+    if (message.toLowerCase().includes("no such file or directory")) {
+      message =
+        "Share not found on server (check the share name/path). Original: " +
+        message;
+    }
     console.error("[network-storage] mount failed:", message);
     return { success: false as const, error: message };
   }
@@ -210,11 +219,51 @@ export async function listNetworkShares(): Promise<{ shares: NetworkShare[] }> {
   return { shares: withStatuses };
 }
 
+export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
+  const hosts: DiscoveredHost[] = [];
+  try {
+    // avahi-browse -r -t _smb._tcp
+    const { stdout } = await execFileAsync("avahi-browse", [
+      "-r",
+      "-t",
+      "_smb._tcp",
+    ], { timeout: 3000 });
+
+    stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .forEach((line) => {
+        // Format: =;eth0;IPv4;NAME;_smb._tcp;local;HOST.local;IP;PORT;
+        const parts = line.split(";");
+        if (parts.length >= 8 && parts[0] === "=") {
+          const name = parts[3];
+          const host = parts[6]?.replace(/\.local\.?$/, "") || name;
+          const ip = parts[7];
+          hosts.push({ name, host, ip });
+        }
+      });
+  } catch {
+    // ignore discovery failures
+  }
+  return { hosts };
+}
+
 async function resolveHost(host: string): Promise<string | null> {
   try {
     const res = await dns.lookup(host);
     return res.address || null;
   } catch {
+    // Fallback to avahi-resolve for .local/mDNS
+    try {
+      const { stdout } = await execFileAsync("avahi-resolve", ["-n", host], {
+        timeout: 2000,
+      });
+      const addr = stdout.trim().split(/\s+/)[1];
+      return addr || null;
+    } catch {
+      // ignore
+    }
     return null;
   }
 }
@@ -317,13 +366,20 @@ export async function addNetworkShare(input: {
 
 export async function connectNetworkShare(
   id: string,
-  password?: string,
+  credentials?: { username?: string; password?: string },
 ): Promise<{ success: boolean; share?: NetworkShare; error?: string }> {
   const shares = await loadShares();
   const record = shares.find((s) => s.id === id);
 
   if (!record) {
     return { success: false, error: "Share not found" };
+  }
+
+  if (credentials?.username !== undefined) {
+    record.username = credentials.username || undefined;
+  }
+  if (credentials?.password !== undefined) {
+    record.password = credentials.password;
   }
 
   const reach = await checkReachable(record.host);
@@ -333,7 +389,7 @@ export async function connectNetworkShare(
     return { success: false, error: reach.error, share: await withStatus(record) };
   }
 
-  const mountResult = await mountShare(record, password);
+  const mountResult = await mountShare(record, credentials?.password);
   if (!mountResult.success) {
     record.lastError = mountResult.error;
   } else {

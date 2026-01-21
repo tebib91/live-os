@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { iconBox, text } from "@/components/ui/design-tokens";
 import type { RunningApp } from "./types";
 

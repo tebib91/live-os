@@ -1,19 +1,10 @@
-import { getCurrentUser, hasUsers } from "@/app/actions/auth";
+import { getCurrentUser } from "@/app/actions/auth";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { hasUsersRaw } from "./lib/auth-utils";
 import { SESSION_COOKIE_NAME } from "./lib/config";
 
 const publicRoutes = ["/login", "/setup"];
-
-async function usersExist(): Promise<boolean> {
-  try {
-    return await hasUsers();
-  } catch (error) {
-    console.error("[Proxy] Failed to check users:", error);
-    return true; // fail-open to avoid trapping users on setup
-  }
-}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

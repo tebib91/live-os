@@ -2,19 +2,33 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Download, Sparkles } from "lucide-react";
+import { Download, ExternalLink, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 import { AppDetailDialog } from "./app-detail-dialog";
-import type { App } from "./types";
+import type { App, InstalledApp } from "./types";
+import { getAppWebUI } from "@/app/actions/docker";
+import { toast } from "sonner";
 
 interface AppCardProps {
   app: App;
+  installedApp?: InstalledApp | null;
+  onInstallSuccess?: () => void;
 }
 
-export function AppCard({ app }: AppCardProps) {
+export function AppCard({ app, installedApp, onInstallSuccess }: AppCardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [iconSrc, setIconSrc] = useState(app.icon);
+
+  const handleOpen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = await getAppWebUI(app.id);
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      toast.error("Unable to determine app URL. Ensure the app is running.");
+    }
+  };
 
   return (
     <>
@@ -76,15 +90,28 @@ export function AppCard({ app }: AppCardProps) {
           {/* Install Button */}
           <div className="flex items-center justify-between gap-3 pt-1 px-5 pb-4">
             <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsDetailOpen(true);
-              }}
+              onClick={
+                installedApp
+                  ? handleOpen
+                  : (e) => {
+                      e.stopPropagation();
+                      setIsDetailOpen(true);
+                    }
+              }
               className="w-full bg-white/15 hover:bg-white/25 text-white border border-white/20 shadow-lg shadow-black/20"
               size="sm"
             >
-              <Download className="w-4 h-4 mr-2" />
-              Install
+              {installedApp ? (
+                <>
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Install
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -94,6 +121,10 @@ export function AppCard({ app }: AppCardProps) {
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
         app={app}
+        installedApp={installedApp ?? undefined}
+        onInstallSuccess={() => {
+          onInstallSuccess?.();
+        }}
       />
     </>
   );

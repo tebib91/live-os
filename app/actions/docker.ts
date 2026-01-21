@@ -478,22 +478,6 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
     }
 
     const containerName = getContainerName(appId);
-    const { stdout } = await execAsync(
-      `docker inspect -f '{{json .NetworkSettings.Ports}}' ${containerName}`
-    );
-
-    const ports = JSON.parse(stdout || "{}") as Record<
-      string,
-      { HostIp: string; HostPort: string }[] | null
-    >;
-
-    const firstMapping = Object.values(ports).find(
-      (mappings) => Array.isArray(mappings) && mappings.length > 0
-    );
-
-    const hostPort = firstMapping?.[0]?.HostPort;
-    if (!hostPort) return null;
-
     const host =
       process.env.LIVEOS_DOMAIN ||
       process.env.LIVEOS_HOST ||
@@ -502,7 +486,24 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
       "localhost";
     const protocol = process.env.LIVEOS_HTTPS === "true" ? "https" : "http";
 
-    return `${protocol}://${host}:${hostPort}`;
+    // 1) Prefer published host port from Docker (works for bridge mode)
+    const hostPort = await resolveHostPort(containerName);
+    if (hostPort) {
+      return `${protocol}://${host}:${hostPort}`;
+    }
+
+    // 2) Fallback to metadata port (host network or compose without publish)
+    const appMeta = await prisma.app.findFirst({
+      where: { appId },
+      orderBy: { createdAt: "desc" },
+      select: { port: true },
+    });
+
+    if (appMeta?.port && validatePort(appMeta.port)) {
+      return `${protocol}://${host}:${appMeta.port}`;
+    }
+
+    return null;
   } catch (error) {
     console.error(`[Docker] getAppWebUI: failed to resolve URL for ${appId}:`, error);
     return null;

@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from "framer-motion";
 import { FileCode, Loader2, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { AppCard } from "./app-card";
 import { CommunityStoreDialog } from "./community-store-dialog";
 import { CustomDeployDialog } from "./custom-deploy-dialog";
@@ -26,6 +27,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [customDeployOpen, setCustomDeployOpen] = useState(false);
   const [communityStoreOpen, setCommunityStoreOpen] = useState(false);
+  const { installedApps } = useSystemStatus();
 
   useEffect(() => {
     if (open) {
@@ -300,7 +302,16 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                   }}
                   className="h-full"
                 >
-                  <AppCard app={app} />
+                  <AppCard
+                    app={app}
+                    installedApp={
+                      installedApps.find(
+                        (installed) =>
+                          installed.appId.toLowerCase() === app.id.toLowerCase()
+                      ) || undefined
+                    }
+                    onInstallSuccess={loadApps}
+                  />
                 </motion.div>
               ))}
             </motion.div>

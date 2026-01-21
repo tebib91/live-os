@@ -1,31 +1,14 @@
 "use client";
 
-import { memo, useEffect, useReducer } from "react";
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { memo, useEffect, useState } from "react";
 
 function DateDisplayComponent() {
-  // useReducer to force re-render every minute without lint warnings
-  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
-  const now = typeof window === "undefined" ? null : new Date();
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
-    // Hydration-safe: wait for mount before ticking the clock
-    forceUpdate();
-    const interval = setInterval(forceUpdate, 60_000);
+    // Initialize on mount to avoid hydration mismatch
+    requestAnimationFrame(() => setNow(new Date()));
+    const interval = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -45,10 +28,17 @@ function DateDisplayComponent() {
   return (
     <div className="flex items-center gap-2 text-white/80">
       <span className="text-xs font-medium" suppressHydrationWarning>
-        {formatDate(now)}
+        {now.toLocaleDateString(undefined, {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        })}
       </span>
       <span className="text-xs font-medium" suppressHydrationWarning>
-        {formatTime(now)}
+        {now.toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
       </span>
     </div>
   );

@@ -55,11 +55,6 @@ export default function LoginPage() {
     }
   };
 
-  const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, "").slice(0, 4);
-    setPin(value);
-  };
-
   if (checkingUsers) {
     return (
       <WallpaperLayout>

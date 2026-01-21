@@ -356,6 +356,34 @@ async function parseCasaStore(
   storeDir: string,
   storeId: string,
 ): Promise<App[]> {
+  const pickPort = (candidate: any): number | undefined => {
+    if (candidate == null) return undefined;
+    if (typeof candidate === "number" && Number.isFinite(candidate)) {
+      return candidate;
+    }
+    if (typeof candidate === "string") {
+      const match = candidate.match(/(\d{2,5})/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        return Number.isFinite(num) ? num : undefined;
+      }
+      return undefined;
+    }
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) {
+        const resolved = pickPort(item);
+        if (resolved !== undefined) return resolved;
+      }
+    }
+    if (typeof candidate === "object") {
+      for (const value of Object.values(candidate)) {
+        const resolved = pickPort(value);
+        if (resolved !== undefined) return resolved;
+      }
+    }
+    return undefined;
+  };
+
   const files = await listFiles(storeDir);
   const manifestFiles = files.filter(
     (file) => path.basename(file).toLowerCase() === "app.json",
@@ -420,7 +448,7 @@ async function parseCasaStore(
           "Unknown",
         screenshots,
         version: manifest.version,
-        port: manifest.port,
+        port: pickPort(manifest.port ?? manifest.port_map ?? manifest.ports),
         path: manifest.path,
         website: manifest.homepage || manifest.website,
         repo: manifest.source || manifest.repo,
@@ -480,6 +508,9 @@ async function parseCasaStore(
           : typeof publishedPortRaw === "number"
           ? publishedPortRaw
           : undefined;
+      const fallbackPort = pickPort(
+        xCasa.port_map ?? xCasa.port ?? xCasa.portmap ?? xCasa.portMap,
+      );
 
       apps.set(appId, {
         id: appId,
@@ -494,7 +525,10 @@ async function parseCasaStore(
         developer: xCasa.developer || xCasa.author || "Unknown",
         screenshots,
         version: xCasa.version,
-        port: Number.isFinite(portNumber as number) ? portNumber : undefined,
+        port:
+          Number.isFinite(portNumber as number) && portNumber !== undefined
+            ? portNumber
+            : fallbackPort,
         path: xCasa.path,
         website: xCasa.homepage || xCasa.website,
         repo: xCasa.source || xCasa.repo,

@@ -7,7 +7,7 @@ import {
   DialogDescription as ModalDescription,
   DialogTitle as ModalTitle,
 } from '@/components/ui/dialog';
-import { badge, card, dialog, text } from '@/components/ui/design-tokens';
+import { badge, card, text } from '@/components/ui/design-tokens';
 import dynamic from 'next/dynamic';
 import {
   Container,

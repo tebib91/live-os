@@ -50,7 +50,7 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
       } else {
         toast.error('Unable to determine app URL. Ensure the container exposes a port and is running.');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to open app');
     }
   };
@@ -65,7 +65,7 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
       } else {
         toast.error('Failed to stop app');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to stop app');
     } finally {
       setLoading(false);
@@ -82,7 +82,7 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
       } else {
         toast.error('Failed to start app');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to start app');
     } finally {
       setLoading(false);
@@ -99,7 +99,7 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
       } else {
         toast.error('Failed to restart app');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to restart app');
     } finally {
       setLoading(false);
@@ -117,7 +117,7 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
       } else {
         toast.error('Failed to uninstall app');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to uninstall app');
     } finally {
       setLoading(false);

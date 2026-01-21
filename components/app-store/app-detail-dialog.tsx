@@ -16,19 +16,28 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { AppInstallDialog, getDefaultInstallConfig } from './app-install-dialog';
-import type { App } from './types';
-import { Settings2 } from 'lucide-react';
+import type { App, InstalledApp } from './types';
+import { ExternalLink, Settings2 } from 'lucide-react';
+import { getAppWebUI } from '@/app/actions/docker';
 
 interface AppDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   app: App;
   onInstallSuccess?: () => void;
+  installedApp?: InstalledApp;
 }
 
-export function AppDetailDialog({ open, onOpenChange, app, onInstallSuccess }: AppDetailDialogProps) {
+export function AppDetailDialog({
+  open,
+  onOpenChange,
+  app,
+  onInstallSuccess,
+  installedApp,
+}: AppDetailDialogProps) {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const isInstalled = Boolean(installedApp);
 
   const handleQuickInstall = async () => {
     setInstalling(true);
@@ -52,6 +61,15 @@ export function AppDetailDialog({ open, onOpenChange, app, onInstallSuccess }: A
     } finally {
       setInstalling(false);
     }
+  };
+
+  const handleOpen = async () => {
+    const url = await getAppWebUI(app.id);
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    toast.error('Unable to determine app URL. Ensure the app is running.');
   };
 
   return (
@@ -161,24 +179,35 @@ export function AppDetailDialog({ open, onOpenChange, app, onInstallSuccess }: A
 
           <DialogFooter className="mt-3 sm:mt-4">
             <div className="flex w-full items-center gap-2">
+              {!isInstalled && (
+                <Button
+                  onClick={() => {
+                    setShowInstallDialog(true);
+                    onOpenChange(false);
+                  }}
+                  variant="outline"
+                  size="icon"
+                  className="border-white/30 bg-white/10 hover:bg-white/20"
+                  title="Custom install"
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              )}
               <Button
-                onClick={() => {
-                  setShowInstallDialog(true);
-                  onOpenChange(false);
-                }}
-                variant="outline"
-                size="icon"
-                className="border-white/30 bg-white/10 hover:bg-white/20"
-                title="Custom install"
-              >
-                <Settings2 className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={handleQuickInstall}
+                onClick={isInstalled ? handleOpen : handleQuickInstall}
                 disabled={installing}
-                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm sm:text-base"
+                className={`flex-1 ${isInstalled ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm sm:text-base`}
               >
-                {installing ? 'Installing...' : 'Install'}
+                {isInstalled ? (
+                  <>
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open
+                  </>
+                ) : installing ? (
+                  'Installing...'
+                ) : (
+                  'Install'
+                )}
               </Button>
             </div>
           </DialogFooter>

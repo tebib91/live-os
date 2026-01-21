@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Copy, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 interface LogsDialogProps {
@@ -25,7 +25,7 @@ export function LogsDialog({ open, onOpenChange, app }: LogsDialogProps) {
   const [logs, setLogs] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
       const logContent = await getAppLogs(app.appId, 100);
@@ -36,19 +36,19 @@ export function LogsDialog({ open, onOpenChange, app }: LogsDialogProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [app.appId]);
 
   useEffect(() => {
     if (open) {
       loadLogs();
     }
-  }, [open]);
+  }, [open, loadLogs]);
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(logs);
       toast.success('Logs copied to clipboard');
-    } catch (error) {
+    } catch {
       toast.error('Failed to copy logs');
     }
   };

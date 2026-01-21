@@ -116,11 +116,27 @@ export function useFilesDialog(open: boolean) {
   const [editorOriginalContent, setEditorOriginalContent] = useState('');
   const [editorSaving, setEditorSaving] = useState(false);
 
+  const loadDirectory = useCallback(
+    async (path: string) => {
+      setLoading(true);
+      try {
+        const result = await readDirectory(path);
+        setContent(result);
+        setCurrentPath(result.currentPath);
+      } catch (error) {
+        toast.error((error as Error).message || 'Failed to load directory');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [setContent]
+  );
+
   useEffect(() => {
     if (open && ready) {
       loadDirectory(currentPath);
     }
-  }, [open, currentPath, ready]);
+  }, [open, currentPath, ready, loadDirectory]);
 
   useEffect(() => {
     if (!open) {
@@ -171,22 +187,6 @@ export function useFilesDialog(open: boolean) {
       window.removeEventListener('keydown', handleKeyClose);
     };
   }, []);
-
-  const loadDirectory = useCallback(
-    async (path: string) => {
-      setLoading(true);
-      try {
-        const result = await readDirectory(path);
-        setContent(result);
-        setCurrentPath(result.currentPath);
-      } catch (error) {
-        toast.error((error as Error).message || 'Failed to load directory');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [setContent]
-  );
 
   const handleNavigate = (path: string) => {
     if (!path) return;

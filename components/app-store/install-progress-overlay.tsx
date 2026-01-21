@@ -14,7 +14,7 @@ export function InstallProgressOverlay({ installs }: InstallProgressOverlayProps
   if (!installs.length) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex w-full max-w-md flex-col gap-3">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex w-full max-w-xl flex-col gap-3 px-3">
       <AnimatePresence>
         {installs.map((install) => (
           <motion.div

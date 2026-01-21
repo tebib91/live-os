@@ -115,7 +115,6 @@ function getMockLogs(): LogEntry[] {
  */
 export async function runDiagnostics(): Promise<DiagnosticResult> {
   const checks: DiagnosticCheck[] = [];
-  const startTime = Date.now();
 
   // Check 1: Disk Space
   checks.push(await checkDiskSpace());
@@ -320,7 +319,7 @@ export async function restartService(serviceName: string): Promise<{ success: bo
   try {
     await execAsync(`sudo systemctl restart ${serviceName}`);
     return { success: true, message: `${serviceName} restarted successfully` };
-  } catch (error) {
+  } catch {
     return { success: false, message: `Failed to restart ${serviceName}` };
   }
 }

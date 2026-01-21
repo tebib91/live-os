@@ -159,7 +159,7 @@ export function useUserLocation(): UseUserLocationReturn {
     }
 
     init();
-  }, []);
+  }, [requestLocationFromBrowser]);
 
   // Manually set location
   const setManualLocation = useCallback(async (newLocation: UserLocation) => {
