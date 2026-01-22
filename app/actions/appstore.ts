@@ -11,17 +11,18 @@ import path from "path";
 import { promisify } from "util";
 import YAML from "yaml";
 import crypto from "crypto";
-import { logAction } from "./logger";
+import { logAction, withActionLogging } from "./logger";
 
 const execAsync = promisify(exec);
 
-const CASA_COMMUNITY_LIST_URL =
-  "https://awesome.casaos.io/content/3rd-party-app-stores/list.html";
 const PUBLIC_ROOT = path.join(process.cwd());
-const CASA_STORE_ROOT = path.join(PUBLIC_ROOT, "external-apps");
-const CASA_OFFICIAL_ZIP =
-  "https://github.com/IceWhaleTech/CasaOS-AppStore/archive/refs/heads/main.zip";
+const STORE_ROOT = path.join(PUBLIC_ROOT, "external-apps");
 
+// Umbrel official store
+const UMBREL_OFFICIAL_ZIP =
+  "https://github.com/getumbrel/umbrel-apps/archive/refs/heads/master.zip";
+
+// Community stores can be added via the UI
 export type CommunityStore = {
   id: string;
   name: string;
@@ -30,105 +31,100 @@ export type CommunityStore = {
   repoUrl?: string;
 };
 
+/**
+ * List all imported app stores (directory names).
+ */
 export async function listImportedStores(): Promise<string[]> {
-  try {
-    await fs.mkdir(CASA_STORE_ROOT, { recursive: true });
-    const entries = await fs.readdir(CASA_STORE_ROOT, { withFileTypes: true });
-    return entries
-      .filter((e) => e.isDirectory())
-      .map((e) => e.name)
-      .sort((a, b) => a.localeCompare(b));
-  } catch (error) {
-    console.error("Failed to list imported stores:", error);
-    return [];
-  }
-}
-
-export async function removeImportedStore(slug: string): Promise<boolean> {
-  if (!slug) return false;
-  const target = path.join(CASA_STORE_ROOT, slug);
-  try {
-    await fs.rm(target, { recursive: true, force: true });
-    await prisma.store.deleteMany({ where: { slug } });
-    await prisma.app.deleteMany({ where: { store: { slug } } });
-    return true;
-  } catch (error) {
-    console.error("Failed to remove imported store:", error);
-    return false;
-  }
-}
-
-function pickLocalizedText(value: unknown, fallback: string): string {
-  if (typeof value === "string") return value;
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const preferred = ["en_us", "en_US", "en", "default"];
-    for (const key of preferred) {
-      const candidate = record[key];
-      if (typeof candidate === "string" && candidate.trim()) return candidate;
+  return withActionLogging("appstore:listImported", async () => {
+    try {
+      await fs.mkdir(STORE_ROOT, { recursive: true });
+      const entries = await fs.readdir(STORE_ROOT, { withFileTypes: true });
+      return entries
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name)
+        .sort((a, b) => a.localeCompare(b));
+    } catch (error) {
+      console.error("Failed to list imported stores:", error);
+      return [];
     }
-    const firstString = Object.values(record).find(
-      (v) => typeof v === "string" && v.trim(),
-    );
-    if (typeof firstString === "string") return firstString;
-  }
-  return fallback;
+  });
+}
+
+/**
+ * Remove an imported store by its slug.
+ */
+export async function removeImportedStore(slug: string): Promise<boolean> {
+  return withActionLogging("appstore:removeImported", async () => {
+    if (!slug) return false;
+    const target = path.join(STORE_ROOT, slug);
+    try {
+      await fs.rm(target, { recursive: true, force: true });
+      await prisma.store.deleteMany({ where: { slug } });
+      await prisma.app.deleteMany({ where: { store: { slug } } });
+      return true;
+    } catch (error) {
+      console.error("Failed to remove imported store:", error);
+      return false;
+    }
+  });
 }
 
 /**
  * Load apps from the persisted store database.
  */
 export async function getAppStoreApps(): Promise<App[]> {
-  await logAction("appstore:list:start");
-  try {
-    const records = await prisma.app.findMany({
-      orderBy: [{ title: "asc" }],
-      include: { store: true },
-    });
+  return withActionLogging("appstore:list", async () => {
+    await logAction("appstore:list:start");
+    try {
+      const records = await prisma.app.findMany({
+        orderBy: [{ title: "asc" }],
+        include: { store: true },
+      });
 
-    const apps = records.map((record) => ({
-      id: record.appId,
-      title: record.title,
-      name: record.name,
-      icon: record.icon,
-      tagline: record.tagline ?? "",
-      overview: record.overview ?? "",
-      category: Array.isArray(record.category)
-        ? (record.category as string[])
-        : [],
-      developer: record.developer ?? "Unknown",
-      screenshots: Array.isArray(record.screenshots)
-        ? (record.screenshots as string[])
-        : [],
-      version: record.version ?? undefined,
-      port: record.port ?? undefined,
-      path: record.path ?? undefined,
-      website: record.website ?? undefined,
-      repo: record.repo ?? undefined,
-      composePath: record.composePath,
-    }));
-    await logAction("appstore:list:done", { count: apps.length });
-    return apps;
-  } catch (error) {
-    await logAction("appstore:list:error", {
-      error: (error as Error)?.message || "unknown",
-    });
-    return [];
-  }
+      const apps = records.map((record) => ({
+        id: record.appId,
+        title: record.title,
+        name: record.name,
+        icon: record.icon,
+        tagline: record.tagline ?? "",
+        overview: record.overview ?? "",
+        category: Array.isArray(record.category)
+          ? (record.category as string[])
+          : [],
+        developer: record.developer ?? "Unknown",
+        screenshots: Array.isArray(record.screenshots)
+          ? (record.screenshots as string[])
+          : [],
+        version: record.version ?? undefined,
+        port: record.port ?? undefined,
+        path: record.path ?? undefined,
+        website: record.website ?? undefined,
+        repo: record.repo ?? undefined,
+        composePath: record.composePath,
+      }));
+      await logAction("appstore:list:done", { count: apps.length });
+      return apps;
+    } catch (error) {
+      await logAction("appstore:list:error", {
+        error: (error as Error)?.message || "unknown",
+      });
+      return [];
+    }
+  });
 }
 
 /**
  * Placeholder for installed apps; currently not implemented.
  */
 export async function getInstalledApps(): Promise<App[]> {
-  return [];
+  return withActionLogging("appstore:getInstalledApps", async () => []);
 }
 
 /**
- * Download and extract a CasaOS app store ZIP into external-apps/<slug>
+ * Download and extract an Umbrel-compatible app store ZIP into external-apps/<slug>
  * and persist store/app metadata to the database.
  */
-export async function importCasaStore(
+export async function importUmbrelStore(
   url: string,
   meta?: { name?: string; description?: string },
 ): Promise<{
@@ -146,11 +142,11 @@ export async function importCasaStore(
   }
 
   const storeSlug = slugify(url);
-  const targetDir = path.join(CASA_STORE_ROOT, storeSlug);
+  const targetDir = path.join(STORE_ROOT, storeSlug);
 
   try {
     await logAction("appstore:import:start", { url, storeSlug });
-    await fs.mkdir(CASA_STORE_ROOT, { recursive: true });
+    await fs.mkdir(STORE_ROOT, { recursive: true });
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -187,7 +183,7 @@ export async function importCasaStore(
     // Extract ZIP using system unzip
     await extractZipBuffer(buffer, targetDir);
 
-    const parsedApps = await parseCasaStore(targetDir, storeSlug);
+    const parsedApps = await parseUmbrelStore(targetDir, storeSlug);
 
     // Upsert store
     const store = await prisma.store.upsert({
@@ -254,6 +250,12 @@ export async function importCasaStore(
       });
     }
 
+    await logAction("appstore:import:done", {
+      url,
+      storeSlug,
+      apps: parsedApps.length,
+    });
+
     return {
       success: true,
       storeId: store.slug,
@@ -269,19 +271,19 @@ export async function importCasaStore(
 }
 
 /**
- * Best-effort bootstrap of the official CasaOS store.
+ * Best-effort bootstrap of the official Umbrel store.
  * Idempotent: skips if already imported.
  */
-export async function ensureDefaultCasaStoreInstalled(): Promise<{
+export async function ensureDefaultUmbrelStoreInstalled(): Promise<{
   success: boolean;
   skipped?: boolean;
   error?: string;
 }> {
-  const slug = slugify(CASA_OFFICIAL_ZIP);
-  const targetDir = path.join(CASA_STORE_ROOT, slug);
+  const slug = slugify(UMBREL_OFFICIAL_ZIP);
+  const targetDir = path.join(STORE_ROOT, slug);
 
   try {
-    await fs.mkdir(CASA_STORE_ROOT, { recursive: true });
+    await fs.mkdir(STORE_ROOT, { recursive: true });
     const dirExists = await fs
       .stat(targetDir)
       .then(() => true)
@@ -292,17 +294,17 @@ export async function ensureDefaultCasaStoreInstalled(): Promise<{
       return { success: true, skipped: true };
     }
 
-    await logAction("appstore:bootstrap:official:start");
-    const result = await importCasaStore(CASA_OFFICIAL_ZIP, {
-      name: "CasaOS Official Store",
-      description: "Preloaded CasaOS application catalog",
+    await logAction("appstore:bootstrap:umbrel:start");
+    const result = await importUmbrelStore(UMBREL_OFFICIAL_ZIP, {
+      name: "Umbrel App Store",
+      description: "Official Umbrel application catalog",
     });
 
     return result.success
       ? { success: true, skipped: false }
       : { success: false, error: result.error };
   } catch (error: any) {
-    await logAction("appstore:bootstrap:official:error", {
+    await logAction("appstore:bootstrap:umbrel:error", {
       error: error?.message || "unknown",
     });
     return { success: false, error: error?.message || "Unknown error" };
@@ -310,61 +312,23 @@ export async function ensureDefaultCasaStoreInstalled(): Promise<{
 }
 
 /**
- * Fetch list of CasaOS community app stores from the Awesome CasaOS page.
+ * Get a list of known Umbrel community stores.
+ * Unlike CasaOS, Umbrel doesn't have a central community list page.
+ * Returns a curated list of popular community stores.
  */
-export async function getCasaCommunityStores(): Promise<CommunityStore[]> {
-  try {
-    const response = await fetch(CASA_COMMUNITY_LIST_URL, {
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch CasaOS list: ${response.statusText}`);
-    }
-
-    const html = await response.text();
-    const sections = html.split(/<h2[^>]*>/i).slice(1);
-    const stores: CommunityStore[] = [];
-
-    for (const section of sections) {
-      const nameMatch = section.match(/>#<\/a>\s*([^<]+)<\/h2>/i);
-      if (!nameMatch) continue;
-
-      const rawName = nameMatch[1].trim();
-      const name = rawName.replace(/^\d+\.\s*/, "").trim();
-      if (!name) continue;
-
-      const descriptionMatch = section.match(/<p>([\s\S]*?)<\/p>/i);
-      const description = cleanHtmlText(descriptionMatch?.[1] ?? "");
-
-      const sourceUrls = Array.from(
-        section.matchAll(/<code>(https?:\/\/[^<]+?\.zip)\s*<\/code>/gi),
-      ).map((match) => match[1]);
-      if (sourceUrls.length === 0) continue;
-
-      const repoMatch = section.match(/href="(https?:\/\/github\.com[^"]+)"/i);
-
-      stores.push({
-        id: slugify(name),
-        name,
-        description,
-        sourceUrls,
-        repoUrl: repoMatch?.[1],
-      });
-    }
-
-    return stores;
-  } catch (error) {
-    console.error("Failed to load CasaOS community stores:", error);
-    return [];
-  }
-}
-
-function cleanHtmlText(text: string): string {
-  return text
-    .replace(/<br\s*\/?>/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/\s+/g, " ")
-    .trim();
+export async function getUmbrelCommunityStores(): Promise<CommunityStore[]> {
+  // Popular Umbrel community app stores
+  return [
+    {
+      id: "umbrel-community",
+      name: "Umbrel Community Store",
+      description: "Community-maintained apps for Umbrel",
+      sourceUrls: [
+        "https://github.com/getumbrel/umbrel-community-app-store/archive/refs/heads/main.zip",
+      ],
+      repoUrl: "https://github.com/getumbrel/umbrel-community-app-store",
+    },
+  ];
 }
 
 function slugify(value: string): string {
@@ -428,194 +392,106 @@ async function findZipExtractor(): Promise<
   return null;
 }
 
-async function parseCasaStore(
+/**
+ * Parse an Umbrel app store directory.
+ * Umbrel uses umbrel-app.yml manifest files in each app directory.
+ */
+async function parseUmbrelStore(
   storeDir: string,
   storeId: string,
 ): Promise<App[]> {
-  const pickPort = (candidate: any): number | undefined => {
-    if (candidate == null) return undefined;
-    if (typeof candidate === "number" && Number.isFinite(candidate)) {
-      return candidate;
-    }
-    if (typeof candidate === "string") {
-      const match = candidate.match(/(\d{2,5})/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        return Number.isFinite(num) ? num : undefined;
-      }
-      return undefined;
-    }
-    if (Array.isArray(candidate)) {
-      for (const item of candidate) {
-        const resolved = pickPort(item);
-        if (resolved !== undefined) return resolved;
-      }
-    }
-    if (typeof candidate === "object") {
-      for (const value of Object.values(candidate)) {
-        const resolved = pickPort(value);
-        if (resolved !== undefined) return resolved;
-      }
-    }
-    return undefined;
-  };
-
   const files = await listFiles(storeDir);
+
+  // Umbrel uses umbrel-app.yml manifest files
   const manifestFiles = files.filter(
-    (file) => path.basename(file).toLowerCase() === "app.json",
-  );
-  const composeFiles = files.filter((file) =>
-    ["docker-compose.yml", "docker-compose.yaml"].includes(
-      path.basename(file).toLowerCase(),
-    ),
+    (file) => path.basename(file).toLowerCase() === "umbrel-app.yml",
   );
 
-  const apps: Map<string, App> = new Map();
+  const apps: App[] = [];
 
-  // Parse app.json manifests if present
   for (const manifestPath of manifestFiles) {
     try {
-      const manifest = JSON.parse(await fs.readFile(manifestPath, "utf-8"));
+      const content = await fs.readFile(manifestPath, "utf-8");
+      const manifest = YAML.parse(content) as UmbrelManifest;
+
+      if (!manifest.id || !manifest.name) {
+        console.warn(`Skipping manifest at ${manifestPath}: missing id or name`);
+        continue;
+      }
+
       const appDir = path.dirname(manifestPath);
-      const appId = manifest.id || manifest.name || path.basename(appDir);
-      const title = pickLocalizedText(
-        manifest.title,
-        typeof manifest.name === "string" ? manifest.name : appId,
-      );
-      const tagline = pickLocalizedText(
-        manifest.tagline || manifest.description,
-        "",
-      );
-      const overview = pickLocalizedText(manifest.description, tagline);
-      const icon = resolveAsset(
-        manifest.icon || manifest.logo,
-        storeId,
-        appDir,
-      );
-      const screenshots = Array.isArray(
-        manifest.screenshots || manifest.gallery,
-      )
-        ? (manifest.screenshots || manifest.gallery).map((item: string) =>
-            resolveAsset(item, storeId, appDir),
-          )
+      const appId = manifest.id;
+
+      // Resolve icon - Umbrel stores icon as relative path or URL
+      const icon = resolveAsset(manifest.icon, storeId, appDir);
+
+      // Resolve gallery images (screenshots)
+      const screenshots = Array.isArray(manifest.gallery)
+        ? manifest.gallery.map((item: string) => resolveAsset(item, storeId, appDir))
         : [];
 
-      const categories = manifest.categories || manifest.category;
-      const category = Array.isArray(categories)
-        ? categories
-        : typeof categories === "string"
-          ? [categories]
-          : [];
+      // Normalize category - Umbrel uses single category string
+      const category = manifest.category
+        ? [manifest.category]
+        : [];
 
-      apps.set(appId, {
+      // Find the docker-compose file for this app
+      const composeFile = files.find(
+        (f) =>
+          path.dirname(f) === appDir &&
+          ["docker-compose.yml", "docker-compose.yaml"].includes(path.basename(f).toLowerCase())
+      );
+
+      apps.push({
         id: appId,
-        title,
+        title: manifest.name,
         name: appId,
-        icon:
-          icon ??
-          "https://raw.githubusercontent.com/IceWhaleTech/CasaOS-AppStore/master/logo.png",
-        tagline,
-        overview,
+        icon: icon ?? "https://getumbrel.com/umbrel-logo-rounded.svg",
+        tagline: manifest.tagline ?? "",
+        overview: manifest.description ?? manifest.tagline ?? "",
         category: category.filter(Boolean),
-        developer:
-          manifest.developer ||
-          manifest.author ||
-          manifest.maintainer ||
-          "Unknown",
-        screenshots,
+        developer: manifest.developer ?? "Unknown",
+        screenshots: screenshots.filter(Boolean) as string[],
         version: manifest.version,
-        port: pickPort(manifest.port ?? manifest.port_map ?? manifest.ports),
+        port: manifest.port,
         path: manifest.path,
-        website: manifest.homepage || manifest.website,
-        repo: manifest.source || manifest.repo,
-        composePath: "",
+        website: manifest.website,
+        repo: manifest.repo,
+        composePath: composeFile ?? "",
       });
     } catch (error) {
-      console.warn(`Failed to parse manifest at ${manifestPath}:`, error);
+      console.warn(`Failed to parse Umbrel manifest at ${manifestPath}:`, error);
     }
   }
 
-  // Parse CasaOS docker-compose metadata if present
-  for (const composePath of composeFiles) {
-    try {
-      const content = await fs.readFile(composePath, "utf-8");
-      const compose = YAML.parse(content) as any;
-      const xCasa = compose?.["x-casaos"] ?? {};
-      const appDir = path.dirname(composePath);
-      const appId = path.basename(appDir);
-      const icon = resolveAsset(xCasa.icon || xCasa.thumbnail, storeId, appDir);
-      const screenshots = Array.isArray(xCasa.screenshots || xCasa.gallery)
-        ? (xCasa.screenshots || xCasa.gallery).map((item: string) =>
-            resolveAsset(item, storeId, appDir),
-          )
-        : [];
+  return apps;
+}
 
-      const categories = xCasa.category || xCasa.categories;
-      const category = Array.isArray(categories)
-        ? categories
-        : typeof categories === "string"
-          ? [categories]
-          : [];
-
-      const title = pickLocalizedText(
-        xCasa.title,
-        appId,
-      );
-      const tagline = pickLocalizedText(
-        xCasa.tagline || xCasa.description,
-        "",
-      );
-      const overview = pickLocalizedText(xCasa.description, tagline);
-
-      const ports =
-        compose?.services?.[xCasa.main]?.ports ||
-        (Object.values(compose?.services || {}) as any[])?.[0]?.ports;
-      const firstPort =
-        Array.isArray(ports) && ports.length > 0 ? ports[0] : undefined;
-      const publishedPortRaw =
-        typeof firstPort === "string"
-          ? parseInt(firstPort.split(":")[0], 10)
-          : typeof firstPort === "object"
-            ? (firstPort.published ?? firstPort.target)
-            : undefined;
-      const portNumber: number | undefined =
-        typeof publishedPortRaw === "string"
-          ? parseInt(publishedPortRaw, 10)
-          : typeof publishedPortRaw === "number"
-          ? publishedPortRaw
-          : undefined;
-      const fallbackPort = pickPort(
-        xCasa.port_map ?? xCasa.port ?? xCasa.portmap ?? xCasa.portMap,
-      );
-
-      apps.set(appId, {
-        id: appId,
-        title,
-        name: appId,
-        icon:
-          icon ??
-          "https://raw.githubusercontent.com/IceWhaleTech/CasaOS-AppStore/master/logo.png",
-        tagline,
-        overview,
-        category: category.filter(Boolean),
-        developer: xCasa.developer || xCasa.author || "Unknown",
-        screenshots,
-        version: xCasa.version,
-        port:
-          Number.isFinite(portNumber as number) && portNumber !== undefined
-            ? portNumber
-            : fallbackPort,
-        path: xCasa.path,
-        website: xCasa.homepage || xCasa.website,
-        repo: xCasa.source || xCasa.repo,
-        composePath,
-      });
-    } catch (error) {
-      console.warn(`Failed to parse compose at ${composePath}:`, error);
-    }
-  }
-
-  return Array.from(apps.values());
+/**
+ * Umbrel manifest structure (umbrel-app.yml)
+ */
+interface UmbrelManifest {
+  manifestVersion: number;
+  id: string;
+  name: string;
+  tagline?: string;
+  icon?: string;
+  category?: string;
+  version?: string;
+  port?: number;
+  description?: string;
+  developer?: string;
+  website?: string;
+  repo?: string;
+  support?: string;
+  gallery?: string[];
+  dependencies?: string[];
+  path?: string;
+  defaultUsername?: string;
+  defaultPassword?: string;
+  releaseNotes?: string;
+  submitter?: string;
+  submission?: string;
 }
 
 async function listFiles(dir: string): Promise<string[]> {

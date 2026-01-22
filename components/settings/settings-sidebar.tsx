@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import { useState } from "react";
 import { MetricCard } from "./metric-card";
 import type { StorageInfo, SystemInfo, SystemStatus } from "./types";
 
@@ -20,6 +23,15 @@ export function SettingsSidebar({
   getMetricColor,
 }: SidebarProps) {
   const cpuThreads = systemStatus?.hardware?.cpu?.cores;
+  const [tempUnit, setTempUnit] = useState<"C" | "F">("C");
+
+  const tempValueC = systemStatus?.cpu.temperature;
+  const displayTemp = (() => {
+    if (typeof tempValueC !== "number") return null;
+    return tempUnit === "C"
+      ? tempValueC
+      : Math.round((tempValueC * 9) / 5 + 32);
+  })();
 
   return (
     <div className="w-80 p-6 space-y-4 border-r border-white/5 bg-gradient-to-b from-white/10 via-transparent to-transparent flex-shrink-0">
@@ -87,7 +99,7 @@ export function SettingsSidebar({
       )}
 
       {/* Temperature Card */}
-      {systemStatus && systemStatus.cpu.temperature && (
+      {systemStatus && tempValueC !== undefined && tempValueC !== null && (
         <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-4 border border-white/15 shadow-lg shadow-black/20">
           <div className="space-y-1.5">
             <div className="text-xs text-white/60 -tracking-[0.01em]">
@@ -95,13 +107,19 @@ export function SettingsSidebar({
             </div>
             <div className="flex items-end justify-between">
               <div className="text-2xl font-semibold text-white -tracking-[0.02em]">
-                {systemStatus.cpu.temperature}°C
+                {displayTemp ?? "—"}°{tempUnit}
               </div>
               <div className="flex gap-1">
-                <button className="px-2 py-1 text-xs rounded bg-white/10 text-white border border-white/20">
+                <button
+                  className={`px-2 py-1 text-xs rounded border ${tempUnit === "C" ? "bg-white/10 text-white border-white/20" : "bg-white/5 text-white/50 border-white/10"}`}
+                  onClick={() => setTempUnit("C")}
+                >
                   °C
                 </button>
-                <button className="px-2 py-1 text-xs rounded bg-white/5 text-white/50 border border-white/10">
+                <button
+                  className={`px-2 py-1 text-xs rounded border ${tempUnit === "F" ? "bg-white/10 text-white border-white/20" : "bg-white/5 text-white/50 border-white/10"}`}
+                  onClick={() => setTempUnit("F")}
+                >
                   °F
                 </button>
               </div>

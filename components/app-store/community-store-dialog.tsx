@@ -12,8 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  getCasaCommunityStores,
-  importCasaStore,
+  getUmbrelCommunityStores,
+  importUmbrelStore,
   listImportedStores,
   removeImportedStore,
   type CommunityStore,
@@ -49,13 +49,13 @@ export function CommunityStoreDialog({
       try {
         setLoading(true);
         setError(null);
-        const data = await getCasaCommunityStores();
+        const data = await getUmbrelCommunityStores();
         setStores(data);
         const imported = await listImportedStores();
         setImportedStores(imported);
       } catch (err) {
         console.error(err);
-        setError("Unable to load CasaOS community stores right now.");
+        setError("Unable to load Umbrel community stores right now.");
       } finally {
         setLoading(false);
       }
@@ -87,7 +87,7 @@ export function CommunityStoreDialog({
     setImportSuccess(null);
     setError(null);
     setImportingUrl(url);
-    const result = await importCasaStore(url, meta);
+    const result = await importUmbrelStore(url, meta);
     setImportingUrl(null);
     if (!result.success) {
       setError(result.error || "Failed to import store.");
@@ -198,10 +198,10 @@ export function CommunityStoreDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] bg-zinc-900/80 text-white border border-white/10 backdrop-blur-md">
         <DialogHeader>
-          <DialogTitle>Import from CasaOS Community</DialogTitle>
+          <DialogTitle>Import Community App Store</DialogTitle>
           <DialogDescription className="text-zinc-300">
-            Browse third-party CasaOS app stores from the official community
-            list and copy a source URL to import.
+            Browse Umbrel community app stores or add a custom store URL.
+            Stores use the Umbrel app manifest format (umbrel-app.yml).
           </DialogDescription>
         </DialogHeader>
 

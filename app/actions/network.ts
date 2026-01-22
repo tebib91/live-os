@@ -76,6 +76,7 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
   await logAction("network:wifi:list:start");
   const errors: string[] = [];
   const connectedSsids = new Set<string>();
+  await logAction("network:wifi:list:debug", { message: "Scanning for networks..." });
 
   // Try to detect the currently connected SSID
   try {

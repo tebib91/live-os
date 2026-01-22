@@ -25,3 +25,22 @@ export async function logAction(event: string, meta: Record<string, unknown> = {
     console.error('[logger] Failed to write log entry:', (error as Error)?.message);
   }
 }
+
+export async function withActionLogging<T>(
+  event: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const startedAt = Date.now();
+  await logAction(`${event}:start`);
+  try {
+    const result = await fn();
+    await logAction(`${event}:success`, { durationMs: Date.now() - startedAt });
+    return result;
+  } catch (error) {
+    await logAction(`${event}:error`, {
+      durationMs: Date.now() - startedAt,
+      message: (error as Error)?.message || 'unknown',
+    }, 'error');
+    throw error;
+  }
+}

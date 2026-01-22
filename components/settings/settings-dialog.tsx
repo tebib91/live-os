@@ -27,6 +27,9 @@ import {
   FirewallSection,
   LanguageSection,
   NetworkDevicesSection,
+  AdvancedSettingsSection,
+  TroubleshootSection,
+  UpdateSection,
   SystemDetailsCard,
   WallpaperOption,
   WallpaperSection,
@@ -36,6 +39,9 @@ import { SettingsSidebar } from "./settings-sidebar";
 import { SystemDetailsDialog } from "./system-details-dialog";
 import { NetworkDevicesDialog } from "./network-devices-dialog";
 import { WifiDialog } from "./wifi-dialog";
+import { checkForUpdates, type UpdateStatus } from "@/app/actions/update";
+import { VERSION } from "@/lib/config";
+import { LiveOsTailDialog } from "./troubleshoot/liveos-tail-dialog";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -68,6 +74,9 @@ export function SettingsDialog({
   const [lanDevices, setLanDevices] = useState<LanDevice[]>([]);
   const [lanDevicesLoading, setLanDevicesLoading] = useState(false);
   const [lanDevicesError, setLanDevicesError] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
   const router = useRouter();
 
   // Fetch static data once when dialog opens
@@ -199,6 +208,19 @@ export function SettingsDialog({
     }
   };
 
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    try {
+      const status = await checkForUpdates();
+      setUpdateStatus(status);
+      toast.success(status.message || "Update check completed");
+    } catch {
+      toast.error("Failed to check for updates");
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -270,7 +292,15 @@ export function SettingsDialog({
                 onOpenDialog={() => setFirewallDialogOpen(true)}
                 enabled={firewallEnabled}
               />
+              <UpdateSection
+                currentVersion={VERSION}
+                status={updateStatus?.message}
+                onCheck={handleCheckUpdate}
+                checking={checkingUpdate}
+              />
+              <TroubleshootSection onOpenDialog={() => setLogsDialogOpen(true)} />
               <LanguageSection />
+              <AdvancedSettingsSection />
               {hardware && (
                 <SystemDetailsCard
                   hardware={hardware}
@@ -292,6 +322,14 @@ export function SettingsDialog({
               setLanDevices(devices);
               setLanDevicesError(error);
             }}
+            initialDevices={lanDevices}
+            initialError={lanDevicesError}
+          />
+        )}
+        {logsDialogOpen && (
+          <LiveOsTailDialog
+            open={logsDialogOpen}
+            onOpenChange={setLogsDialogOpen}
           />
         )}
         {firewallDialogOpen && (

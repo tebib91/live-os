@@ -43,7 +43,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Default configuration
-HTTP_PORT=${LIVEOS_HTTP_PORT:-3000}
+HTTP_PORT=${LIVEOS_HTTP_PORT:-80}
 DOMAIN=${LIVEOS_DOMAIN:-""}
 
 # Installation directory
@@ -60,7 +60,7 @@ prompt_port() {
 
     # Only prompt if environment variable is not set
     if [ -z "$LIVEOS_HTTP_PORT" ]; then
-        echo -n -e "${BLUE}Enter HTTP port (default: 3000):${NC} "
+        echo -n -e "${BLUE}Enter HTTP port (default: 80):${NC} "
         read -r user_http_port < /dev/tty
         if [ -n "$user_http_port" ]; then
             HTTP_PORT=$user_http_port

@@ -61,6 +61,21 @@ export async function getSystemLogs(
   }
 }
 
+/**
+ * Tail recent liveOS service logs (journalctl -u liveos)
+ */
+export async function getLiveOsTail(lines: number = 200): Promise<string[]> {
+  try {
+    const { stdout } = await execAsync(
+      `journalctl -u liveos -n ${lines} --no-pager -o cat`,
+    );
+    return stdout.trim().split("\n");
+  } catch (error) {
+    console.error("Failed to tail liveOS logs:", error);
+    return ["Unable to read liveOS logs. Ensure journalctl is available."];
+  }
+}
+
 function mapPriority(priority: string | number): "info" | "warn" | "error" | "debug" {
   const p = typeof priority === "string" ? parseInt(priority) : priority;
   if (p <= 3) return "error";

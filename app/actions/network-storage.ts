@@ -268,13 +268,26 @@ export async function listNetworkShares(): Promise<{ shares: NetworkShare[] }> {
 export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
   await logAction("network-storage:discover:start");
   const hosts: DiscoveredHost[] = [];
+  const seen = new Set<string>();
+
   try {
     // avahi-browse -r -t _smb._tcp
-    const { stdout } = await execFileAsync("avahi-browse", [
-      "-r",
-      "-t",
-      "_smb._tcp",
-    ], { timeout: 3000 });
+    const { stdout } = await execFileAsync(
+      "avahi-browse",
+      ["-r", "-t", "_smb._tcp"],
+      { timeout: 5000 },
+    );
+
+    // Get local hostname to filter it out
+    let localHostname = "";
+    try {
+      const { stdout: hostnameOut } = await execFileAsync("hostname", ["-s"], {
+        timeout: 1000,
+      });
+      localHostname = hostnameOut.trim().toLowerCase();
+    } catch {
+      // ignore
+    }
 
     stdout
       .split("\n")
@@ -287,6 +300,12 @@ export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
           const name = parts[3];
           const host = parts[6]?.replace(/\.local\.?$/, "") || name;
           const ip = parts[7];
+
+          // Skip local machine and duplicates
+          if (host.toLowerCase() === localHostname) return;
+          if (seen.has(host.toLowerCase())) return;
+          seen.add(host.toLowerCase());
+
           hosts.push({ name, host, ip });
         }
       });
@@ -297,6 +316,114 @@ export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
     });
   }
   return { hosts };
+}
+
+/**
+ * Discover available SMB shares on a specific server using smbclient.
+ * Returns list of share names (excluding IPC$, print$, etc.)
+ */
+export async function discoverSharesOnServer(
+  host: string,
+  credentials?: { username?: string; password?: string },
+): Promise<{ success: boolean; shares: string[]; error?: string }> {
+  await logAction("network-storage:discover-shares:start", { host });
+
+  const resolved = await resolveHost(host);
+  if (!resolved) {
+    return { success: false, shares: [], error: `Could not resolve host "${host}"` };
+  }
+
+  try {
+    // Build smbclient args
+    const args = ["-L", resolved, "-g"]; // -g for parseable grep output
+
+    if (credentials?.username) {
+      args.push("-U", `${credentials.username}%${credentials.password || ""}`);
+    } else {
+      args.push("-N"); // No password (guest)
+    }
+
+    const { stdout, stderr } = await execFileAsync("smbclient", args, {
+      timeout: 10000,
+    });
+
+    const output = stdout + "\n" + stderr;
+    const shares: string[] = [];
+    const excludePatterns = /^(IPC\$|print\$|ADMIN\$|C\$|D\$)$/i;
+
+    // Parse grep-style output: Disk|ShareName|Comment
+    output.split("\n").forEach((line) => {
+      const parts = line.split("|");
+      if (parts.length >= 2 && parts[0].toLowerCase() === "disk") {
+        const shareName = parts[1].trim();
+        if (shareName && !excludePatterns.test(shareName)) {
+          shares.push(shareName);
+        }
+      }
+    });
+
+    await logAction("network-storage:discover-shares:done", {
+      host,
+      count: shares.length,
+    });
+
+    return { success: true, shares };
+  } catch (err: any) {
+    const message = err?.stderr?.toString?.() || err?.message || "Failed to list shares";
+    await logAction("network-storage:discover-shares:error", {
+      host,
+      error: message,
+    });
+
+    // Check if it's an authentication error
+    if (message.includes("NT_STATUS_ACCESS_DENIED") || message.includes("NT_STATUS_LOGON_FAILURE")) {
+      return { success: false, shares: [], error: "Authentication required" };
+    }
+
+    return { success: false, shares: [], error: message };
+  }
+}
+
+/**
+ * Check if a server is a LiveOS device by probing for the API endpoint.
+ */
+export async function isLiveOSDevice(
+  host: string,
+): Promise<{ isLiveOS: boolean; version?: string }> {
+  const resolved = await resolveHost(host);
+  if (!resolved) {
+    return { isLiveOS: false };
+  }
+
+  const urls = [
+    `http://${resolved}:3000/api/system/info`,
+    `http://${host}:3000/api/system/info`,
+  ];
+
+  for (const url of urls) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
+
+      clearTimeout(timeout);
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.hostname || data?.liveos) {
+          return { isLiveOS: true, version: data.version };
+        }
+      }
+    } catch {
+      // ignore, try next URL
+    }
+  }
+
+  return { isLiveOS: false };
 }
 
 async function resolveHost(host: string): Promise<string | null> {
@@ -539,4 +666,112 @@ export async function removeNetworkShare(
 
   await logAction("network-storage:remove:done", { id });
   return { success: true };
+}
+
+/**
+ * Get detailed information about a discovered server including:
+ * - Whether it's a LiveOS device
+ * - Available SMB shares
+ */
+export async function getServerInfo(
+  host: string,
+  credentials?: { username?: string; password?: string },
+): Promise<{
+  host: string;
+  isLiveOS: boolean;
+  liveOSVersion?: string;
+  shares: string[];
+  requiresAuth: boolean;
+  error?: string;
+}> {
+  await logAction("network-storage:server-info:start", { host });
+
+  // Check if LiveOS device in parallel with share discovery
+  const [liveOSCheck, sharesResult] = await Promise.all([
+    isLiveOSDevice(host),
+    discoverSharesOnServer(host, credentials),
+  ]);
+
+  const requiresAuth =
+    !sharesResult.success &&
+    sharesResult.error?.includes("Authentication") === true;
+
+  await logAction("network-storage:server-info:done", {
+    host,
+    isLiveOS: liveOSCheck.isLiveOS,
+    shares: sharesResult.shares.length,
+    requiresAuth,
+  });
+
+  return {
+    host,
+    isLiveOS: liveOSCheck.isLiveOS,
+    liveOSVersion: liveOSCheck.version,
+    shares: sharesResult.shares,
+    requiresAuth,
+    error: sharesResult.success ? undefined : sharesResult.error,
+  };
+}
+
+/**
+ * Attempt to reconnect all disconnected shares.
+ * Called periodically by the system status websocket or manually.
+ */
+export async function reconnectDisconnectedShares(): Promise<{
+  attempted: number;
+  succeeded: number;
+  failed: { id: string; host: string; share: string; error: string }[];
+}> {
+  await logAction("network-storage:reconnect:start");
+  const shares = await loadShares();
+  const failed: { id: string; host: string; share: string; error: string }[] =
+    [];
+  let attempted = 0;
+  let succeeded = 0;
+
+  for (const share of shares) {
+    const mounted = await isMounted(share.mountPath);
+    if (mounted) continue;
+
+    attempted++;
+
+    // Quick reachability check first
+    const reach = await checkReachable(share.host, 2000);
+    if (!reach.ok) {
+      share.lastError = reach.error ?? "Host unreachable";
+      failed.push({
+        id: share.id,
+        host: share.host,
+        share: share.share,
+        error: share.lastError,
+      });
+      continue;
+    }
+
+    const result = await mountShare(share);
+    if (result.success) {
+      share.lastError = null;
+      succeeded++;
+    } else {
+      const errorMsg = result.error ?? "Mount failed";
+      share.lastError = errorMsg;
+      failed.push({
+        id: share.id,
+        host: share.host,
+        share: share.share,
+        error: errorMsg,
+      });
+    }
+  }
+
+  // Save updated state (lastError fields)
+  await saveShares(shares);
+
+  await logAction("network-storage:reconnect:done", {
+    attempted,
+    succeeded,
+    failed: failed.length,
+  });
+
+  return { attempted, succeeded, failed };
 }

@@ -19,6 +19,13 @@
 - Two-space indentation; avoid `any`; let ESLint drive formatting (no repo-level Prettier).
 - Keep React components under roughly 300–350 lines; split UI and logic into smaller pieces when approaching that size.
 
+## File Size & Architecture
+- Keep every file under 300 lines; refactor into micro-components/modules when approaching the limit.
+- Apply SOLID principles; prefer single-responsibility, small composable units.
+
+## QA Expectation
+- After code changes, always run `npm run lint` and `npm run build` before handing off.
+
 ## Testing Guidelines
 - Current automation is `npm run test-apps`. Add targeted tests for new logic (parsers, Prisma access, WebSocket handlers).
 - Co-locate tests with the feature or in a nearby `__tests__/` folder; keep fixtures small and deterministic.

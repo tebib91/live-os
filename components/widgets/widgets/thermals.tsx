@@ -64,22 +64,65 @@ export function ThermalsWidget({ data }: ThermalsWidgetProps) {
         </div>
 
         <div className="grid grid-cols-2 gap-1.5 text-xs">
-          <StatPill label="Cores" value={coresDisplay ?? "—"} />
-          <StatPill label="Socket" value={socketDisplay ?? "—"} />
+          <StatPill
+            label="Cores"
+            value={coresDisplay ?? "—"}
+            temps={cores}
+          />
+          <StatPill
+            label="Socket"
+            value={socketDisplay ?? "—"}
+            temps={socket}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function StatPill({ label, value }: { label: string; value: string }) {
+function StatPill({
+  label,
+  value,
+  temps = [],
+}: {
+  label: string;
+  value: string;
+  temps?: (number | null)[];
+}) {
+  const filteredTemps = temps.filter(
+    (t): t is number => typeof t === "number" && Number.isFinite(t),
+  );
+  const showPopover = filteredTemps.length > 3;
+
   return (
-    <div className="flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-1">
-      <Flame className="h-3 w-3 text-amber-200 shrink-0" />
-      <div className="flex flex-col leading-none min-w-0">
-        <span className="text-[10px] text-white/50">{label}</span>
-        <span className="text-xs text-white truncate">{value}</span>
+    <div className="relative group">
+      <div className="flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-1">
+        <Flame className="h-3 w-3 text-amber-200 shrink-0" />
+        <div className="flex flex-col leading-none min-w-0">
+          <span className="text-[10px] text-white/50">{label}</span>
+          <span className="text-xs text-white truncate">{value}</span>
+        </div>
       </div>
+
+      {showPopover && (
+        <div className="pointer-events-none absolute left-0 top-full z-30 mt-2 w-max max-w-xs opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+          <div className="rounded-lg border border-white/15 bg-zinc-900/95 px-3 py-2 shadow-xl shadow-black/40 backdrop-blur">
+            <p className="text-[10px] uppercase tracking-wide text-white/50 mb-1">
+              {label} temps
+            </p>
+            <div className="flex flex-wrap gap-1 text-[11px] text-white">
+              {filteredTemps.map((temp, idx) => (
+                <span
+                  key={`${label}-${idx}`}
+                  className="rounded-full bg-white/10 px-2 py-[3px] border border-white/10"
+                >
+                  {idx + 1}: {Math.round(temp)}°C
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

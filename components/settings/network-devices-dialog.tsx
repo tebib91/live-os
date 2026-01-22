@@ -9,23 +9,28 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Loader2, Network, RefreshCw } from "lucide-react";
 
 type NetworkDevicesDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDevicesChange?: (devices: LanDevice[], error: string | null) => void;
+  initialDevices?: LanDevice[];
+  initialError?: string | null;
 };
 
 export function NetworkDevicesDialog({
   open,
   onOpenChange,
   onDevicesChange,
+  initialDevices = [],
+  initialError = null,
 }: NetworkDevicesDialogProps) {
   const [devices, setDevices] = useState<LanDevice[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasInitialized = useRef(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -48,8 +53,22 @@ export function NetworkDevicesDialog({
   }, [onDevicesChange]);
 
   useEffect(() => {
-    if (open) refresh();
-  }, [open, refresh]);
+    if (!open) return;
+
+    // Seed with existing scan results to avoid double-scan flicker
+    if (initialDevices.length > 0) {
+      setDevices(initialDevices);
+      setError(initialError);
+    }
+
+    // Only auto-scan on first open (or when no cached devices)
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      if (initialDevices.length === 0) {
+        void refresh();
+      }
+    }
+  }, [open, initialDevices, initialError, refresh]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
