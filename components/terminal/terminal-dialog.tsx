@@ -23,7 +23,7 @@ interface TerminalDialogProps {
 }
 
 export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
-  const { runningApps } = useSystemStatus({ fast: true });
+  const { installedApps } = useSystemStatus({ fast: true });
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -32,23 +32,26 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string>('host');
 
-  const targets = useMemo(
-    () => [
-      {
-        id: 'host',
-        label: 'LiveOS Host',
-        badge: 'OS',
-        icon: <Server className="h-4 w-4 text-emerald-300" />,
-      },
-      ...runningApps.map((app) => ({
-        id: app.id,
-        label: app.name,
-        badge: 'Docker',
-        icon: <Container className="h-4 w-4 text-sky-300" />,
-      })),
-    ],
-    [runningApps]
-  );
+  const targets = useMemo(() => {
+    const hostTarget = {
+      id: 'host',
+      label: 'LiveOS Host',
+      badge: 'OS',
+      icon: <Server className="h-4 w-4 text-emerald-300" />,
+    };
+
+    const dockerTargets =
+      installedApps
+        ?.filter((app) => app.status === 'running')
+        .map((app) => ({
+          id: app.containerName,
+          label: app.name,
+          badge: 'Docker',
+          icon: <Container className="h-4 w-4 text-sky-300" />,
+        })) ?? [];
+
+    return [hostTarget, ...dockerTargets];
+  }, [installedApps]);
 
   const activeTarget = targets.find((t) => t.id === targetId) ?? targets[0];
 

@@ -27,7 +27,7 @@ import {
   Square,
   Trash2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { LogsDialog } from './logs-dialog';
 
@@ -41,6 +41,8 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
   const [loading, setLoading] = useState(false);
   const [showUninstallConfirm, setShowUninstallConfirm] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const lastOpenedViaContext = useRef(false);
 
   const handleOpen = async () => {
     try {
@@ -126,8 +128,31 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+      <DropdownMenu
+        open={menuOpen}
+        onOpenChange={(next) => {
+          // Only allow opens triggered explicitly by context menu
+          if (next && !lastOpenedViaContext.current) return;
+          setMenuOpen(next);
+          if (!next) lastOpenedViaContext.current = false;
+        }}
+      >
+        <DropdownMenuTrigger
+          asChild
+          onContextMenu={(e) => {
+            e.preventDefault();
+            lastOpenedViaContext.current = true;
+            setMenuOpen(true);
+          }}
+          onPointerDown={(e) => {
+            if (e.button !== 2) {
+              // Prevent left-click from toggling the menu; let parent handle navigation
+              e.preventDefault();
+            }
+          }}
+        >
+          {children}
+        </DropdownMenuTrigger>
         <DropdownMenuContent
           className="bg-white/90 dark:bg-black/90 backdrop-blur-md border-white/20 dark:border-white/10"
           align="start"

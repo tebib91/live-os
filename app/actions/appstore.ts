@@ -10,6 +10,7 @@ import os from "os";
 import path from "path";
 import { promisify } from "util";
 import YAML from "yaml";
+import { logAction } from "./logger";
 
 const execAsync = promisify(exec);
 
@@ -141,6 +142,7 @@ export async function importCasaStore(
   const targetDir = path.join(CASA_STORE_ROOT, storeSlug);
 
   try {
+    await logAction("appstore:import:start", { url, storeSlug });
     await fs.mkdir(CASA_STORE_ROOT, { recursive: true });
 
     const response = await fetch(url);
@@ -230,7 +232,10 @@ export async function importCasaStore(
       apps: parsedApps.length,
     };
   } catch (error: any) {
-    console.error("Failed to import CasaOS store:", error);
+    await logAction("appstore:import:error", {
+      url,
+      error: error?.message || "unknown",
+    });
     return { success: false, error: error.message || "Failed to import store" };
   }
 }
@@ -259,6 +264,7 @@ export async function ensureDefaultCasaStoreInstalled(): Promise<{
       return { success: true, skipped: true };
     }
 
+    await logAction("appstore:bootstrap:official:start");
     const result = await importCasaStore(CASA_OFFICIAL_ZIP, {
       name: "CasaOS Official Store",
       description: "Preloaded CasaOS application catalog",
@@ -268,7 +274,9 @@ export async function ensureDefaultCasaStoreInstalled(): Promise<{
       ? { success: true, skipped: false }
       : { success: false, error: result.error };
   } catch (error: any) {
-    console.error("Failed to ensure default CasaOS store:", error);
+    await logAction("appstore:bootstrap:official:error", {
+      error: error?.message || "unknown",
+    });
     return { success: false, error: error?.message || "Unknown error" };
   }
 }

@@ -241,6 +241,14 @@ export function NetworkStorageDialog({
           </div>
           <div className="flex items-center gap-2">
             <Button
+              size="sm"
+              variant="ghost"
+              className="h-9 w-9 rounded-full border border-white/15 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white"
+              onClick={() => setAddDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+            <Button
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-full border border-white/15 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white"

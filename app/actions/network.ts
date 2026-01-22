@@ -3,6 +3,7 @@
 import { execFile } from "child_process";
 import si from "systeminformation";
 import { promisify } from "util";
+import { logAction } from "./logger";
 
 const execFileAsync = promisify(execFile);
 const EXEC_TIMEOUT = 8000;
@@ -61,7 +62,7 @@ function sanitizeSsid(value: string): string {
 }
 
 export async function listWifiNetworks(): Promise<WifiListResult> {
-  console.log("[network] listWifiNetworks called");
+  await logAction("network:wifi:list:start");
   const errors: string[] = [];
   const connectedSsids = new Set<string>();
 
@@ -79,7 +80,6 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
 
   // Try systeminformation first with timeout
   try {
-    console.log("[network] Trying systeminformation...");
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("Timeout after 5s")), 5000),
     );
@@ -87,8 +87,10 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
       si.wifiNetworks(),
       timeoutPromise,
     ]);
-    console.log("[network] systeminformation result:", wifiNetworks);
     if (Array.isArray(wifiNetworks) && wifiNetworks.length > 0) {
+      await logAction("network:wifi:list:systeminformation", {
+        count: wifiNetworks.length,
+      });
       return {
         networks: dedupeNetworks(
           wifiNetworks
@@ -104,16 +106,14 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
         ),
       };
     }
-    console.log("[network] systeminformation returned empty, trying nmcli...");
   } catch (error) {
     const msg = (error as Error)?.message || "Unknown error";
-    console.error("[network] systeminformation failed:", msg);
+    await logAction("network:wifi:list:systeminformation:error", { error: msg });
     errors.push(`systeminformation: ${msg}`);
   }
 
   // Fallback to nmcli if systeminformation fails or returns nothing
   try {
-    console.log("[network] Trying nmcli...");
     // Force rescan before listing
     try {
       await execFileAsync("nmcli", ["device", "wifi", "rescan"], {
@@ -125,18 +125,13 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
       // Rescan might fail if already scanning, continue anyway
     }
 
-    const { stdout, stderr } = await execFileAsync(
+    const { stdout /* , stderr */ } = await execFileAsync(
       "nmcli",
       ["-t", "-f", "ACTIVE,SSID,SECURITY,SIGNAL", "device", "wifi", "list"],
       {
         timeout: EXEC_TIMEOUT,
       },
     );
-
-    console.log("[network] nmcli stdout:", stdout);
-    if (stderr) {
-      console.warn("[network] nmcli stderr:", stderr);
-    }
 
     const networks = stdout
       .split("\n")
@@ -159,8 +154,6 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
       .filter((n) => n.ssid)
       .sort((a, b) => b.signal - a.signal);
 
-    console.log("[network] Parsed networks:", networks.length);
-
     if (networks.length === 0) {
       return {
         networks: [],
@@ -172,7 +165,9 @@ export async function listWifiNetworks(): Promise<WifiListResult> {
     return { networks: dedupeNetworks(networks) };
   } catch (error) {
     const err = error as NodeJS.ErrnoException;
-    console.error("[network] nmcli failed:", err.message);
+    await logAction("network:wifi:list:nmcli:error", {
+      error: err?.message || "unknown",
+    });
 
     if (err.code === "ENOENT") {
       errors.push("nmcli: command not found (NetworkManager not installed)");
@@ -210,9 +205,13 @@ export async function connectToWifi(
 
   try {
     await execFileAsync("nmcli", args, { timeout: EXEC_TIMEOUT });
+    await logAction("network:wifi:connect:success", { ssid });
     return { success: true };
   } catch (error) {
-    console.error("[network] connectToWifi failed:", error);
+    await logAction("network:wifi:connect:error", {
+      ssid,
+      error: (error as Error)?.message || "failed",
+    });
     return {
       success: false,
       error: (error as Error)?.message || "Failed to connect",
@@ -225,7 +224,7 @@ export async function connectToWifi(
  * Returns a deduped list of devices with best-effort names and IPs.
  */
 export async function listLanDevices(): Promise<LanDevicesResult> {
-  console.log("[network] listLanDevices: starting discovery");
+  await logAction("network:lan:list:start");
   const devices = new Map<string, LanDevice>(); // key by IP
   const errors: string[] = [];
 
@@ -319,7 +318,10 @@ export async function listLanDevices(): Promise<LanDevicesResult> {
     a.ip.localeCompare(b.ip),
   );
 
-  console.log(`[network] listLanDevices: returning ${result.length} device(s)`);
+  await logAction("network:lan:list:done", {
+    count: result.length,
+    errors: errors.length ? errors : undefined,
+  });
 
   return {
     devices: result,
