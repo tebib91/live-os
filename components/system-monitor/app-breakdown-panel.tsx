@@ -34,13 +34,6 @@ export function AppBreakdownPanel({
   const subtitle =
     selectedMetric === "cpu" ? "Sorted by CPU usage" : "Sorted by memory usage";
 
-  const getMetricValue = (app: RunningApp) => {
-    if (selectedMetric === "cpu") {
-      return `${app.cpuUsage.toFixed(1)}%`;
-    }
-    return formatMemorySize(app.memoryUsage);
-  };
-
   return (
     <div className={`${card.base} ${card.padding.md}`}>
       <div className="mb-3 flex items-center justify-between">
@@ -64,7 +57,12 @@ export function AppBreakdownPanel({
           <div className={`${text.label} py-2`}>No running apps detected.</div>
         )}
         {sortedApps.map((app) => (
-          <AppListItem key={app.id} app={app} metricValue={getMetricValue(app)} />
+          <AppListItem
+            key={app.id}
+            app={app}
+            cpuLabel={`${app.cpuUsage.toFixed(1)}%`}
+            memLabel={formatMemorySize(app.memoryUsage)}
+          />
         ))}
       </div>
     </div>

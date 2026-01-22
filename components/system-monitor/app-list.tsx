@@ -3,6 +3,7 @@
 import { card, text } from "@/components/ui/design-tokens";
 import type { RunningApp } from "./types";
 import { AppListItem } from "./app-list-item";
+import { formatMemorySize } from "./utils";
 
 interface AppListProps {
   apps: RunningApp[];
@@ -28,7 +29,8 @@ export function AppList({ apps, connected }: AppListProps) {
           <AppListItem
             key={app.id}
             app={app}
-            metricValue={`${app.cpuUsage.toFixed(2)}%`}
+            cpuLabel={`${app.cpuUsage.toFixed(1)}%`}
+            memLabel={`${formatMemorySize(app.memoryUsage)}`}
           />
         ))}
       </div>

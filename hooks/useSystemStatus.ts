@@ -76,6 +76,7 @@ interface MetricsMessage {
   storageInfo?: StorageStats;
   networkStats?: NetworkStats;
   installedApps?: InstalledApp[];
+  runningApps?: AppUsage[];
 }
 
 interface ErrorMessage {
@@ -207,11 +208,21 @@ function connectEventSource(wantFast: boolean) {
         const data: SSEMessage = JSON.parse(event.data);
 
         if (data.type === 'metrics') {
+          const nextInstalled = data.installedApps ?? sharedState.installedApps;
+          const rawRunning = data.runningApps ?? sharedState.runningApps;
+          const runningWithIcons = rawRunning.map((app) => {
+            const match =
+              nextInstalled.find((inst) => inst.containerName === app.id) ||
+              nextInstalled.find((inst) => inst.appId === app.id);
+            return match ? { ...app, icon: match.icon } : app;
+          });
+
           updateSharedState({
             systemStats: data.systemStatus ?? sharedState.systemStats,
             storageStats: data.storageInfo ?? sharedState.storageStats,
             networkStats: data.networkStats ?? sharedState.networkStats,
-            installedApps: data.installedApps ?? sharedState.installedApps,
+            installedApps: nextInstalled,
+            runningApps: runningWithIcons,
             error: null,
           });
         } else if (data.type === 'install-progress') {

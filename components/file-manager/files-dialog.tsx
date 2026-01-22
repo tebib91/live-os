@@ -4,19 +4,27 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { FileCreationRow } from '@/components/file-manager/file-creation-row';
 import { FileEditorModal } from '@/components/file-manager/file-editor-modal';
 import { FilesContent } from '@/components/file-manager/files-content';
-import { FilesContextMenu } from '@/components/file-manager/file-context-menu';
+import {
+  FilesContextMenu,
+  FileClipboardProvider,
+  useFileClipboard,
+} from '@/components/file-manager/context-menu';
 import { NetworkStorageDialog } from '@/components/file-manager/network-storage-dialog';
+import { SmbShareDialog } from '@/components/file-manager/smb-share-dialog';
 import { FilesSidebar } from '@/components/file-manager/files-sidebar';
 import { FilesToolbar } from '@/components/file-manager/files-toolbar';
 import { useFilesDialog } from '@/components/file-manager/use-files-dialog';
-import { useState } from 'react';
+import type { FileSystemItem } from '@/app/actions/filesystem';
+import { trashItem } from '@/app/actions/filesystem';
+import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 
 interface FilesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
+function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
   const {
     homePath,
     currentPath,
@@ -32,6 +40,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     historyIndex,
     historyLength,
     shortcuts,
+    favorites,
     filteredItems,
     breadcrumbs,
     contextMenu,
@@ -55,13 +64,10 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     openNative,
     openItem,
     openContextMenu,
-    share,
-    info,
     openFileInEditor,
     saveEditor,
     createFolder,
     createFile,
-    deleteItem,
     renameItem,
     startFileCreation,
     toggleFolderCreation,
@@ -71,11 +77,80 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
     shortcutPath,
     toDirectoryItem,
     closeContextMenu,
-    isTextLike,
+    refresh,
   } = useFilesDialog(open);
+
+  const { clipboard, cut, copy, clear: clearClipboard } = useFileClipboard();
   const [networkDialogOpen, setNetworkDialogOpen] = useState(false);
+  const [smbShareDialogOpen, setSmbShareDialogOpen] = useState(false);
+  const [shareTargetItem, setShareTargetItem] = useState<FileSystemItem | null>(null);
+  const selectedItem = contextMenu.item;
 
   const isDirty = editorContent !== editorOriginalContent;
+
+  // Handle SMB share dialog
+  const handleShareNetwork = useCallback((item: FileSystemItem) => {
+    setShareTargetItem(item);
+    setSmbShareDialogOpen(true);
+  }, []);
+
+  // Handle rename with prompt
+  const handleRename = useCallback((item: FileSystemItem) => {
+    const newName = prompt(`Rename "${item.name}" to:`, item.name);
+    if (!newName || newName === item.name) return;
+    renameItem(item);
+  }, [renameItem]);
+
+  // Keyboard shortcuts for clipboard operations
+  useEffect(() => {
+    if (!open || editorOpen) return;
+
+    const handleKeyDown = async (event: KeyboardEvent) => {
+      const isMeta = event.metaKey || event.ctrlKey;
+      const key = event.key.toLowerCase();
+      const target = contextMenu.item || selectedItem;
+
+      // Cut: Cmd+X
+      if (isMeta && key === 'x' && target) {
+        event.preventDefault();
+        cut([target]);
+        toast.success('Item ready to move');
+        return;
+      }
+
+      // Copy: Cmd+C
+      if (isMeta && key === 'c' && target) {
+        event.preventDefault();
+        copy([target]);
+        toast.success('Item copied to clipboard');
+        return;
+      }
+
+      // Paste: Cmd+V
+      if (isMeta && key === 'v' && clipboard.items.length > 0) {
+        event.preventDefault();
+        // Paste handled by context menu actions hook
+        return;
+      }
+
+      // Trash: Cmd+Backspace
+      if (isMeta && event.key === 'Backspace' && target) {
+        event.preventDefault();
+        if (!confirm(`Move "${target.name}" to trash?`)) return;
+        const result = await trashItem(target.path);
+        if (result.success) {
+          toast.success('Item moved to trash');
+          refresh();
+        } else {
+          toast.error(result.error || 'Failed to move item to trash');
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, editorOpen, contextMenu.item, selectedItem, clipboard, cut, copy, refresh]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -88,6 +163,7 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
           <FilesSidebar
             homePath={homePath}
             shortcuts={shortcuts}
+            favorites={favorites}
             onNavigate={navigate}
             getShortcutPath={shortcutPath}
             onOpenNetwork={() => setNetworkDialogOpen(true)}
@@ -159,13 +235,17 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
             <FilesContextMenu
               contextMenu={contextMenu}
               menuRef={contextMenuRef}
-              isTextLike={isTextLike}
+              currentPath={currentPath}
+              clipboard={clipboard}
+              favorites={favorites}
+              onCut={cut}
+              onCopy={copy}
+              onClearClipboard={clearClipboard}
+              onRefresh={refresh}
               onOpen={openItem}
               onOpenInEditor={openFileInEditor}
-              onRename={renameItem}
-              onDelete={deleteItem}
-              onShare={share}
-              onInfo={info}
+              onRename={handleRename}
+              onShareNetwork={handleShareNetwork}
               onClose={closeContextMenu}
             />
           </div>
@@ -185,6 +265,21 @@ export function FilesDialog({ open, onOpenChange }: FilesDialogProps) {
       />
 
       <NetworkStorageDialog open={networkDialogOpen} onOpenChange={setNetworkDialogOpen} />
+
+      <SmbShareDialog
+        open={smbShareDialogOpen}
+        onOpenChange={setSmbShareDialogOpen}
+        targetPath={shareTargetItem?.path || ''}
+        targetName={shareTargetItem?.name || ''}
+      />
     </Dialog>
+  );
+}
+
+export function FilesDialog(props: FilesDialogProps) {
+  return (
+    <FileClipboardProvider>
+      <FilesDialogContent {...props} />
+    </FileClipboardProvider>
   );
 }

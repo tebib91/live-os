@@ -338,9 +338,6 @@ export async function getCurrentUser(
       return null;
     }
 
-    console.log(
-      `[Auth] getCurrentUser: ✅ Valid session found for user "${session.user.username}" (ID: ${session.user.id})`,
-    );
     return {
       id: session.user.id,
       username: session.user.username,

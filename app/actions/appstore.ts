@@ -10,6 +10,7 @@ import os from "os";
 import path from "path";
 import { promisify } from "util";
 import YAML from "yaml";
+import crypto from "crypto";
 import { logAction } from "./logger";
 
 const execAsync = promisify(exec);
@@ -78,13 +79,14 @@ function pickLocalizedText(value: unknown, fallback: string): string {
  * Load apps from the persisted store database.
  */
 export async function getAppStoreApps(): Promise<App[]> {
+  await logAction("appstore:list:start");
   try {
     const records = await prisma.app.findMany({
       orderBy: [{ title: "asc" }],
       include: { store: true },
     });
 
-    return records.map((record) => ({
+    const apps = records.map((record) => ({
       id: record.appId,
       title: record.title,
       name: record.name,
@@ -105,8 +107,12 @@ export async function getAppStoreApps(): Promise<App[]> {
       repo: record.repo ?? undefined,
       composePath: record.composePath,
     }));
+    await logAction("appstore:list:done", { count: apps.length });
+    return apps;
   } catch (error) {
-    console.error("Failed to load AppStore apps:", error);
+    await logAction("appstore:list:error", {
+      error: (error as Error)?.message || "unknown",
+    });
     return [];
   }
 }
@@ -130,6 +136,7 @@ export async function importCasaStore(
   error?: string;
   storeId?: string;
   apps?: number;
+  skipped?: boolean;
 }> {
   if (!url || !url.startsWith("http")) {
     return { success: false, error: "Invalid store URL." };
@@ -151,6 +158,27 @@ export async function importCasaStore(
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
+    const zipHash = crypto.createHash("sha256").update(buffer).digest("hex");
+
+    const existingStore = await prisma.store.findUnique({
+      where: { slug: storeSlug },
+    });
+    const targetExists = await fs
+      .stat(targetDir)
+      .then(() => true)
+      .catch(() => false);
+
+    const manifestHash = (existingStore as any)?.manifestHash as string | undefined;
+
+    if (existingStore && manifestHash === zipHash && targetExists) {
+      const appsCount = await prisma.app.count({ where: { storeId: existingStore.id } });
+      await logAction("appstore:import:skip-cache", {
+        url,
+        storeSlug,
+        apps: appsCount,
+      });
+      return { success: true, storeId: storeSlug, apps: appsCount, skipped: true };
+    }
 
     // Clear any existing store folder
     await fs.rm(targetDir, { recursive: true, force: true });

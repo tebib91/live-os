@@ -700,6 +700,28 @@ install_docker() {
     fi
 }
 
+# Ensure the runtime user can talk to Docker without sudo (needed for logs/exec)
+ensure_docker_permissions() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_dry "Add current user to docker group for non-root access"
+        return
+    fi
+
+    if ! getent group docker >/dev/null; then
+        print_status "Creating docker group"
+        groupadd docker
+    fi
+
+    TARGET_USER="$(logname 2>/dev/null || echo "$SUDO_USER" || echo "$USER")"
+    if id -nG "$TARGET_USER" | grep -qw docker; then
+        print_status "User $TARGET_USER already in docker group"
+    else
+        print_status "Adding $TARGET_USER to docker group (required for docker logs/exec)"
+        usermod -aG docker "$TARGET_USER"
+        print_info "Log out/in or restart the liveos service so group changes take effect."
+    fi
+}
+
 # Clone and setup the project
 setup_liveos() {
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -815,7 +837,7 @@ EOF
 # APP_DATA_DIR=/opt/live-os/app-data
 
 # Database (Prisma/SQLite)
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="file:./prisma/live-os.db"
 
 # Next.js Server Actions (keep stable across builds)
 NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"
@@ -917,13 +939,14 @@ check_port
 # Install dependencies
 if [ "$NO_DEP" -eq 0 ]; then
     install_git
-    install_build_tools
-    install_archive_tools
-    install_cifs_utils
-    install_nodejs
-    install_docker
-    install_avahi
-    install_nmcli
+  install_build_tools
+  install_archive_tools
+  install_cifs_utils
+  install_nodejs
+  install_docker
+  ensure_docker_permissions
+  install_avahi
+  install_nmcli
 fi
 
 # Setup the application

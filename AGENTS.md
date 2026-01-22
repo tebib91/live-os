@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - `app/` holds the Next.js App Router pages/layouts; `components/` contains feature folders (app store, terminal, system monitor) plus primitives in `components/ui/`.
 - `lib/` hosts utilities and WebSocket servers; `hooks/` holds shared React hooks; `constants/` centralizes config.
-- `prisma/schema.prisma` defines the SQLite model; the working DB is `dev.db` with generated client in `app/generated/`.
+- `prisma/schema.prisma` defines the SQLite model; the working DB is `live-os.db` with generated client in `app/generated/`.
 - Static assets live in `public/`; helper scripts are in `scripts/`. `server.ts` starts Next and optional WebSockets; `proxy.ts` exposes the HTTP proxy.
 
 ## Build, Test, and Development Commands
@@ -27,7 +27,7 @@
 ## Commit & Pull Request Guidelines
 - Use the existing conventional style: `feat: short summary`, `fix: …`, `chore: …`; keep subjects imperative and concise.
 - PRs should describe the change, link issues, and call out env/migration impacts. Include screenshots or clips for UI updates and list commands to run.
-- When altering data models, state migration steps (`npm run db:init`) and how to handle existing `dev.db` copies.
+- When altering data models, state migration steps (`npm run db:init`) and how to handle existing `live-os.db` copies.
 
 ## Security & Configuration Tips
 - Never commit secrets; use `.env.local` for overrides. Key envs: `LIVEOS_HTTP_PORT`, `PORT`, `LIVEOS_DOMAIN`.

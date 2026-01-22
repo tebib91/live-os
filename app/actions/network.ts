@@ -7,6 +7,9 @@ import { logAction } from "./logger";
 
 const execFileAsync = promisify(execFile);
 const EXEC_TIMEOUT = 8000;
+const RESOLVE_TIMEOUT = 2000;
+const MAX_REVERSE_LOOKUPS = 16;
+const MAX_HOSTNAME_LOOKUPS = 12;
 
 export type WifiNetwork = {
   ssid: string;
@@ -32,6 +35,14 @@ export type LanDevicesResult = {
   devices: LanDevice[];
   error?: string;
 };
+
+// Decode avahi escaped characters (e.g. \032 for space)
+const decodeAvahiValue = (value: string): string =>
+  value
+    .replace(/\\(\d{3})/g, (_, oct) =>
+      String.fromCharCode(parseInt(oct as string, 10)),
+    )
+    .trim();
 
 function dedupeNetworks(networks: WifiNetwork[]): WifiNetwork[] {
   const strongestBySsid = new Map<string, WifiNetwork>();
@@ -227,12 +238,31 @@ export async function listLanDevices(): Promise<LanDevicesResult> {
   await logAction("network:lan:list:start");
   const devices = new Map<string, LanDevice>(); // key by IP
   const errors: string[] = [];
+  let avahiResolved = false;
+  const upsertDevice = (
+    ip: string,
+    partial: Partial<Omit<LanDevice, "ip">> & { source?: LanDevice["source"] },
+  ) => {
+    if (!ip) return;
+    const current = devices.get(ip);
+    const source =
+      partial.source === "avahi" || current?.source === "avahi"
+        ? "avahi"
+        : partial.source ?? current?.source ?? "arp";
+    devices.set(ip, {
+      ip,
+      mac: partial.mac ?? current?.mac,
+      name: partial.name ?? current?.name,
+      source,
+    });
+  };
 
   // mDNS via avahi-browse
   try {
     const { stdout } = await execFileAsync("avahi-browse", ["-art"], {
       timeout: EXEC_TIMEOUT,
     });
+    avahiResolved = true;
     stdout
       .split("\n")
       .map((line) => line.trim())
@@ -241,21 +271,14 @@ export async function listLanDevices(): Promise<LanDevicesResult> {
         const parts = line.split(";");
         // Expected: =;iface;PROTO;NAME;TYPE;DOMAIN;HOST;ADDRESS;PORT;
         if (parts.length >= 8) {
-          const name = parts[3];
-          const host = parts[6]?.replace(/\.local\.?$/, "") || name;
+          const name = decodeAvahiValue(parts[3] || "");
+          const host = decodeAvahiValue(parts[6] || "").replace(
+            /\.local\.?$/,
+            "",
+          );
           const ip = parts[7];
-          if (ip) {
-            const existing = devices.get(ip);
-            if (!existing) {
-              devices.set(ip, {
-                ip,
-                name: host || name,
-                source: "avahi",
-              });
-            } else if (!existing.name && (host || name)) {
-              devices.set(ip, { ...existing, name: host || name });
-            }
-          }
+          const displayName = host || name;
+          if (ip) upsertDevice(ip, { name: displayName || undefined, source: "avahi" });
         }
       });
   } catch (error) {
@@ -263,16 +286,49 @@ export async function listLanDevices(): Promise<LanDevicesResult> {
     errors.push(`avahi-browse: ${message}`);
   }
 
-  // ARP scan (arp-scan or arp -a)
-  const addArpEntry = (ip: string, mac?: string) => {
-    if (!ip) return;
-    const existing = devices.get(ip);
-    if (existing) {
-      devices.set(ip, { ...existing, mac: existing.mac ?? mac });
-    } else {
-      devices.set(ip, { ip, mac, source: "arp" });
+  // Fallback: discover hostnames only and resolve to IPs if possible
+  try {
+    const { stdout } = await execFileAsync("avahi-browse", ["-at"], {
+      timeout: EXEC_TIMEOUT,
+    });
+    const hosts = new Set<string>();
+    stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .forEach((line) => {
+        const parts = line.split(/\s+/);
+        // Example: = eth0 IPv4 My-Device _workstation._tcp local
+        if (parts.length >= 5 && parts[5]?.includes("local")) {
+          hosts.add(decodeAvahiValue(parts[3] || ""));
+        }
+      });
+
+    for (const hostRaw of Array.from(hosts).slice(0, MAX_HOSTNAME_LOOKUPS)) {
+      const host = hostRaw.replace(/\.local\.?$/, "");
+      if (!host) continue;
+      try {
+        const { stdout: resolved } = await execFileAsync(
+          "avahi-resolve-host-name",
+          [`${host}.local`],
+          { timeout: RESOLVE_TIMEOUT },
+        );
+        const ip = resolved.split(/\s+/)[1];
+        if (ip) {
+          upsertDevice(ip, { name: host, source: "avahi" });
+        }
+      } catch {
+        // Ignore individual resolution failures
+      }
     }
-  };
+  } catch (error) {
+    if (!avahiResolved) {
+      const message = (error as Error)?.message || "failed";
+      errors.push(`avahi-browse(-t): ${message}`);
+    }
+  }
+
+  // ARP scan (arp-scan or arp -a)
 
   try {
     const { stdout } = await execFileAsync(
@@ -287,7 +343,7 @@ export async function listLanDevices(): Promise<LanDevicesResult> {
         // Format: IP<TAB>MAC<TAB>VENDOR
         const parts = line.split(/\s+/);
         if (parts.length >= 2 && parts[0].match(/^\d{1,3}(\.\d{1,3}){3}$/)) {
-          addArpEntry(parts[0], parts[1]);
+          upsertDevice(parts[0], { mac: parts[1], source: "arp" });
         }
       });
   } catch {
@@ -305,12 +361,37 @@ export async function listLanDevices(): Promise<LanDevicesResult> {
             /\((\d{1,3}(?:\.\d{1,3}){3})\).*? at ([0-9a-f:]{11,})/i,
           );
           if (match) {
-            addArpEntry(match[1], match[2]);
+            upsertDevice(match[1], { mac: match[2], source: "arp" });
           }
         });
     } catch (err: unknown) {
       const message = (err as Error)?.message || "failed";
       errors.push(`arp: ${message}`);
+    }
+  }
+
+  // Best-effort reverse lookup for entries without names using mDNS
+  const toResolve = Array.from(devices.values())
+    .filter((d) => !d.name)
+    .slice(0, MAX_REVERSE_LOOKUPS);
+
+  for (const device of toResolve) {
+    try {
+      const { stdout } = await execFileAsync(
+        "avahi-resolve-address",
+        [device.ip],
+        { timeout: RESOLVE_TIMEOUT },
+      );
+      // Format: 192.168.1.10\tMy-Device.local
+      const host = stdout
+        .split(/\s+/)[1]
+        ?.replace(/\.local\.?$/, "");
+      const cleanHost = host ? decodeAvahiValue(host) : "";
+      if (cleanHost) {
+        upsertDevice(device.ip, { name: cleanHost });
+      }
+    } catch {
+      // Ignore individual lookup failures
     }
   }
 

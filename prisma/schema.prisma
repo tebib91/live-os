@@ -53,6 +53,7 @@ model Store {
   name        String
   description String?
   localPath   String
+  manifestHash String?
   apps        App[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -82,6 +83,8 @@ model App {
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([storeId, appId])
+  @@index([appId])
+  @@index([title])
 }
 
 model InstalledApp {

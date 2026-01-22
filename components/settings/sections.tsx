@@ -15,7 +15,6 @@ import {
 import Image from "next/image";
 import { HardwareInfo, formatCpuLabel, formatCpuTemp } from "./hardware-utils";
 import type { SystemInfo } from "./types";
-import type { LanDevice } from "@/app/actions/network";
 
 export type WallpaperOption = {
   id: string;
@@ -297,17 +296,19 @@ export function FirewallSection({
 }
 
 type NetworkDevicesSectionProps = {
-  devices: LanDevice[];
+  deviceCount?: number;
   loading?: boolean;
   error?: string | null;
   onRefresh?: () => void;
+  onOpenDialog: () => void;
 };
 
 export function NetworkDevicesSection({
-  devices,
+  deviceCount,
   loading,
   error,
   onRefresh,
+  onOpenDialog,
 }: NetworkDevicesSectionProps) {
   return (
     <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/15 shadow-lg shadow-black/25">
@@ -320,19 +321,31 @@ export function NetworkDevicesSection({
             Devices discovered on your local network
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="border border-white/15 bg-white/10 hover:bg-white/20 text-white text-xs shadow-sm"
-          onClick={onRefresh}
-          disabled={loading}
-        >
-          {loading ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="border border-white/15 bg-white/10 hover:bg-white/20 text-white text-xs shadow-sm"
+            onClick={onRefresh}
+            disabled={loading}
+            title="Rescan network"
+          >
+            {loading ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="border border-white/15 bg-white/10 hover:bg-white/20 text-white text-xs shadow-sm"
+            onClick={onOpenDialog}
+          >
+            <Network className="h-4 w-4 mr-2" />
+            View devices
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -341,42 +354,13 @@ export function NetworkDevicesSection({
         </div>
       )}
 
-      {loading && devices.length === 0 && (
-        <p className="text-xs text-white/60">Scanning...</p>
-      )}
-
-      {!loading && devices.length === 0 && !error && (
-        <p className="text-xs text-white/60">No devices found.</p>
-      )}
-
-      {devices.length > 0 && (
-        <div className="divide-y divide-white/10 border border-white/10 rounded-xl overflow-hidden">
-          {devices.slice(0, 12).map((device) => (
-            <div
-              key={`${device.ip}-${device.mac ?? device.name ?? device.source}`}
-              className="flex items-center justify-between px-3 py-2 bg-white/5 text-xs text-white"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 border border-white/15">
-                  <Network className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  <div className="font-semibold truncate">
-                    {device.name || "Unknown device"}
-                  </div>
-                  <div className="text-white/60 truncate">
-                    {device.ip}
-                    {device.mac ? ` • ${device.mac}` : ""}
-                  </div>
-                </div>
-              </div>
-              <span className="text-[11px] uppercase tracking-wide text-white/60">
-                {device.source}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      <p className="text-xs text-white/60">
+        {loading
+          ? "Scanning..."
+          : deviceCount === undefined
+            ? "Not scanned yet."
+            : `${deviceCount} device${deviceCount === 1 ? "" : "s"} found`}
+      </p>
     </div>
   );
 }

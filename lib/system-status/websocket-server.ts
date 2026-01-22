@@ -306,15 +306,27 @@ async function collectInstalledApps(): Promise<InstalledApp[]> {
     const storeMetaById = new Map(storeApps.map((app) => [app.appId, app]));
 
     const { stdout } = await execAsync(
-      'docker ps -a --format "{{.Names}}\t{{.Status}}\t{{.Image}}"'
+      'docker ps -a --format "{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.Labels}}"'
     );
 
     if (!stdout.trim()) return [];
 
     const lines = stdout.trim().split('\n');
-    return await Promise.all(
+    const apps = await Promise.all(
       lines.map(async (line) => {
-        const [containerName, status] = line.split('\t');
+        const [containerName, status, , labelsRaw] = line.split('\t');
+
+        const labels: Record<string, string> = {};
+        if (labelsRaw) {
+          labelsRaw.split(',').forEach((pair) => {
+            const [key, value] = pair.split('=');
+            if (key) labels[key.trim()] = (value || '').trim();
+          });
+        }
+
+        if (labels['liveos.helper'] === 'true') {
+          return null;
+        }
 
         let appStatus: 'running' | 'stopped' | 'error' = 'error';
         if (status.toLowerCase().startsWith('up')) {
@@ -324,7 +336,10 @@ async function collectInstalledApps(): Promise<InstalledApp[]> {
         }
 
         const meta = metaByContainer.get(containerName);
-        const appId = meta?.appId || getAppIdFromContainerName(containerName);
+        const appId =
+          labels['liveos.appId'] ||
+          meta?.appId ||
+          getAppIdFromContainerName(containerName);
         const storeMeta = appId ? storeMetaById.get(appId) : undefined;
         const hostPort = await resolveHostPort(containerName);
 
@@ -344,6 +359,7 @@ async function collectInstalledApps(): Promise<InstalledApp[]> {
         };
       })
     );
+    return apps.filter(Boolean) as InstalledApp[];
   } catch {
     return [];
   }

@@ -34,6 +34,7 @@ import {
 } from "./sections";
 import { SettingsSidebar } from "./settings-sidebar";
 import { SystemDetailsDialog } from "./system-details-dialog";
+import { NetworkDevicesDialog } from "./network-devices-dialog";
 import { WifiDialog } from "./wifi-dialog";
 
 interface SettingsDialogProps {
@@ -62,6 +63,7 @@ export function SettingsDialog({
     undefined,
   );
   const [systemDetailsOpen, setSystemDetailsOpen] = useState(false);
+  const [networkDevicesOpen, setNetworkDevicesOpen] = useState(false);
   const [uptimeSeconds, setUptimeSeconds] = useState<number>(0);
   const [lanDevices, setLanDevices] = useState<LanDevice[]>([]);
   const [lanDevicesLoading, setLanDevicesLoading] = useState(false);
@@ -258,10 +260,11 @@ export function SettingsDialog({
                 quality={hardware?.wifi?.quality}
               />
               <NetworkDevicesSection
-                devices={lanDevices}
+                deviceCount={lanDevices.length}
                 loading={lanDevicesLoading}
                 error={lanDevicesError}
                 onRefresh={fetchLanDevices}
+                onOpenDialog={() => setNetworkDevicesOpen(true)}
               />
               <FirewallSection
                 onOpenDialog={() => setFirewallDialogOpen(true)}
@@ -280,6 +283,16 @@ export function SettingsDialog({
 
         {wifiDialogOpen && (
           <WifiDialog open={wifiDialogOpen} onOpenChange={setWifiDialogOpen} />
+        )}
+        {networkDevicesOpen && (
+          <NetworkDevicesDialog
+            open={networkDevicesOpen}
+            onOpenChange={setNetworkDevicesOpen}
+            onDevicesChange={(devices, error) => {
+              setLanDevices(devices);
+              setLanDevicesError(error);
+            }}
+          />
         )}
         {firewallDialogOpen && (
           <FirewallDialog

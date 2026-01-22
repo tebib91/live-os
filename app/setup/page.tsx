@@ -15,6 +15,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { updateSettings } from "../actions/settings";
+import { installInternalApp } from "../actions/internal-apps";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -24,10 +25,12 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [checkingUsers, setCheckingUsers] = useState(true);
-   const [step, setStep] = useState<"register" | "next">("register");
-   const [locationStatus, setLocationStatus] = useState<string>("");
-   const [locationError, setLocationError] = useState<string | null>(null);
-   const [tailscaleIntent, setTailscaleIntent] = useState<"pending" | "skip" | "go">("pending");
+  const [step, setStep] = useState<"register" | "next">("register");
+  const [locationStatus, setLocationStatus] = useState<string>("");
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [tailscaleIntent, setTailscaleIntent] = useState<"pending" | "skip" | "auto">("pending");
+  const [tailscaleStatus, setTailscaleStatus] = useState<"idle" | "installing" | "installed" | "error">("idle");
+  const [tailscaleError, setTailscaleError] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if users already exist, redirect to login if they do
@@ -104,6 +107,27 @@ export default function SetupPage() {
     );
   };
 
+  const handleTailscaleChoice = async (choice: "auto" | "skip") => {
+    setTailscaleIntent(choice);
+    setTailscaleError(null);
+
+    if (choice === "auto") {
+      if (tailscaleStatus === "installed" || tailscaleStatus === "installing") return;
+      setTailscaleStatus("installing");
+      const result = await installInternalApp("tailscale");
+      if (result.success) {
+        setTailscaleStatus("installed");
+      } else {
+        setTailscaleStatus("error");
+        setTailscaleError(result.error || "Failed to install Tailscale.");
+      }
+    } else {
+      if (tailscaleStatus !== "installed") {
+        setTailscaleStatus("idle");
+      }
+    }
+  };
+
   const handleFinish = () => {
     router.push("/login");
   };
@@ -136,43 +160,61 @@ export default function SetupPage() {
               </div>
 
               <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-white font-semibold">Tailscale (optional)</div>
-                    <div className="text-sm text-white/70">
-                      Secure remote access. You can install the internal Tailscale app after login.
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-white font-semibold">Tailscale (optional)</div>
+                      <div className="text-sm text-white/70">
+                        Secure remote access. Choose &ldquo;Install now&rdquo; to deploy the bundled Tailscale container automatically (docker compose); or skip and do it later from the App Store.
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={tailscaleIntent === "auto" ? "default" : "ghost"}
+                        className="border border-white/15 text-white"
+                        onClick={() => handleTailscaleChoice("auto")}
+                        disabled={tailscaleStatus === "installing"}
+                      >
+                        {tailscaleStatus === "installing" ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Installing...
+                          </>
+                        ) : tailscaleStatus === "installed" ? (
+                          <>
+                            <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-300" />
+                            Installed
+                          </>
+                        ) : (
+                          "Install now"
+                        )}
+                      </Button>
+                      <Button
+                        variant={tailscaleIntent === "skip" ? "default" : "ghost"}
+                        className="border border-white/15 text-white"
+                        onClick={() => handleTailscaleChoice("skip")}
+                        disabled={tailscaleStatus === "installing"}
+                      >
+                        Skip
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={tailscaleIntent === "go" ? "default" : "ghost"}
-                      className="border border-white/15 text-white"
-                      onClick={() => {
-                        setTailscaleIntent("go");
-                        router.push("/"); // open home after login; install via App Store/internal apps
-                      }}
-                    >
-                      Install later
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="border border-white/15 text-white"
-                      onClick={() => {
-                        setTailscaleIntent("skip");
-                      }}
-                    >
-                      Skip
-                    </Button>
-                  </div>
+                <div className="text-xs text-white/60 mt-2 space-y-1">
+                  <p>
+                    The installer runs `docker compose` for the bundled Tailscale stack and marks it as an installed app.
+                  </p>
+                  {tailscaleError && (
+                    <p className="text-red-400">{tailscaleError}</p>
+                  )}
                 </div>
-                <p className="text-xs text-white/60 mt-2">
-                  After logging in, open the App Store or run the internal Tailscale compose under `internal-apps/tailscale`.
-                </p>
               </div>
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={handleFinish} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button
+                onClick={handleFinish}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={tailscaleStatus === "installing"}
+              >
                 Go to login
               </Button>
             </div>

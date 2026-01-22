@@ -419,3 +419,307 @@ export async function openPath(
     return { success: false, error: error.message || 'Failed to open path' };
   }
 }
+
+/**
+ * Move items to a destination directory
+ */
+export async function moveItems(
+  sourcePaths: string[],
+  destPath: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('[filesystem] moveItems:', sourcePaths, '->', destPath);
+
+    // Validate destination
+    const { valid: destValid, sanitized: destSanitized } = await validatePath(destPath);
+    if (!destValid) {
+      return { success: false, error: 'Invalid destination path' };
+    }
+
+    // Ensure destination is a directory
+    const destStats = await fs.stat(destSanitized);
+    if (!destStats.isDirectory()) {
+      return { success: false, error: 'Destination is not a directory' };
+    }
+
+    // Move each source item
+    for (const sourcePath of sourcePaths) {
+      const { valid: srcValid, sanitized: srcSanitized } = await validatePath(sourcePath);
+      if (!srcValid) {
+        return { success: false, error: `Invalid source path: ${sourcePath}` };
+      }
+
+      const baseName = path.basename(srcSanitized);
+      const targetPath = path.join(destSanitized, baseName);
+
+      // Check if target already exists
+      try {
+        await fs.access(targetPath);
+        return { success: false, error: `Item already exists: ${baseName}` };
+      } catch {
+        // Good, doesn't exist
+      }
+
+      // Move the item
+      await fs.rename(srcSanitized, targetPath);
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Move items error:', error);
+    return { success: false, error: error.message || 'Failed to move items' };
+  }
+}
+
+/**
+ * Copy items to a destination directory
+ */
+export async function copyItems(
+  sourcePaths: string[],
+  destPath: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('[filesystem] copyItems:', sourcePaths, '->', destPath);
+
+    // Validate destination
+    const { valid: destValid, sanitized: destSanitized } = await validatePath(destPath);
+    if (!destValid) {
+      return { success: false, error: 'Invalid destination path' };
+    }
+
+    // Ensure destination is a directory
+    const destStats = await fs.stat(destSanitized);
+    if (!destStats.isDirectory()) {
+      return { success: false, error: 'Destination is not a directory' };
+    }
+
+    // Copy each source item
+    for (const sourcePath of sourcePaths) {
+      const { valid: srcValid, sanitized: srcSanitized } = await validatePath(sourcePath);
+      if (!srcValid) {
+        return { success: false, error: `Invalid source path: ${sourcePath}` };
+      }
+
+      const baseName = path.basename(srcSanitized);
+      let targetPath = path.join(destSanitized, baseName);
+
+      // Generate unique name if target exists
+      let counter = 1;
+      while (true) {
+        try {
+          await fs.access(targetPath);
+          // File exists, generate new name
+          const ext = path.extname(baseName);
+          const nameWithoutExt = path.basename(baseName, ext);
+          targetPath = path.join(destSanitized, `${nameWithoutExt} (${counter})${ext}`);
+          counter++;
+        } catch {
+          // Doesn't exist, use this path
+          break;
+        }
+      }
+
+      // Use cp -r for directories, simple copy for files
+      const srcStats = await fs.stat(srcSanitized);
+      if (srcStats.isDirectory()) {
+        await execAsync(`cp -r "${srcSanitized}" "${targetPath}"`);
+      } else {
+        await fs.copyFile(srcSanitized, targetPath);
+      }
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Copy items error:', error);
+    return { success: false, error: error.message || 'Failed to copy items' };
+  }
+}
+
+/**
+ * Move item to trash (.Trash directory)
+ */
+export async function trashItem(
+  itemPath: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('[filesystem] trashItem:', itemPath);
+
+    const { valid, sanitized } = await validatePath(itemPath);
+    if (!valid) {
+      return { success: false, error: 'Invalid path' };
+    }
+
+    // Get home directory for .Trash
+    const homeRoot = await ensureHomeRoot();
+    const trashDir = path.join(homeRoot, '.Trash');
+
+    // Ensure .Trash directory exists
+    await fs.mkdir(trashDir, { recursive: true });
+
+    const baseName = path.basename(sanitized);
+    let trashPath = path.join(trashDir, baseName);
+
+    // Generate unique name if target exists in trash
+    let counter = 1;
+    while (true) {
+      try {
+        await fs.access(trashPath);
+        const ext = path.extname(baseName);
+        const nameWithoutExt = path.basename(baseName, ext);
+        trashPath = path.join(trashDir, `${nameWithoutExt} (${counter})${ext}`);
+        counter++;
+      } catch {
+        break;
+      }
+    }
+
+    // Move to trash
+    await fs.rename(sanitized, trashPath);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Trash item error:', error);
+    return { success: false, error: error.message || 'Failed to move item to trash' };
+  }
+}
+
+/**
+ * Compress items into a tar.gz archive
+ */
+export async function compressItems(
+  paths: string[],
+  outputName?: string
+): Promise<{ success: boolean; outputPath?: string; error?: string }> {
+  try {
+    console.log('[filesystem] compressItems:', paths);
+
+    if (paths.length === 0) {
+      return { success: false, error: 'No items to compress' };
+    }
+
+    // Validate all paths
+    const sanitizedPaths: string[] = [];
+    for (const p of paths) {
+      const { valid, sanitized } = await validatePath(p);
+      if (!valid) {
+        return { success: false, error: `Invalid path: ${p}` };
+      }
+      sanitizedPaths.push(sanitized);
+    }
+
+    // Determine output directory and archive name
+    const firstPath = sanitizedPaths[0];
+    const parentDir = path.dirname(firstPath);
+    const archiveName = outputName || (paths.length === 1
+      ? `${path.basename(firstPath)}.tar.gz`
+      : `archive-${Date.now()}.tar.gz`);
+    const archivePath = path.join(parentDir, archiveName);
+
+    // Create file list for tar
+    const fileNames = sanitizedPaths.map((p) => path.basename(p));
+
+    // Use tar to create archive
+    const tarCommand = `cd "${parentDir}" && tar -czvf "${archiveName}" ${fileNames.map((f) => `"${f}"`).join(' ')}`;
+    await execAsync(tarCommand);
+
+    return { success: true, outputPath: archivePath };
+  } catch (error: any) {
+    console.error('Compress items error:', error);
+    return { success: false, error: error.message || 'Failed to compress items' };
+  }
+}
+
+/**
+ * Extract an archive to the same directory or specified destination
+ */
+export async function uncompressArchive(
+  archivePath: string,
+  destPath?: string
+): Promise<{ success: boolean; outputPath?: string; error?: string }> {
+  try {
+    console.log('[filesystem] uncompressArchive:', archivePath);
+
+    const { valid, sanitized } = await validatePath(archivePath);
+    if (!valid) {
+      return { success: false, error: 'Invalid archive path' };
+    }
+
+    // Check if file exists
+    const stats = await fs.stat(sanitized);
+    if (!stats.isFile()) {
+      return { success: false, error: 'Not a file' };
+    }
+
+    // Determine destination directory
+    let outputDir = destPath;
+    if (!outputDir) {
+      // Create a directory with the archive name (without extension)
+      const archiveName = path.basename(sanitized);
+      const parentDir = path.dirname(sanitized);
+
+      // Remove common archive extensions
+      const baseName = archiveName
+        .replace(/\.tar\.gz$/i, '')
+        .replace(/\.tgz$/i, '')
+        .replace(/\.tar\.bz2$/i, '')
+        .replace(/\.tbz2$/i, '')
+        .replace(/\.tar\.xz$/i, '')
+        .replace(/\.txz$/i, '')
+        .replace(/\.tar$/i, '')
+        .replace(/\.zip$/i, '')
+        .replace(/\.7z$/i, '')
+        .replace(/\.rar$/i, '')
+        .replace(/\.gz$/i, '')
+        .replace(/\.bz2$/i, '')
+        .replace(/\.xz$/i, '');
+
+      outputDir = path.join(parentDir, baseName);
+    }
+
+    // Validate and create output directory
+    const { valid: destValid, sanitized: destSanitized } = await validatePath(outputDir);
+    if (!destValid) {
+      return { success: false, error: 'Invalid destination path' };
+    }
+    await fs.mkdir(destSanitized, { recursive: true });
+
+    // Determine the appropriate extraction command based on file extension
+    const lowerPath = sanitized.toLowerCase();
+    let command: string;
+
+    if (lowerPath.endsWith('.tar.gz') || lowerPath.endsWith('.tgz')) {
+      command = `tar -xzvf "${sanitized}" -C "${destSanitized}"`;
+    } else if (lowerPath.endsWith('.tar.bz2') || lowerPath.endsWith('.tbz2')) {
+      command = `tar -xjvf "${sanitized}" -C "${destSanitized}"`;
+    } else if (lowerPath.endsWith('.tar.xz') || lowerPath.endsWith('.txz')) {
+      command = `tar -xJvf "${sanitized}" -C "${destSanitized}"`;
+    } else if (lowerPath.endsWith('.tar')) {
+      command = `tar -xvf "${sanitized}" -C "${destSanitized}"`;
+    } else if (lowerPath.endsWith('.zip')) {
+      command = `unzip -o "${sanitized}" -d "${destSanitized}"`;
+    } else if (lowerPath.endsWith('.gz')) {
+      // Single file gzip
+      const outputFile = path.join(destSanitized, path.basename(sanitized, '.gz'));
+      command = `gunzip -c "${sanitized}" > "${outputFile}"`;
+    } else if (lowerPath.endsWith('.bz2')) {
+      const outputFile = path.join(destSanitized, path.basename(sanitized, '.bz2'));
+      command = `bunzip2 -c "${sanitized}" > "${outputFile}"`;
+    } else if (lowerPath.endsWith('.xz')) {
+      const outputFile = path.join(destSanitized, path.basename(sanitized, '.xz'));
+      command = `xz -dc "${sanitized}" > "${outputFile}"`;
+    } else if (lowerPath.endsWith('.7z')) {
+      command = `7z x "${sanitized}" -o"${destSanitized}" -y`;
+    } else if (lowerPath.endsWith('.rar')) {
+      command = `unrar x "${sanitized}" "${destSanitized}/"`;
+    } else {
+      return { success: false, error: 'Unsupported archive format' };
+    }
+
+    await execAsync(command);
+
+    return { success: true, outputPath: destSanitized };
+  } catch (error: any) {
+    console.error('Uncompress archive error:', error);
+    return { success: false, error: error.message || 'Failed to extract archive' };
+  }
+}

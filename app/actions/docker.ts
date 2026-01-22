@@ -22,6 +22,8 @@ const CONTAINER_PREFIX = process.env.CONTAINER_PREFIX || "";
 const DEFAULT_APP_ICON = "/icons/default-application-icon.png";
 // Root where imported external app stores live (CasaOS ZIPs, etc.)
 const STORES_ROOT = path.join(process.cwd(), "external-apps");
+const INTERNAL_APPS_ROOT = path.join(process.cwd(), "internal-apps");
+const CUSTOM_APPS_ROOT = path.join(process.cwd(), "custom-apps");
 const FALLBACK_APP_NAME = "Application";
 
 async function resolveHostPort(containerName: string): Promise<string | null> {
@@ -201,10 +203,13 @@ export async function installApp(
     const resolvedCompose = await findComposeForApp(appId);
     if (!resolvedCompose) {
       console.warn(
-        `[Docker] installApp: ❌ Compose file not found for "${appId}" in external stores`
+        `[Docker] installApp: ❌ Compose file not found for "${appId}" in available app roots`
       );
       emitProgress(1, "Compose file not found", "error");
-      return { success: false, error: "App not found in imported stores." };
+      return {
+        success: false,
+        error: "App not found. Ensure it is imported or bundled internally.",
+      };
     }
 
     const { appDir, composePath } = resolvedCompose;
@@ -980,21 +985,26 @@ async function findComposeForApp(
     return null;
   }
 
+  const rootsToSearch = [STORES_ROOT, INTERNAL_APPS_ROOT, CUSTOM_APPS_ROOT];
+
   try {
-    await fs.mkdir(STORES_ROOT, { recursive: true });
-    const storeEntries = await fs.readdir(STORES_ROOT, { withFileTypes: true });
-    for (const store of storeEntries) {
-      if (!store.isDirectory()) continue;
-      const storeDir = path.join(STORES_ROOT, store.name);
-      const found = await searchDir(storeDir, 0);
-      if (found) return found;
+    for (const root of rootsToSearch) {
+      await fs.mkdir(root, { recursive: true }).catch(() => null);
+      const entries = await fs
+        .readdir(root, { withFileTypes: true })
+        .catch(() => []);
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const dir = path.join(root, entry.name);
+        const found = await searchDir(dir, 0);
+        if (found) return found;
+      }
     }
   } catch (error) {
     console.error(
-      "[Docker] findComposeForApp: ❌ Error searching stores:",
+      "[Docker] findComposeForApp: ❌ Error searching app roots:",
       error
     );
-    return null;
   }
 
   return null;

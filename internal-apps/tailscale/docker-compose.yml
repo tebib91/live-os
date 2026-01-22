@@ -3,7 +3,10 @@ version: "3.7"
 services:
   tailscale-nginx:
     image: tailscale/tailscale:latest
+    container_name: ${CONTAINER_NAME:-tailscale}
     hostname: tailscale-nginx
+    labels:
+      - "liveos.appId=tailscale"
     environment:
       # - TS_AUTHKEY=tskey-client-notAReal-OAuthClientSecret1Atawk
       - TS_EXTRA_ARGS=--advertise-tags=tag:container
@@ -18,7 +21,9 @@ services:
     restart: unless-stopped
   nginx:
     image: nginx
+    container_name: ${CONTAINER_NAME:-tailscale}-nginx
     depends_on:
       - tailscale-nginx
     network_mode: service:tailscale-nginx
-
+    labels:
+      - "liveos.helper=true"

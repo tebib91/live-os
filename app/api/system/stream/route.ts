@@ -12,6 +12,7 @@ type MetricsPayload = {
   storageInfo: unknown;
   networkStats: unknown;
   installedApps: unknown;
+  runningApps: unknown;
 };
 
 export type InstallProgressPayload = {
@@ -196,19 +197,80 @@ async function pollAndBroadcast() {
   if (isPolling || clients.size === 0) return;
   isPolling = true;
   try {
-    const [systemStatus, storageInfo, networkStats, installedApps] = await Promise.all([
+    const [systemStatus, storageInfo, networkStats, installedApps, runningApps] = await Promise.all([
       getSystemStatus(),
       getStorageInfo(),
       getNetworkStats(),
       getInstalledApps(),
+      getRunningApps(),
     ]);
-    latestPayload = { type: 'metrics', systemStatus, storageInfo, networkStats, installedApps };
+    latestPayload = { type: 'metrics', systemStatus, storageInfo, networkStats, installedApps, runningApps };
     broadcast(latestPayload);
   } catch (error) {
     console.error('[SSE] Metrics fetch error:', error);
     broadcast({ type: 'error', message: 'Failed to fetch metrics' });
   } finally {
     isPolling = false;
+  }
+}
+
+/**
+ * Collect live Docker container resource usage (CPU%, mem usage/limit)
+ */
+async function getRunningApps() {
+  try {
+    const { stdout } = await execAsync(
+      'docker stats --no-stream --format "{{.Name}}\\t{{.CPUPerc}}\\t{{.MemUsage}}\\t{{.MemPerc}}"'
+    );
+
+    if (!stdout.trim()) return [];
+
+    const parseMemoryString = (memStr: string): number => {
+      const match = memStr.match(/^([\\d.]+)(\\w+)$/);
+      if (!match) return 0;
+      const value = parseFloat(match[1]);
+      const unit = match[2].toLowerCase();
+      switch (unit) {
+        case 'gib':
+        case 'gb':
+          return value * 1024 * 1024 * 1024;
+        case 'mib':
+        case 'mb':
+          return value * 1024 * 1024;
+        case 'kib':
+        case 'kb':
+          return value * 1024;
+        case 'b':
+          return value;
+        default:
+          return 0;
+      }
+    };
+
+    return stdout
+      .trim()
+      .split('\\n')
+      .map((line) => {
+        const [name, cpuStr, memUsageStr, memPercStr] = line.split('\\t');
+        const cpuUsage = parseFloat(cpuStr?.replace('%', '') || '0');
+        const memPercent = parseFloat(memPercStr?.replace('%', '') || '0');
+        const memParts = memUsageStr?.split(' / ') || [];
+        const memoryUsage = parseMemoryString(memParts[0]?.trim() || '0');
+        const memoryLimit = parseMemoryString(memParts[1]?.trim() || '0');
+
+        return {
+          id: name,
+          name: name.replace(/-/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase()),
+          cpuUsage: Number.isFinite(cpuUsage) ? cpuUsage : 0,
+          memoryUsage: Number.isFinite(memoryUsage) ? memoryUsage : 0,
+          memoryLimit: Number.isFinite(memoryLimit) ? memoryLimit : 0,
+          memoryPercent: Number.isFinite(memPercent) ? memPercent : 0,
+        };
+      })
+      .sort((a, b) => b.cpuUsage - a.cpuUsage);
+  } catch (error) {
+    console.error('[SSE] Failed to collect running apps:', error);
+    return [];
   }
 }
 

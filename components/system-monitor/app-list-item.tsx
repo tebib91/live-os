@@ -7,10 +7,11 @@ import type { RunningApp } from "./types";
 
 interface AppListItemProps {
   app: RunningApp;
-  metricValue: string;
+  cpuLabel: string;
+  memLabel: string;
 }
 
-export function AppListItem({ app, metricValue }: AppListItemProps) {
+export function AppListItem({ app, cpuLabel, memLabel }: AppListItemProps) {
   return (
     <div className="flex items-center justify-between py-2 hover:bg-white/5 rounded-lg px-2 -mx-2 transition-colors">
       <div className="flex items-center gap-3">
@@ -26,7 +27,14 @@ export function AppListItem({ app, metricValue }: AppListItemProps) {
         </div>
         <span className={text.valueSmall}>{app.name}</span>
       </div>
-      <span className={text.valueSmall}>{metricValue}</span>
+      <div className="flex items-center gap-3 text-xs sm:text-sm">
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 border border-white/15 text-white/80">
+          CPU {cpuLabel}
+        </span>
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 border border-white/15 text-white/80">
+          RAM {memLabel}
+        </span>
+      </div>
     </div>
   );
 }

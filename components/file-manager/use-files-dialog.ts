@@ -14,6 +14,7 @@ import {
   type DirectoryContent,
   type FileSystemItem,
 } from '@/app/actions/filesystem';
+import { getFavorites } from '@/app/actions/favorites';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -110,6 +111,7 @@ export function useFilesDialog(open: boolean) {
     item: null,
   });
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorPath, setEditorPath] = useState('');
   const [editorContent, setEditorContent] = useState('');
@@ -149,10 +151,14 @@ export function useFilesDialog(open: boolean) {
 
     const loadDefaults = async () => {
       try {
-        const result = await getDefaultDirectories();
-        const normalizedHome = result.home || DEFAULT_ROOT;
+        const [dirResult, favResult] = await Promise.all([
+          getDefaultDirectories(),
+          getFavorites(),
+        ]);
+        const normalizedHome = dirResult.home || DEFAULT_ROOT;
         setHomePath(normalizedHome);
-        setShortcuts(result.directories);
+        setShortcuts(dirResult.directories);
+        setFavorites(favResult.favorites);
         setHistory([normalizedHome]);
         setHistoryIndex(0);
         setCurrentPath(normalizedHome);
@@ -458,6 +464,20 @@ export function useFilesDialog(open: boolean) {
 
   const closeContextMenu = () => setContextMenu((prev) => ({ ...prev, item: null }));
 
+  const refreshFavorites = useCallback(async () => {
+    try {
+      const result = await getFavorites();
+      setFavorites(result.favorites);
+    } catch (error) {
+      console.error('Failed to refresh favorites:', error);
+    }
+  }, []);
+
+  const refresh = useCallback(() => {
+    loadDirectory(currentPath);
+    refreshFavorites();
+  }, [currentPath, loadDirectory, refreshFavorites]);
+
   return {
     // state
     homePath,
@@ -474,6 +494,7 @@ export function useFilesDialog(open: boolean) {
     historyIndex,
     historyLength: history.length,
     shortcuts,
+    favorites,
     filteredItems,
     breadcrumbs,
     contextMenu,
@@ -516,5 +537,7 @@ export function useFilesDialog(open: boolean) {
     toDirectoryItem,
     closeContextMenu,
     isTextLike,
+    refresh,
+    refreshFavorites,
   };
 }
