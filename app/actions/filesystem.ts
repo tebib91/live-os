@@ -21,6 +21,7 @@ export interface FileSystemItem {
   permissions: string;
   isHidden: boolean;
   isMount?: boolean;
+  displayName?: string;
 }
 
 export interface DirectoryContent {
@@ -59,6 +60,33 @@ async function isMountpoint(dirPath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function getMountLabels(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    const storePath = path.join(await ensureHomeRoot(), "Devices", ".network-shares.json");
+    const raw = await fs.readFile(storePath, "utf-8");
+    const parsed = JSON.parse(raw) as { host: string; share: string; mountPath: string }[];
+    if (!Array.isArray(parsed)) return map;
+
+    const hostCounts = parsed.reduce<Record<string, number>>((acc, s) => {
+      if (s?.host) acc[s.host] = (acc[s.host] || 0) + 1;
+      return acc;
+    }, {});
+
+    parsed.forEach((s) => {
+      if (!s?.mountPath || !s?.host) return;
+      const label =
+        hostCounts[s.host] > 1
+          ? `${s.host}/${s.share || ""}`.replace(/\/$/, "")
+          : s.host;
+      map.set(path.resolve(s.mountPath), label);
+    });
+  } catch {
+    // ignore missing or unreadable store
+  }
+  return map;
 }
 
 export async function getHomeRoot(): Promise<string> {
@@ -121,6 +149,7 @@ export async function readDirectory(dirPath: string): Promise<DirectoryContent> 
   try {
     console.log("[filesystem] readDirectory requested:", dirPath);
     await ensureDefaultDirectories();
+    const mountLabels = await getMountLabels();
 
     const { valid, sanitized } = await validatePath(dirPath);
     if (!valid) {
@@ -147,6 +176,13 @@ export async function readDirectory(dirPath: string): Promise<DirectoryContent> 
           const mode = itemStats.mode;
           const permissions = (mode & parseInt('777', 8)).toString(8);
 
+          const isMountPoint = entry.isDirectory()
+            ? await isMountpoint(itemPath)
+            : false;
+          const networkLabel = isMountPoint
+            ? mountLabels.get(path.resolve(itemPath))
+            : undefined;
+
           return {
             name: entry.name,
             path: itemPath,
@@ -155,7 +191,8 @@ export async function readDirectory(dirPath: string): Promise<DirectoryContent> 
             modified: itemStats.mtimeMs,
             permissions,
             isHidden: entry.name.startsWith('.'),
-            isMount: entry.isDirectory() ? await isMountpoint(itemPath) : false,
+            isMount: Boolean(networkLabel),
+            displayName: networkLabel,
           } as FileSystemItem;
         } catch {
           // Skip items we can't access

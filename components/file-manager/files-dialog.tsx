@@ -32,7 +32,6 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
     viewMode,
     content,
     loading,
-    openingNative,
     showHidden,
     creatingFolder,
     newFolderName,
@@ -62,7 +61,6 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
     goToParent,
     back,
     forward,
-    openNative,
     openItem,
     openContextMenu,
     openFileInEditor,
@@ -185,24 +183,22 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
               breadcrumbs={breadcrumbs}
               historyIndex={historyIndex}
               historyLength={historyLength}
-              loading={loading}
-              openingNative={openingNative}
-              showHidden={showHidden}
-              viewMode={viewMode}
-              canGoToParent={Boolean(content?.parent)}
-              onNavigate={navigate}
+            loading={loading}
+            showHidden={showHidden}
+            viewMode={viewMode}
+            canGoToParent={Boolean(content?.parent)}
+            onNavigate={navigate}
               onBreadcrumbContextMenu={(event, path, label) =>
                 openContextMenu(event, toDirectoryItem(path, label))
               }
-              onBack={back}
-              onForward={forward}
-              onGoToParent={goToParent}
-              onOpenNative={() => openNative(currentPath)}
-              onToggleHidden={setShowHidden}
-              onSetViewMode={setViewMode}
-              onToggleCreateFolder={toggleFolderCreation}
-              onToggleCreateFile={toggleFileCreation}
-              onQuickCreateFile={startFileCreation}
+            onBack={back}
+            onForward={forward}
+            onGoToParent={goToParent}
+            onToggleHidden={setShowHidden}
+            onSetViewMode={setViewMode}
+            onToggleCreateFolder={toggleFolderCreation}
+            onToggleCreateFile={toggleFileCreation}
+            onQuickCreateFile={startFileCreation}
               onClose={() => onOpenChange(false)}
             />
 
@@ -233,7 +229,6 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
               viewMode={viewMode}
               items={filteredItems}
               onOpenItem={handleOpenItem}
-              onOpenNative={openNative}
               onContextMenu={openContextMenu}
             />
 

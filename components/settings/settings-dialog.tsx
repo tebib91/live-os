@@ -19,6 +19,7 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { AdvancedSettingsDialog } from "./advanced-settings-dialog";
 import { FirewallDialog } from "./firewall";
 import { HardwareInfo } from "./hardware-utils";
 import {
@@ -77,6 +78,7 @@ export function SettingsDialog({
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [logsDialogOpen, setLogsDialogOpen] = useState(false);
+  const [advancedDialogOpen, setAdvancedDialogOpen] = useState(false);
   const router = useRouter();
 
   // Fetch static data once when dialog opens
@@ -148,6 +150,7 @@ export function SettingsDialog({
       await updateSettings({ currentWallpaper: path });
     } catch (error) {
       console.error("Failed to update wallpaper:", error);
+      toast.error("Wallpaper could not be saved. It will reset on refresh.");
     }
   };
 
@@ -300,7 +303,9 @@ export function SettingsDialog({
               />
               <TroubleshootSection onOpenDialog={() => setLogsDialogOpen(true)} />
               <LanguageSection />
-              <AdvancedSettingsSection />
+              <AdvancedSettingsSection
+                onOpenDialog={() => setAdvancedDialogOpen(true)}
+              />
               {hardware && (
                 <SystemDetailsCard
                   hardware={hardware}
@@ -348,6 +353,10 @@ export function SettingsDialog({
           cpuUsage={systemStats?.cpu?.usage}
           cpuPower={systemStats?.cpu?.power}
           memory={systemStats?.memory}
+        />
+        <AdvancedSettingsDialog
+          open={advancedDialogOpen}
+          onOpenChange={setAdvancedDialogOpen}
         />
       </DialogContent>
     </Dialog>

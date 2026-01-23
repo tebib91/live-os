@@ -12,7 +12,6 @@ interface FilesContentProps {
   viewMode: 'grid' | 'list';
   items: FileSystemItem[];
   onOpenItem: (item: FileSystemItem) => void;
-  onOpenNative: (path: string) => void;
   onContextMenu: (event: MouseEvent, item: FileSystemItem) => void;
 }
 
@@ -36,7 +35,6 @@ export function FilesContent({
   viewMode,
   items,
   onOpenItem,
-  onOpenNative,
   onContextMenu,
 }: FilesContentProps) {
   // Pre-compute icons for all files
@@ -69,10 +67,7 @@ export function FilesContent({
                 <button
                   key={item.path}
                   onClick={() => onOpenItem(item)}
-                  onDoubleClick={(event) => {
-                    event.preventDefault();
-                    onOpenNative(item.path);
-                  }}
+                  onDoubleClick={() => onOpenItem(item)}
                   onContextMenu={(event) => onContextMenu(event, item)}
                   className="flex flex-col items-center gap-3 group"
                 >
@@ -97,7 +92,7 @@ export function FilesContent({
 
                   <div className="text-center max-w-full">
                     <div className="text-sm font-medium text-white/90 -tracking-[0.01em] truncate">
-                      {item.name}
+                      {item.displayName || item.name}
                     </div>
                     <div className="text-xs text-white/40 -tracking-[0.01em]">
                       {item.type === 'directory' ? 'Folder' : formatSize(item.size)}
@@ -142,7 +137,7 @@ export function FilesContent({
                   )}
                   <div className="flex-1 text-left min-w-0">
                     <div className="text-sm font-medium text-white/90 -tracking-[0.01em] truncate">
-                      {item.name}
+                      {item.displayName || item.name}
                     </div>
                     <div className="text-xs text-white/40 -tracking-[0.01em]">
                       {item.type === 'directory'

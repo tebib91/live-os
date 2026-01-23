@@ -74,16 +74,6 @@ export async function updateSettings(
   input: Partial<SettingsData>
 ): Promise<SettingsData> {
   try {
-    const nextWallpaper = input.currentWallpaper;
-
-    if (typeof nextWallpaper === 'string') {
-      const wallpapers = await getWallpapers();
-      const isValid = wallpapers.some((wallpaper) => wallpaper.path === nextWallpaper);
-      if (!isValid) {
-        return getSettings();
-      }
-    }
-
     // Build update data object
     const data: Record<string, unknown> = {};
     if (input.currentWallpaper !== undefined) {
@@ -124,6 +114,6 @@ export async function updateSettings(
     };
   } catch (error) {
     console.error('Failed to update settings:', error);
-    return { currentWallpaper: null, selectedWidgets: null };
+    throw error;
   }
 }

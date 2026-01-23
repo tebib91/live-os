@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
-  ExternalLink,
   FilePlus,
   Grid2x2,
   List,
@@ -26,7 +25,6 @@ interface FilesToolbarProps {
   historyIndex: number;
   historyLength: number;
   loading: boolean;
-  openingNative: boolean;
   showHidden: boolean;
   viewMode: 'grid' | 'list';
   canGoToParent: boolean;
@@ -35,7 +33,6 @@ interface FilesToolbarProps {
   onBack: () => void;
   onForward: () => void;
   onGoToParent: () => void;
-  onOpenNative: () => void;
   onToggleHidden: (value: boolean) => void;
   onSetViewMode: (mode: 'grid' | 'list') => void;
   onToggleCreateFolder: () => void;
@@ -49,7 +46,6 @@ export function FilesToolbar({
   historyIndex,
   historyLength,
   loading,
-  openingNative,
   showHidden,
   viewMode,
   canGoToParent,
@@ -58,7 +54,6 @@ export function FilesToolbar({
   onBack,
   onForward,
   onGoToParent,
-  onOpenNative,
   onToggleHidden,
   onSetViewMode,
   onToggleCreateFolder,
@@ -123,15 +118,6 @@ export function FilesToolbar({
             className="h-8 w-8 rounded-lg hover:bg-white/5 text-white/60 hover:text-white/90 disabled:opacity-30"
           >
             <ChevronUp className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onOpenNative}
-            disabled={loading || openingNative}
-            className="h-8 w-8 rounded-lg hover:bg-white/5 text-white/60 hover:text-white/90 disabled:opacity-30"
-          >
-            <ExternalLink className="h-4 w-4" />
           </Button>
         </div>
       </div>

@@ -235,6 +235,32 @@ async function unmountShare(share: StoredShare) {
   }
 }
 
+async function unmountAndCleanup(share: StoredShare) {
+  const result = await unmountShare(share);
+  if (result.success) {
+    await removeMountDirIfSafe(share.mountPath);
+  }
+  return result;
+}
+
+function replaceShare(
+  shares: StoredShare[],
+  updated: StoredShare,
+): StoredShare[] {
+  return shares.map((s) => (s.id === updated.id ? updated : s));
+}
+
+async function removeMountDirIfSafe(mountPath: string): Promise<void> {
+  try {
+    const devicesDir = path.join(await getHomeRoot(), "Devices");
+    const resolvedMount = path.resolve(mountPath);
+    if (!resolvedMount.startsWith(path.resolve(devicesDir))) return;
+    await fs.rm(resolvedMount, { recursive: true, force: true });
+  } catch (err) {
+    console.warn("[network-storage] removeMountDirIfSafe failed:", err);
+  }
+}
+
 async function withStatus(share: StoredShare): Promise<NetworkShare> {
   const connected = await isMounted(share.mountPath);
   return {
@@ -618,7 +644,7 @@ export async function disconnectNetworkShare(
     return { success: false, error: "Share not found" };
   }
 
-  const result = await unmountShare(record);
+  const result = await unmountAndCleanup(record);
   if (!result.success) {
     record.lastError = result.error;
     await logAction("network-storage:disconnect:failed", {
@@ -630,7 +656,7 @@ export async function disconnectNetworkShare(
     await logAction("network-storage:disconnect:done", { id });
   }
 
-  await saveShares(shares.map((s) => (s.id === record.id ? record : s)));
+  await saveShares(replaceShare(shares, record));
 
   return {
     success: result.success,
@@ -651,15 +677,7 @@ export async function removeNetworkShare(
   }
 
   // Best-effort unmount; ignore failure so the entry can still be removed
-  await unmountShare(record);
-  try {
-    await fs.rm(record.mountPath, { recursive: true, force: true });
-  } catch (err) {
-    console.warn(
-      "[network-storage] removeNetworkShare: failed to remove mount dir",
-      err,
-    );
-  }
+  await unmountAndCleanup(record);
 
   const remaining = shares.filter((s) => s.id !== id);
   await saveShares(remaining);

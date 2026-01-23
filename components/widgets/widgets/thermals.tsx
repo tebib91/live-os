@@ -4,27 +4,39 @@ import { text } from "@/components/ui/design-tokens";
 import { cn } from "@/lib/utils";
 import { Flame, Thermometer } from "lucide-react";
 import type { ThermalsWidgetData } from "../types";
+import { useLayoutEffect, useRef, useState } from "react";
 
 interface ThermalsWidgetProps {
   data: ThermalsWidgetData;
 }
 
 export function ThermalsWidget({ data }: ThermalsWidgetProps) {
-  const {
-    cpuTemperature,
-    main,
-    max,
-    cores = [],
-    socket = [],
-  } = data;
+  const { cpuTemperature, main, max, cores = [], socket = [] } = data;
 
   const headlineTemp = firstNumber(cpuTemperature ?? main ?? null);
   const maxDisplay = formatTemp(max);
   const coresDisplay = formatList(cores);
   const socketDisplay = formatList(socket);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [cardSize, setCardSize] = useState<{ width: number; height: number }>(
+    { width: 0, height: 0 },
+  );
+
+  useLayoutEffect(() => {
+    const update = () => {
+      if (cardRef.current) {
+        const { offsetWidth, offsetHeight } = cardRef.current;
+        setCardSize({ width: offsetWidth, height: offsetHeight });
+      }
+    };
+
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div ref={cardRef} className="relative h-full w-full overflow-visible">
       <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-amber-400/5 to-transparent" />
       <div className="absolute -left-12 -top-12 h-32 w-32 rounded-full bg-orange-500/15 blur-3xl" />
       <div className="absolute -right-10 -bottom-10 h-28 w-28 rounded-full bg-white/5 blur-3xl" />
@@ -36,7 +48,12 @@ export function ThermalsWidget({ data }: ThermalsWidgetProps) {
               <Thermometer className="h-5 w-5 text-amber-200" />
             </div>
             <div>
-              <p className={cn(text.label, "uppercase tracking-wider text-[10px]")}>
+              <p
+                className={cn(
+                  text.label,
+                  "uppercase tracking-wider text-[10px]",
+                )}
+              >
                 Thermals
               </p>
               <div className="flex items-baseline gap-1">
@@ -68,11 +85,13 @@ export function ThermalsWidget({ data }: ThermalsWidgetProps) {
             label="Cores"
             value={coresDisplay ?? "—"}
             temps={cores}
+            overlaySize={cardSize}
           />
           <StatPill
             label="Socket"
             value={socketDisplay ?? "—"}
             temps={socket}
+            overlaySize={cardSize}
           />
         </div>
       </div>
@@ -84,10 +103,12 @@ function StatPill({
   label,
   value,
   temps = [],
+  overlaySize,
 }: {
   label: string;
   value: string;
   temps?: (number | null)[];
+  overlaySize?: { width: number; height: number };
 }) {
   const filteredTemps = temps.filter(
     (t): t is number => typeof t === "number" && Number.isFinite(t),
@@ -105,9 +126,21 @@ function StatPill({
       </div>
 
       {showPopover && (
-        <div className="pointer-events-none absolute left-full top-1/2 z-30 ml-2 -translate-y-1/2 w-max max-w-xs opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
-          <div className="rounded-lg border border-white/15 bg-zinc-900/95 px-3 py-2 shadow-xl shadow-black/40 backdrop-blur">
-            <p className="text-[10px] uppercase tracking-wide text-white/50 mb-1">
+        <div
+          className="pointer-events-none absolute left-0 top-full z-30 mt-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100"
+          style={{
+            width: overlaySize?.width || undefined,
+            maxWidth: "calc(100vw - 48px)",
+          }}
+        >
+          <div
+            className="rounded-xl border border-white/15 bg-zinc-900/95 px-3 py-2 shadow-xl shadow-black/40 backdrop-blur"
+            style={{
+              maxHeight: overlaySize?.height || undefined,
+              overflowY: "auto",
+            }}
+          >
+            <p className="text-[10px] uppercase tracking-wide text-white/50 mb-2">
               {label} temps
             </p>
             <div className="flex flex-wrap gap-1 text-[11px] text-white">
@@ -143,6 +176,7 @@ function formatList(values?: (number | null)[]): string | null {
 }
 
 function firstNumber(value: number | null): number | null {
-  if (typeof value === "number" && !Number.isNaN(value)) return Math.round(value);
+  if (typeof value === "number" && !Number.isNaN(value))
+    return Math.round(value);
   return null;
 }
