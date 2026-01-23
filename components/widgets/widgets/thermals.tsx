@@ -105,7 +105,7 @@ function StatPill({
       </div>
 
       {showPopover && (
-        <div className="pointer-events-none absolute left-0 top-full z-30 mt-2 w-max max-w-xs opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+        <div className="pointer-events-none absolute left-full top-1/2 z-30 ml-2 -translate-y-1/2 w-max max-w-xs opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
           <div className="rounded-lg border border-white/15 bg-zinc-900/95 px-3 py-2 shadow-xl shadow-black/40 backdrop-blur">
             <p className="text-[10px] uppercase tracking-wide text-white/50 mb-1">
               {label} temps
