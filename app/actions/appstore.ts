@@ -531,6 +531,88 @@ function resolveAsset(
 }
 
 /**
+ * Refresh all imported stores by re-downloading and re-parsing them.
+ */
+export async function refreshAllStores(): Promise<{
+  success: boolean;
+  results: { slug: string; success: boolean; apps?: number; error?: string }[];
+}> {
+  return withActionLogging("appstore:refreshAll", async () => {
+    await logAction("appstore:refreshAll:start");
+    const results: { slug: string; success: boolean; apps?: number; error?: string }[] = [];
+
+    try {
+      const stores = await prisma.store.findMany();
+
+      for (const store of stores) {
+        if (!store.url) {
+          results.push({ slug: store.slug, success: false, error: "No URL" });
+          continue;
+        }
+
+        try {
+          const result = await importUmbrelStore(store.url, {
+            name: store.name ?? undefined,
+            description: store.description ?? undefined,
+          });
+
+          results.push({
+            slug: store.slug,
+            success: result.success,
+            apps: result.apps,
+            error: result.error,
+          });
+        } catch (error: any) {
+          results.push({
+            slug: store.slug,
+            success: false,
+            error: error?.message || "Unknown error",
+          });
+        }
+      }
+
+      await logAction("appstore:refreshAll:done", { results });
+      return { success: true, results };
+    } catch (error: any) {
+      await logAction("appstore:refreshAll:error", {
+        error: error?.message || "unknown",
+      });
+      return { success: false, results };
+    }
+  });
+}
+
+/**
+ * Get details about all imported stores.
+ */
+export async function getImportedStoreDetails(): Promise<{
+  slug: string;
+  name: string;
+  description: string | null;
+  url: string | null;
+  appCount: number;
+}[]> {
+  return withActionLogging("appstore:getStoreDetails", async () => {
+    try {
+      const stores = await prisma.store.findMany({
+        include: { _count: { select: { apps: true } } },
+      });
+
+      return stores.map((store) => ({
+        slug: store.slug,
+        name: store.name ?? store.slug,
+        description: store.description,
+        url: store.url,
+        appCount: store._count.apps,
+      }));
+    } catch (error) {
+      console.error("Failed to get store details:", error);
+      return [];
+    }
+  });
+}
+
+/**
  * Read the docker-compose.yml content for a given app.
  * Returns the raw YAML content as a string.
  */
