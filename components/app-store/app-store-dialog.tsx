@@ -7,17 +7,17 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { motion } from "framer-motion";
-import { FileCode, Loader2, MoreHorizontal, Search, X } from "lucide-react";
+import { Loader2, MoreHorizontal, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { AppDetailDialog } from "./app-detail-dialog";
 import { AppListItem } from "./app-list-item";
 import { AppStoreSettingsDialog } from "./appstore-settings-dialog";
 import { CommunityStoreDialog } from "./community-store-dialog";
 import { CustomDeployDialog } from "./custom-deploy-dialog";
-import { AppDetailDialog } from "./app-detail-dialog";
 import {
+  AppListGrid,
   DiscoverSection,
   FeaturedCardsRow,
-  AppListGrid,
 } from "./discover-section";
 import { FeaturedAppCard } from "./featured-app-card";
 import type { App } from "./types";
@@ -46,6 +46,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   }, [open]);
 
   const loadApps = async () => {
+    console.log("[appstore] Loading apps from stores...");
     try {
       setLoading(true);
       setError(null);
@@ -88,7 +89,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   // Get featured apps (first 6 apps with screenshots or random)
   const featuredApps = useMemo(() => {
     const withScreenshots = apps.filter(
-      (app) => app.screenshots && app.screenshots.length > 0
+      (app) => app.screenshots && app.screenshots.length > 0,
     );
     return withScreenshots.length > 0
       ? withScreenshots.slice(0, 6)
@@ -104,7 +105,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   const getInstalledApp = (app: App) => {
     return (
       installedApps.find(
-        (installed) => installed.appId.toLowerCase() === app.id.toLowerCase()
+        (installed) => installed.appId.toLowerCase() === app.id.toLowerCase(),
       ) || undefined
     );
   };
@@ -132,7 +133,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
 
             <div className="flex items-center gap-3">
               {/* Search */}
-              <div className="relative w-64 hidden sm:block">
+              <div className="relative w-64  sm:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                 <Input
                   placeholder="Search apps"
@@ -163,6 +164,9 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
               </Button>
             </div>
           </div>
+
+          {/* Header Actions */}
+          <div className="mt-4 flex flex-wrap gap-3 justify-end" />
         </div>
 
         {/* Category Pills */}
@@ -193,7 +197,10 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
         </div>
 
         {/* Mobile Search */}
-        <div className="px-6 py-3 sm:hidden border-b" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+        <div
+          className="px-6 py-3 sm:hidden border-b"
+          style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
+        >
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
             <Input
@@ -208,6 +215,31 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
         {/* Content Area */}
         <ScrollArea className="h-[calc(95vh-180px)]">
           <div className="px-6 py-6 space-y-8">
+            {/* Section Title (shared) */}
+            {!loading && !error && (
+              <div className="space-y-1 px-1">
+                <h2 className="text-2xl font-bold text-white">
+                  {isDiscoverView
+                    ? "Discover"
+                    : selectedCategory === "all"
+                      ? "All apps"
+                      : selectedCategory.charAt(0).toUpperCase() +
+                        selectedCategory.slice(1)}
+                </h2>
+                {isDiscoverView ? (
+                  <p className="text-sm text-white/60">
+                    Curated highlights, popular picks, and the freshest arrivals.
+                  </p>
+                ) : (
+                  searchQuery && (
+                    <p className="text-sm text-white/60">
+                      {filteredApps.length} results for &quot;{searchQuery}&quot;
+                    </p>
+                  )
+                )}
+              </div>
+            )}
+
             {/* Loading State */}
             {loading && (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -283,48 +315,12 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                     </AppListGrid>
                   </DiscoverSection>
                 )}
-
-                {/* Quick Actions */}
-                <div className="flex flex-wrap gap-3 pt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCommunityStoreOpen(true)}
-                    className="text-white border-white/20 bg-white/5 hover:bg-white/10"
-                  >
-                    Import Community Store
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCustomDeployOpen(true)}
-                    className="text-white border-white/20 bg-white/5 hover:bg-white/10"
-                  >
-                    <FileCode className="h-4 w-4 mr-2" />
-                    Custom Deploy
-                  </Button>
-                </div>
               </>
             )}
 
             {/* All Apps / Category View */}
             {!loading && !error && !isDiscoverView && (
               <>
-                {/* Section Header */}
-                <div className="space-y-1">
-                  <h2 className="text-2xl font-bold text-white">
-                    {selectedCategory === "all"
-                      ? "All apps"
-                      : selectedCategory.charAt(0).toUpperCase() +
-                        selectedCategory.slice(1)}
-                  </h2>
-                  {searchQuery && (
-                    <p className="text-sm text-white/60">
-                      {filteredApps.length} results for &quot;{searchQuery}&quot;
-                    </p>
-                  )}
-                </div>
-
                 {/* Empty State */}
                 {filteredApps.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -385,6 +381,8 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
           onStoresUpdated={loadApps}
+          onCustomDeploy={() => setCustomDeployOpen(true)}
+          onCommunityStore={() => setCommunityStoreOpen(true)}
         />
         {selectedApp && (
           <AppDetailDialog

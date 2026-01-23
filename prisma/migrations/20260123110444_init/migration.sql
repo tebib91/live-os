@@ -23,6 +23,10 @@ CREATE TABLE "Settings" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "currentWallpaper" TEXT,
     "selectedWidgets" JSONB,
+    "userLatitude" REAL,
+    "userLongitude" REAL,
+    "userCity" TEXT,
+    "userCountry" TEXT,
     "updatedAt" DATETIME NOT NULL
 );
 
@@ -34,6 +38,7 @@ CREATE TABLE "Store" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "localPath" TEXT NOT NULL,
+    "manifestHash" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
 );
@@ -87,6 +92,12 @@ CREATE INDEX "Session_userId_idx" ON "Session"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Store_slug_key" ON "Store"("slug");
+
+-- CreateIndex
+CREATE INDEX "App_appId_idx" ON "App"("appId");
+
+-- CreateIndex
+CREATE INDEX "App_title_idx" ON "App"("title");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "App_storeId_appId_key" ON "App"("storeId", "appId");

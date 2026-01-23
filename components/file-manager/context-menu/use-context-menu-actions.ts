@@ -21,6 +21,7 @@ interface UseContextMenuActionsProps {
   onClearClipboard: () => void;
   onRefresh: () => void;
   onOpen: (item: FileSystemItem) => void;
+  onPreview?: (item: FileSystemItem) => void;
   onOpenInEditor: (path: string) => void;
   onRename: (item: FileSystemItem) => void;
   onShareNetwork: (item: FileSystemItem) => void;
@@ -35,6 +36,7 @@ export function useContextMenuActions({
   onClearClipboard,
   onRefresh,
   onOpen,
+  onPreview,
   onOpenInEditor,
   onRename,
   onShareNetwork,
@@ -47,6 +49,12 @@ export function useContextMenuActions({
       switch (action) {
         case 'open':
           onOpen(item);
+          break;
+
+        case 'preview':
+          if (onPreview) {
+            onPreview(item);
+          }
           break;
 
         case 'openInEditor':
@@ -192,6 +200,7 @@ export function useContextMenuActions({
       onCopy,
       onCut,
       onOpen,
+      onPreview,
       onOpenInEditor,
       onRefresh,
       onRename,

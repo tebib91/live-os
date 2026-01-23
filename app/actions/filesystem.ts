@@ -20,6 +20,7 @@ export interface FileSystemItem {
   modified: number;
   permissions: string;
   isHidden: boolean;
+  isMount?: boolean;
 }
 
 export interface DirectoryContent {
@@ -47,6 +48,16 @@ async function ensureHomeRoot(): Promise<string> {
     await fs.mkdir(resolvedHomeRoot, { recursive: true });
     console.warn(`[Filesystem] Falling back to ${resolvedHomeRoot} because ${PRIMARY_HOME_ROOT} is not writable`);
     return resolvedHomeRoot;
+  }
+}
+
+async function isMountpoint(dirPath: string): Promise<boolean> {
+  try {
+    const stats = await fs.lstat(dirPath);
+    const parentStats = await fs.lstat(path.join(dirPath, ".."));
+    return stats.dev !== parentStats.dev;
+  } catch {
+    return false;
   }
 }
 
@@ -144,6 +155,7 @@ export async function readDirectory(dirPath: string): Promise<DirectoryContent> 
             modified: itemStats.mtimeMs,
             permissions,
             isHidden: entry.name.startsWith('.'),
+            isMount: entry.isDirectory() ? await isMountpoint(itemPath) : false,
           } as FileSystemItem;
         } catch {
           // Skip items we can't access
@@ -632,6 +644,104 @@ export async function compressItems(
 /**
  * Extract an archive to the same directory or specified destination
  */
+export interface SearchResult {
+  items: FileSystemItem[];
+  total: number;
+  hasMore: boolean;
+}
+
+/**
+ * Search for files and directories by name
+ */
+export async function searchFiles(
+  query: string,
+  searchPath?: string,
+  limit: number = 50
+): Promise<{ results: SearchResult; error?: string }> {
+  try {
+    if (!query || query.trim().length < 2) {
+      return { results: { items: [], total: 0, hasMore: false } };
+    }
+
+    console.log('[filesystem] searchFiles:', query, 'in', searchPath);
+
+    // Default to home root if no path specified
+    const homeRoot = await ensureHomeRoot();
+    const basePath = searchPath || homeRoot;
+
+    const { valid, sanitized } = await validatePath(basePath);
+    if (!valid) {
+      return { results: { items: [], total: 0, hasMore: false }, error: 'Invalid search path' };
+    }
+
+    // Use find command with case-insensitive name matching
+    // Limit depth to prevent searching too deep and limit results
+    const escapedQuery = query.replace(/['"\\]/g, '\\$&');
+    const command = `find "${sanitized}" -maxdepth 10 -iname "*${escapedQuery}*" 2>/dev/null | head -${limit + 1}`;
+
+    const { stdout } = await execAsync(command, { timeout: 10000 });
+    const paths = stdout.trim().split('\n').filter(Boolean);
+
+    const hasMore = paths.length > limit;
+    const limitedPaths = paths.slice(0, limit);
+
+    // Get details for each result
+    const items: (FileSystemItem | null)[] = await Promise.all(
+      limitedPaths.map(async (itemPath) => {
+        try {
+          const itemStats = await fs.stat(itemPath);
+          const name = path.basename(itemPath);
+          const mode = itemStats.mode;
+          const permissions = (mode & parseInt('777', 8)).toString(8);
+
+          return {
+            name,
+            path: itemPath,
+            type: itemStats.isDirectory() ? 'directory' : 'file',
+            size: itemStats.size,
+            modified: itemStats.mtimeMs,
+            permissions,
+            isHidden: name.startsWith('.'),
+          } as FileSystemItem;
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    const validItems = items
+      .filter((item): item is FileSystemItem => item !== null)
+      .sort((a, b) => {
+        // Prioritize exact matches, then sort by name
+        const aExact = a.name.toLowerCase() === query.toLowerCase();
+        const bExact = b.name.toLowerCase() === query.toLowerCase();
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+
+        // Then directories first
+        if (a.type !== b.type) {
+          return a.type === 'directory' ? -1 : 1;
+        }
+
+        return a.name.localeCompare(b.name);
+      });
+
+    return {
+      results: {
+        items: validItems,
+        total: validItems.length,
+        hasMore,
+      },
+    };
+  } catch (error: any) {
+    console.error('Search files error:', error);
+    return {
+      results: { items: [], total: 0, hasMore: false },
+      error: error.message || 'Search failed',
+    };
+  }
+}
+
 export async function uncompressArchive(
   archivePath: string,
   destPath?: string

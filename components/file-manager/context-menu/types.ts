@@ -14,6 +14,7 @@ export interface ClipboardState {
 
 export type ContextMenuAction =
   | 'open'
+  | 'preview'
   | 'openInEditor'
   | 'rename'
   | 'download'

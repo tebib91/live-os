@@ -5,18 +5,20 @@
 import type { App } from "@/components/app-store/types";
 import { prisma } from "@/lib/prisma";
 import { exec } from "child_process";
+import crypto from "crypto";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { promisify } from "util";
 import YAML from "yaml";
-import crypto from "crypto";
 import { logAction, withActionLogging } from "./logger";
 
 const execAsync = promisify(exec);
 
 const PUBLIC_ROOT = path.join(process.cwd());
 const STORE_ROOT = path.join(PUBLIC_ROOT, "external-apps");
+const UMBREL_GALLERY_BASE =
+  "https://raw.githubusercontent.com/getumbrel/umbrel-apps-gallery/refs/heads/master";
 
 // Umbrel official store
 const UMBREL_OFFICIAL_ZIP =
@@ -164,16 +166,25 @@ export async function importUmbrelStore(
       .then(() => true)
       .catch(() => false);
 
-    const manifestHash = (existingStore as any)?.manifestHash as string | undefined;
+    const manifestHash = (existingStore as any)?.manifestHash as
+      | string
+      | undefined;
 
     if (existingStore && manifestHash === zipHash && targetExists) {
-      const appsCount = await prisma.app.count({ where: { storeId: existingStore.id } });
+      const appsCount = await prisma.app.count({
+        where: { storeId: existingStore.id },
+      });
       await logAction("appstore:import:skip-cache", {
         url,
         storeSlug,
         apps: appsCount,
       });
-      return { success: true, storeId: storeSlug, apps: appsCount, skipped: true };
+      return {
+        success: true,
+        storeId: storeSlug,
+        apps: appsCount,
+        skipped: true,
+      };
     }
 
     // Clear any existing store folder
@@ -415,31 +426,42 @@ async function parseUmbrelStore(
       const manifest = YAML.parse(content) as UmbrelManifest;
 
       if (!manifest.id || !manifest.name) {
-        console.warn(`Skipping manifest at ${manifestPath}: missing id or name`);
+        console.warn(
+          `Skipping manifest at ${manifestPath}: missing id or name`,
+        );
         continue;
       }
 
       const appDir = path.dirname(manifestPath);
       const appId = manifest.id;
 
-      // Resolve icon - Umbrel stores icon as relative path or URL
-      const icon = resolveAsset(manifest.icon, storeId, appDir);
+      // Resolve icon - prefer declared URL, fall back to Umbrel CDN gallery
+      const icon = await resolveUmbrelIcon(
+        manifest.icon,
+        storeId,
+        appDir,
+        appId,
+      );
 
       // Resolve gallery images (screenshots)
       const screenshots = Array.isArray(manifest.gallery)
-        ? manifest.gallery.map((item: string) => resolveAsset(item, storeId, appDir))
+        ? await Promise.all(
+            manifest.gallery.map((item: string) =>
+              resolveUmbrelGalleryAsset(item, storeId, appDir, appId),
+            ),
+          )
         : [];
 
       // Normalize category - Umbrel uses single category string
-      const category = manifest.category
-        ? [manifest.category]
-        : [];
+      const category = manifest.category ? [manifest.category] : [];
 
       // Find the docker-compose file for this app
       const composeFile = files.find(
         (f) =>
           path.dirname(f) === appDir &&
-          ["docker-compose.yml", "docker-compose.yaml"].includes(path.basename(f).toLowerCase())
+          ["docker-compose.yml", "docker-compose.yaml"].includes(
+            path.basename(f).toLowerCase(),
+          ),
       );
 
       apps.push({
@@ -460,7 +482,10 @@ async function parseUmbrelStore(
         composePath: composeFile ?? "",
       });
     } catch (error) {
-      console.warn(`Failed to parse Umbrel manifest at ${manifestPath}:`, error);
+      console.warn(
+        `Failed to parse Umbrel manifest at ${manifestPath}:`,
+        error,
+      );
     }
   }
 
@@ -507,7 +532,9 @@ async function listFiles(dir: string): Promise<string[]> {
       results.push(fullPath);
     }
   }
-  console.log(`[appstore] listFiles: found ${results.length} entries under ${dir}`);
+  console.log(
+    `[appstore] listFiles: found ${results.length} entries under ${dir}`,
+  );
   return results;
 }
 
@@ -530,6 +557,69 @@ function resolveAsset(
   return `/external-apps/${storeId}/${safePath}`;
 }
 
+async function resolveUmbrelIcon(
+  manifestIcon: string | undefined,
+  storeId: string,
+  appDir: string,
+  appId: string,
+): Promise<string> {
+  // 1) Explicit remote icon in manifest wins
+  if (
+    manifestIcon?.startsWith("http://") ||
+    manifestIcon?.startsWith("https://")
+  ) {
+    return manifestIcon;
+  }
+
+  // 2) If a local icon exists inside the extracted store, use it
+  if (manifestIcon) {
+    const iconPath = path.isAbsolute(manifestIcon)
+      ? manifestIcon
+      : path.join(appDir, manifestIcon);
+    if (await fileExists(iconPath)) {
+      const resolved = resolveAsset(manifestIcon, storeId, appDir);
+      if (resolved) return resolved;
+    }
+  }
+  console.log(
+    `[appstore] resolveUmbrelIcon: falling back to gallery icon for app ${appId}`,
+  );
+  // 3) Fallback to Umbrel gallery CDN (canonical source for Umbrel apps)
+  return `${UMBREL_GALLERY_BASE}/${appId}/icon.svg`;
+}
+
+async function resolveUmbrelGalleryAsset(
+  asset: string,
+  storeId: string,
+  appDir: string,
+  appId: string,
+): Promise<string | undefined> {
+  if (!asset) return undefined;
+
+  // Explicit remote URL
+  if (asset.startsWith("http://") || asset.startsWith("https://")) return asset;
+
+  // Check local extracted file
+  const assetPath = path.isAbsolute(asset) ? asset : path.join(appDir, asset);
+  if (await fileExists(assetPath)) {
+    return resolveAsset(asset, storeId, appDir);
+  }
+  console.log(
+    `[appstore] resolveUmbrelGalleryAsset: asset not found locally: ${assetPath}`,
+  );
+  // Fallback to Umbrel CDN gallery
+  return `${UMBREL_GALLERY_BASE}/${appId}/${asset}`;
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Refresh all imported stores by re-downloading and re-parsing them.
  */
@@ -539,7 +629,12 @@ export async function refreshAllStores(): Promise<{
 }> {
   return withActionLogging("appstore:refreshAll", async () => {
     await logAction("appstore:refreshAll:start");
-    const results: { slug: string; success: boolean; apps?: number; error?: string }[] = [];
+    const results: {
+      slug: string;
+      success: boolean;
+      apps?: number;
+      error?: string;
+    }[] = [];
 
     try {
       const stores = await prisma.store.findMany();
@@ -585,13 +680,15 @@ export async function refreshAllStores(): Promise<{
 /**
  * Get details about all imported stores.
  */
-export async function getImportedStoreDetails(): Promise<{
-  slug: string;
-  name: string;
-  description: string | null;
-  url: string | null;
-  appCount: number;
-}[]> {
+export async function getImportedStoreDetails(): Promise<
+  {
+    slug: string;
+    name: string;
+    description: string | null;
+    url: string | null;
+    appCount: number;
+  }[]
+> {
   return withActionLogging("appstore:getStoreDetails", async () => {
     try {
       const stores = await prisma.store.findMany({

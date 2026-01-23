@@ -2,6 +2,7 @@
 
 import { type FileSystemItem } from '@/app/actions/filesystem';
 import { getFileIcon, FolderIcon } from '@/components/icons/files';
+import { HardDrive } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2 } from 'lucide-react';
 import { type MouseEvent, useMemo } from 'react';
@@ -77,7 +78,11 @@ export function FilesContent({
                 >
                   {item.type === 'directory' ? (
                     <div className="w-16 h-14 transition-transform group-hover:scale-105">
-                      <FolderIcon className="w-full h-full drop-shadow-lg" />
+                      {item.isMount ? (
+                        <HardDrive className="w-full h-full drop-shadow-lg text-cyan-200" />
+                      ) : (
+                        <FolderIcon className="w-full h-full drop-shadow-lg" />
+                      )}
                     </div>
                   ) : (
                     <div className="w-12 h-14 transition-transform group-hover:scale-105 relative">
@@ -117,7 +122,11 @@ export function FilesContent({
                 >
                   {item.type === 'directory' ? (
                     <div className="w-8 h-7 flex-shrink-0">
-                      <FolderIcon className="w-full h-full" />
+                      {item.isMount ? (
+                        <HardDrive className="w-full h-full text-cyan-200" />
+                      ) : (
+                        <FolderIcon className="w-full h-full" />
+                      )}
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">

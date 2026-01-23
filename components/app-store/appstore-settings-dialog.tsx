@@ -17,9 +17,11 @@ import {
 import {
   Check,
   Loader2,
+  FileCode,
   Package,
   RefreshCw,
   Store,
+  Users,
   Trash2,
   X,
 } from "lucide-react";
@@ -37,12 +39,16 @@ interface AppStoreSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStoresUpdated?: () => void;
+  onCustomDeploy?: () => void;
+  onCommunityStore?: () => void;
 }
 
 export function AppStoreSettingsDialog({
   open,
   onOpenChange,
   onStoresUpdated,
+  onCustomDeploy,
+  onCommunityStore,
 }: AppStoreSettingsDialogProps) {
   const [stores, setStores] = useState<StoreDetails[]>([]);
   const [loading, setLoading] = useState(false);
@@ -130,6 +136,50 @@ export function AppStoreSettingsDialog({
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
+          {/* Community Store entry */}
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-3">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-white">Import Community Store</h3>
+              <p className="text-xs text-white/60">
+                Add Umbrel-compatible community app stores by URL.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-white border-white/20 bg-white/10 hover:bg-white/20"
+              onClick={() => {
+                onOpenChange(false);
+                onCommunityStore?.();
+              }}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Open
+            </Button>
+          </div>
+
+          {/* Custom Deploy entry */}
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-3">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-white">Custom Deploy</h3>
+              <p className="text-xs text-white/60">
+                Launch a custom Docker Compose or Docker Run deployment.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-white border-white/20 bg-white/10 hover:bg-white/20"
+              onClick={() => {
+                onOpenChange(false);
+                onCustomDeploy?.();
+              }}
+            >
+              <FileCode className="h-4 w-4 mr-2" />
+              Open
+            </Button>
+          </div>
+
           {/* Update Section */}
           <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-4">
             <div className="flex items-center justify-between">

@@ -56,7 +56,7 @@ export function DiscoverSection({
  */
 export function FeaturedCardsRow({ children }: { children: ReactNode }) {
   return (
-    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
+    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide mx-2 px-2 w-[57vw]">
       {children}
     </div>
   );

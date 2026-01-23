@@ -26,6 +26,7 @@ interface FilesContextMenuProps {
   onClearClipboard: () => void;
   onRefresh: () => void;
   onOpen: (item: FileSystemItem) => void;
+  onPreview?: (item: FileSystemItem) => void;
   onOpenInEditor: (path: string) => void;
   onRename: (item: FileSystemItem) => void;
   onShareNetwork: (item: FileSystemItem) => void;
@@ -43,6 +44,7 @@ export function FilesContextMenu({
   onClearClipboard,
   onRefresh,
   onOpen,
+  onPreview,
   onOpenInEditor,
   onRename,
   onShareNetwork,
@@ -56,6 +58,7 @@ export function FilesContextMenu({
     onClearClipboard,
     onRefresh,
     onOpen,
+    onPreview,
     onOpenInEditor,
     onRename,
     onShareNetwork,

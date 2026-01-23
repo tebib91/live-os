@@ -3,6 +3,7 @@ import {
   Clipboard,
   Copy,
   Download,
+  Eye,
   FolderOpen,
   Network,
   Pencil,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { ContextMenuSectionConfig, ClipboardState } from './types';
 import type { FileSystemItem } from '@/app/actions/filesystem';
+import { isFileViewable } from '@/components/file-manager/file-viewer';
 
 // Archive file extensions
 export const ARCHIVE_EXTENSIONS = /\.(zip|tar|tar\.gz|tgz|tar\.bz2|tbz2|tar\.xz|txz|7z|rar|gz|bz2|xz)$/i;
@@ -29,6 +31,12 @@ export const menuSections: ContextMenuSectionConfig[] = [
         id: 'open',
         label: 'Open',
         icon: FolderOpen,
+      },
+      {
+        id: 'preview',
+        label: 'Preview',
+        icon: Eye,
+        condition: (item: FileSystemItem) => item.type === 'file' && isFileViewable(item.name),
       },
       {
         id: 'rename',

@@ -14,6 +14,7 @@ import { SmbShareDialog } from '@/components/file-manager/smb-share-dialog';
 import { FilesSidebar } from '@/components/file-manager/files-sidebar';
 import { FilesToolbar } from '@/components/file-manager/files-toolbar';
 import { useFilesDialog } from '@/components/file-manager/use-files-dialog';
+import { FileViewer, isFileViewable } from '@/components/file-manager/file-viewer';
 import type { FileSystemItem } from '@/app/actions/filesystem';
 import { trashItem } from '@/app/actions/filesystem';
 import { useState, useEffect, useCallback } from 'react';
@@ -84,9 +85,19 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
   const [networkDialogOpen, setNetworkDialogOpen] = useState(false);
   const [smbShareDialogOpen, setSmbShareDialogOpen] = useState(false);
   const [shareTargetItem, setShareTargetItem] = useState<FileSystemItem | null>(null);
+  const [viewerItem, setViewerItem] = useState<FileSystemItem | null>(null);
   const selectedItem = contextMenu.item;
 
   const isDirty = editorContent !== editorOriginalContent;
+
+  // Handle opening files - check if viewable first
+  const handleOpenItem = useCallback((item: FileSystemItem) => {
+    if (item.type === 'file' && isFileViewable(item.name)) {
+      setViewerItem(item);
+    } else {
+      openItem(item);
+    }
+  }, [openItem]);
 
   // Handle SMB share dialog
   const handleShareNetwork = useCallback((item: FileSystemItem) => {
@@ -221,7 +232,7 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
               loading={loading}
               viewMode={viewMode}
               items={filteredItems}
-              onOpenItem={openItem}
+              onOpenItem={handleOpenItem}
               onOpenNative={openNative}
               onContextMenu={openContextMenu}
             />
@@ -242,8 +253,9 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
               onCopy={copy}
               onClearClipboard={clearClipboard}
               onRefresh={refresh}
-              onOpen={openItem}
+              onOpen={handleOpenItem}
               onOpenInEditor={openFileInEditor}
+              onPreview={(item) => setViewerItem(item)}
               onRename={handleRename}
               onShareNetwork={handleShareNetwork}
               onClose={closeContextMenu}
@@ -272,6 +284,15 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
         targetPath={shareTargetItem?.path || ''}
         targetName={shareTargetItem?.name || ''}
       />
+
+      {viewerItem && (
+        <FileViewer
+          item={viewerItem}
+          onClose={() => setViewerItem(null)}
+          allItems={filteredItems}
+          onNavigate={setViewerItem}
+        />
+      )}
     </Dialog>
   );
 }
