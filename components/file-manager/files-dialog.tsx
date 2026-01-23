@@ -14,7 +14,7 @@ import { SmbShareDialog } from '@/components/file-manager/smb-share-dialog';
 import { FilesSidebar } from '@/components/file-manager/files-sidebar';
 import { FilesToolbar } from '@/components/file-manager/files-toolbar';
 import { useFilesDialog } from '@/components/file-manager/use-files-dialog';
-import { FileViewer, isFileViewable } from '@/components/file-manager/file-viewer';
+import { FileViewer, getViewerType } from '@/components/file-manager/file-viewer';
 import type { FileSystemItem } from '@/app/actions/filesystem';
 import { trashItem } from '@/app/actions/filesystem';
 import { useState, useEffect, useCallback } from 'react';
@@ -90,7 +90,9 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
 
   // Handle opening files - check if viewable first
   const handleOpenItem = useCallback((item: FileSystemItem) => {
-    if (item.type === 'file' && isFileViewable(item.name)) {
+    const isImage =
+      item.type === 'file' && getViewerType(item.name) === 'image';
+    if (isImage) {
       setViewerItem(item);
     } else {
       openItem(item);

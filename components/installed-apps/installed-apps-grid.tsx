@@ -23,26 +23,27 @@ export function InstalledAppsGrid() {
     id: wsApp.id,
     appId: wsApp.appId,
     name: wsApp.name,
-    icon: wsApp.icon,
+    icon: wsApp.icon || "/default-application-icon.png",
     status: wsApp.status,
     webUIPort: wsApp.webUIPort,
     containerName: wsApp.containerName,
     installedAt: wsApp.installedAt,
   }));
 
-  // Update icons when apps change
+  // Update icons when apps change (and replace placeholder with real icon if it arrives later)
   useEffect(() => {
-    const initialIcons: Record<string, string> = {};
-    apps.forEach((app) => {
-      // Only set if not already set (preserve fallback icons)
-      if (!appIcons[app.id]) {
-        initialIcons[app.id] = app.icon;
+    setAppIcons((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const app of apps) {
+        if (app.icon && next[app.id] !== app.icon) {
+          next[app.id] = app.icon;
+          changed = true;
+        }
       }
+      return changed ? next : prev;
     });
-    if (Object.keys(initialIcons).length > 0) {
-      setAppIcons((prev) => ({ ...prev, ...initialIcons }));
-    }
-  }, [apps, appIcons]);
+  }, [apps]);
 
   // Callback for context menu actions - triggers a refresh event
   const handleAction = useCallback(() => {

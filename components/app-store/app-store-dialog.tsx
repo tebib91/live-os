@@ -37,7 +37,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   const [communityStoreOpen, setCommunityStoreOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedApp, setSelectedApp] = useState<App | null>(null);
-  const { installedApps } = useSystemStatus();
+  const { installedApps, installProgress } = useSystemStatus({ fast: true });
 
   useEffect(() => {
     if (open) {
@@ -391,6 +391,9 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
             app={selectedApp}
             installedApp={getInstalledApp(selectedApp)}
             onInstallSuccess={loadApps}
+            installProgress={installProgress.find(
+              (p) => p.appId === selectedApp.id,
+            )}
           />
         )}
       </DialogContent>

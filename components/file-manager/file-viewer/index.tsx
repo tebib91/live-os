@@ -44,7 +44,7 @@ export function FileViewer({
   // Get viewable items for navigation
   const viewableItems = useMemo(() => {
     return allItems.filter(
-      (i) => i.type === "file" && isFileViewable(i.name)
+      (i) => i.type === "file" && getViewerType(i.name) === "image",
     );
   }, [allItems]);
 
@@ -69,27 +69,11 @@ export function FileViewer({
     window.open(getDownloadUrl(item.path), "_blank");
   };
 
-  // Render viewer based on type
-  const renderViewer = () => {
-    switch (viewerType) {
-      case "image":
-        return <ImageViewer item={item} />;
-      case "video":
-        return <VideoViewer item={item} />;
-      case "audio":
-        return <AudioViewer item={item} />;
-      case "pdf":
-        return <PdfViewer item={item} />;
-      case "text":
-        // Text files should be opened in the editor, not viewer
-        return <UnsupportedViewer item={item} onClose={onClose} />;
-      default:
-        return <UnsupportedViewer item={item} onClose={onClose} />;
-    }
-  };
+  // Only images should render in the fullscreen viewer; others are handled elsewhere
+  if (viewerType !== "image") return null;
 
   // Determine if spacebar should close (not for video/audio)
-  const disableSpacebarClose = viewerType === "video" || viewerType === "audio";
+  const disableSpacebarClose = false;
 
   return (
     <ViewerWrapper
@@ -102,7 +86,7 @@ export function FileViewer({
       hasNext={hasNext}
       disableSpacebarClose={disableSpacebarClose}
     >
-      {renderViewer()}
+      <ImageViewer item={item} />
     </ViewerWrapper>
   );
 }

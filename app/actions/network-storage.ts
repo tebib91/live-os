@@ -217,7 +217,21 @@ async function unmountShare(share: StoredShare) {
   try {
     await execFileAsync("umount", [share.mountPath], { timeout: 10000 });
     return { success: true as const };
-  } catch {
+  } catch (err: any) {
+    const stderr = err?.stderr?.toString?.() || err?.message || "";
+
+    // Busy? try lazy unmount
+    if (/busy/i.test(stderr)) {
+      try {
+        await execFileAsync("umount", ["-l", share.mountPath], {
+          timeout: 10000,
+        });
+        return { success: true as const };
+      } catch {
+        // fall through to fusermount
+      }
+    }
+
     // Try fusermount as a fallback
     try {
       await execFileAsync("fusermount", ["-u", share.mountPath], {
@@ -225,10 +239,15 @@ async function unmountShare(share: StoredShare) {
       });
       return { success: true as const };
     } catch (error: any) {
-      const message =
+      let message =
         error?.stderr?.toString?.().trim?.() ||
         error?.message ||
         "Failed to unmount share";
+
+      if (/permission denied|operation not permitted/i.test(message)) {
+        message = `${message} (try running "sudo umount ${share.mountPath}")`;
+      }
+
       console.error("[network-storage] unmount failed:", message);
       return { success: false as const, error: message };
     }

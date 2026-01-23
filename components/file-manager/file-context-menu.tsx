@@ -3,6 +3,7 @@
 import { type FileSystemItem } from '@/app/actions/filesystem';
 import { ExternalLink, FileIcon, Info, Share2, Trash2 } from 'lucide-react';
 import { type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ContextMenuState {
   x: number;
@@ -44,10 +45,10 @@ export function FilesContextMenu({
     onClose();
   };
 
-  return (
+  return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-50 bg-gradient-to-b from-[#0b0b0f]/95 to-[#101018]/95 border border-white/10 rounded-xl shadow-2xl text-white text-sm min-w-[220px] overflow-hidden backdrop-blur-lg"
+      className="fixed z-[9999] bg-gradient-to-b from-[#0b0b0f]/95 to-[#101018]/95 border border-white/10 rounded-xl shadow-2xl text-white text-sm min-w-[220px] overflow-hidden backdrop-blur-lg"
       style={{ top: contextMenu.y, left: contextMenu.x }}
       onClick={(event) => event.stopPropagation()}
     >
@@ -98,6 +99,7 @@ export function FilesContextMenu({
           <Info className="h-4 w-4 text-white/70" /> Info
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

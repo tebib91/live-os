@@ -3,8 +3,8 @@
 import { text } from "@/components/ui/design-tokens";
 import { cn } from "@/lib/utils";
 import { Flame, Thermometer } from "lucide-react";
-import type { ThermalsWidgetData } from "../types";
 import { useLayoutEffect, useRef, useState } from "react";
+import type { ThermalsWidgetData } from "../types";
 
 interface ThermalsWidgetProps {
   data: ThermalsWidgetData;
@@ -18,9 +18,10 @@ export function ThermalsWidget({ data }: ThermalsWidgetProps) {
   const coresDisplay = formatList(cores);
   const socketDisplay = formatList(socket);
   const cardRef = useRef<HTMLDivElement>(null);
-  const [cardSize, setCardSize] = useState<{ width: number; height: number }>(
-    { width: 0, height: 0 },
-  );
+  const [cardSize, setCardSize] = useState<{ width: number; height: number }>({
+    width: 0,
+    height: 0,
+  });
 
   useLayoutEffect(() => {
     const update = () => {
@@ -127,7 +128,7 @@ function StatPill({
 
       {showPopover && (
         <div
-          className="pointer-events-none absolute left-0 top-full z-30 mt-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100"
+          className="pointer-events-none absolute left-[-13%] bottom-full z-30 mb-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100"
           style={{
             width: overlaySize?.width || undefined,
             maxWidth: "calc(100vw - 48px)",

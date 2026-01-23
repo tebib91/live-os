@@ -2,7 +2,7 @@
 'use client';
 
 import { getAppComposeContent } from '@/app/actions/appstore';
-import { installApp } from '@/app/actions/docker';
+import { getAppWebUI, installApp } from '@/app/actions/docker';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { CustomDeployDialog, type CustomDeployInitialData } from './custom-deploy-dialog';
 import type { App, InstallConfig } from './types';
+import { useSystemStatus } from '@/hooks/useSystemStatus';
 
 interface AppInstallDialogProps {
   open: boolean;
@@ -40,6 +41,19 @@ export function AppInstallDialog({
   const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false);
   const [customizeData, setCustomizeData] = useState<CustomDeployInitialData | null>(null);
   const [loadingCompose, setLoadingCompose] = useState(false);
+  const { installProgress } = useSystemStatus({ fast: true });
+  const activeProgress = installProgress.find((p) => p.appId === app.id);
+  const progressValue =
+    activeProgress && typeof activeProgress.progress === "number"
+      ? clamp(activeProgress.progress)
+      : null;
+  const progressPercent =
+    progressValue !== null ? Math.round(progressValue * 100) : null;
+  const isProgressActive = Boolean(
+    activeProgress &&
+      activeProgress.status !== "completed" &&
+      activeProgress.status !== "error",
+  );
 
   useEffect(() => {
     if (open && app.container) {
@@ -58,8 +72,12 @@ export function AppInstallDialog({
 
       if (result.success) {
         toast.success('Application installed successfully!');
-        onOpenChange(false);
         onInstallSuccess?.();
+        const url = await getAppWebUI(app.id);
+        if (url) {
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
+        onOpenChange(false);
       } else {
         toast.error(result.error || 'Failed to install application');
       }
@@ -246,16 +264,22 @@ export function AppInstallDialog({
               <Settings2 className="mr-2 h-4 w-4" />
             )}
             {loadingCompose ? 'Loading...' : 'Customize Install'}
-          </Button>
-          <Button
-            onClick={handleInstall}
-            disabled={installing || loadingCompose}
-            className="bg-blue-500 hover:bg-blue-600 text-white"
-          >
-            {installing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {installing ? 'Installing...' : 'Install'}
-          </Button>
-        </DialogFooter>
+        </Button>
+        <Button
+          onClick={handleInstall}
+          disabled={installing || loadingCompose || Boolean(isProgressActive)}
+          className="bg-blue-500 hover:bg-blue-600 text-white"
+        >
+          {(installing || isProgressActive) && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          )}
+          {installing || isProgressActive
+            ? progressPercent !== null
+              ? `Installing ${progressPercent}%`
+              : 'Installing...'
+            : 'Install'}
+        </Button>
+      </DialogFooter>
       </DialogContent>
 
       {/* Customize Deploy Dialog */}
@@ -296,4 +320,9 @@ export function getDefaultInstallConfig(app: App): InstallConfig {
     volumes: defaultVolumes,
     environment: defaultEnv,
   };
+}
+
+function clamp(value: number) {
+  if (Number.isNaN(value)) return 0;
+  return Math.min(1, Math.max(0, value));
 }

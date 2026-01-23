@@ -70,6 +70,27 @@ cleanup_docker_resources() {
     fi
 }
 
+cleanup_data_dir() {
+    DATA_DIR="/DATA"
+    if [ ! -d "$DATA_DIR" ]; then
+        return
+    fi
+
+    echo ""
+    print_warning "Optional: delete ALL files and folders under $DATA_DIR."
+    print_warning "This will remove user data, app configs, and backups stored there."
+    echo -n -e "${YELLOW}Do you want to delete everything in $DATA_DIR? (yes/no):${NC} "
+    read -r data_cleanup < /dev/tty
+
+    if [ "$data_cleanup" != "yes" ]; then
+        print_status "Skipping /DATA cleanup."
+        return
+    fi
+
+    print_status "Removing contents of $DATA_DIR ..."
+    rm -rf "${DATA_DIR:?}/"* || print_error "Failed to delete some files in $DATA_DIR"
+}
+
 # Installation directory
 INSTALL_DIR="/opt/live-os"
 SERVICE_NAME="liveos"
@@ -125,6 +146,7 @@ fi
 
 # Offer to remove Docker resources
 cleanup_docker_resources
+cleanup_data_dir
 
 # Change to safe directory before removing installation
 cd /tmp || cd /

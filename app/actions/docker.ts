@@ -493,19 +493,31 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
 
     // 1) Prefer published host port from Docker (works for bridge mode)
     const hostPort = await resolveHostPort(containerName);
-    if (hostPort) {
-      return `${protocol}://${host}:${hostPort}`;
-    }
-
-    // 2) Fallback to metadata port (host network or compose without publish)
+    // 2) Pull app metadata for fallback port/path
     const appMeta = await prisma.app.findFirst({
       where: { appId },
       orderBy: { createdAt: "desc" },
-      select: { port: true },
+      select: { port: true, path: true },
     });
+    const pathSuffix =
+      appMeta?.path && appMeta.path.length > 0
+        ? appMeta.path.startsWith("/")
+          ? appMeta.path
+          : `/${appMeta.path}`
+        : "";
 
+    if (hostPort) {
+      return `${protocol}://${host}:${hostPort}${pathSuffix}`;
+    }
+
+    // 3) Fallback to metadata port (host network or compose without publish)
     if (appMeta?.port && validatePort(appMeta.port)) {
-      return `${protocol}://${host}:${appMeta.port}`;
+      return `${protocol}://${host}:${appMeta.port}${pathSuffix}`;
+    }
+
+    // 4) Last resort: if we at least have a path, try it on default port 80/443
+    if (pathSuffix) {
+      return `${protocol}://${host}${pathSuffix}`;
     }
 
     return null;

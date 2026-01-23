@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import { useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { ViewerWrapperProps } from "./types";
 
 /**
@@ -62,9 +63,9 @@ export function ViewerWrapper({
     }
   };
 
-  return (
+  const overlay = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm"
       onClick={handleOverlayClick}
     >
       {/* Header with file name and controls */}
@@ -137,4 +138,6 @@ export function ViewerWrapper({
       </div>
     </div>
   );
+
+  return createPortal(overlay, document.body);
 }

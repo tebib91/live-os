@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ExternalLink, Settings2 } from "lucide-react";
+import { ExternalLink, Loader2, Settings2 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ import {
   type CustomDeployInitialData,
 } from "./custom-deploy-dialog";
 import type { App, InstalledApp } from "./types";
+import type { InstallProgress } from "@/hooks/useSystemStatus";
 
 interface AppDetailDialogProps {
   open: boolean;
@@ -31,6 +32,7 @@ interface AppDetailDialogProps {
   app: App;
   onInstallSuccess?: () => void;
   installedApp?: InstalledApp;
+  installProgress?: InstallProgress | null;
 }
 
 export function AppDetailDialog({
@@ -39,6 +41,7 @@ export function AppDetailDialog({
   app,
   onInstallSuccess,
   installedApp,
+  installProgress,
 }: AppDetailDialogProps) {
   const [installing, setInstalling] = useState(false);
   const [loadingCompose, setLoadingCompose] = useState(false);
@@ -46,6 +49,21 @@ export function AppDetailDialog({
   const [customDeployData, setCustomDeployData] =
     useState<CustomDeployInitialData | null>(null);
   const isInstalled = Boolean(installedApp);
+  const activeProgress =
+    installProgress && installProgress.appId === app.id
+      ? installProgress
+      : null;
+  const progressValue =
+    activeProgress && typeof activeProgress.progress === "number"
+      ? clamp(activeProgress.progress)
+      : null;
+  const progressPercent =
+    progressValue !== null ? Math.round(progressValue * 100) : null;
+  const isProgressActive = Boolean(
+    activeProgress &&
+      activeProgress.status !== "completed" &&
+      activeProgress.status !== "error",
+  );
 
   const handleQuickInstall = async () => {
     setInstalling(true);
@@ -59,6 +77,7 @@ export function AppDetailDialog({
       if (result.success) {
         toast.success("Application installed successfully!");
         onInstallSuccess?.();
+        await handleOpen();
         onOpenChange(false);
       } else {
         toast.error(result.error || "Failed to install application");
@@ -271,7 +290,7 @@ export function AppDetailDialog({
               )}
               <Button
                 onClick={isInstalled ? handleOpen : handleQuickInstall}
-                disabled={installing}
+                disabled={isInstalled ? false : installing || Boolean(isProgressActive)}
                 className={`flex-1 ${isInstalled ? "bg-emerald-500 hover:bg-emerald-600" : "bg-blue-500 hover:bg-blue-600"} text-white text-sm sm:text-base`}
               >
                 {isInstalled ? (
@@ -279,8 +298,13 @@ export function AppDetailDialog({
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Open
                   </>
-                ) : installing ? (
-                  "Installing..."
+                ) : installing || isProgressActive ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {progressPercent !== null
+                      ? `Installing ${progressPercent}%`
+                      : "Installing..."}
+                  </>
                 ) : (
                   "Install"
                 )}
@@ -304,4 +328,9 @@ export function AppDetailDialog({
       )}
     </>
   );
+}
+
+function clamp(value: number) {
+  if (Number.isNaN(value)) return 0;
+  return Math.min(1, Math.max(0, value));
 }
