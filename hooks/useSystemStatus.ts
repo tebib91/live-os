@@ -1,109 +1,13 @@
-'use client';
+"use client";
 
-import type { HardwareInfo } from '@/components/settings/hardware-utils';
-import { useCallback, useEffect, useState } from 'react';
-
-export interface SystemStats {
-  cpu: { usage: number; temperature: number; power: number };
-  memory: { usage: number; total: number; used: number; free: number };
-  hardware?: HardwareInfo;
-}
-
-export interface StorageStats {
-  total: number;
-  used: number;
-  usagePercent: number;
-  health: string;
-}
-
-export interface NetworkStats {
-  uploadMbps: number;
-  downloadMbps: number;
-}
-
-export interface AppUsage {
-  id: string;
-  name: string;
-  icon: string;
-  cpuUsage: number;
-  memoryUsage: number;
-  memoryLimit: number;
-  memoryPercent: number;
-}
-
-export interface InstalledApp {
-  id: string;
-  appId: string;
-  name: string;
-  icon: string;
-  status: 'running' | 'stopped' | 'error';
-  webUIPort?: number;
-  containerName: string;
-  installedAt: number;
-}
-
-export interface InstallProgress {
-  appId: string;
-  name: string;
-  icon: string;
-  progress: number; // 0-1
-  status: 'starting' | 'running' | 'completed' | 'error';
-  message?: string;
-}
-
-export interface UseSystemStatusReturn {
-  // System metrics
-  systemStats: SystemStats | null;
-  storageStats: StorageStats | null;
-  networkStats: NetworkStats | null;
-  runningApps: AppUsage[];
-
-  // Installed apps
-  installedApps: InstalledApp[];
-  installProgress: InstallProgress[];
-
-  // Connection state
-  connected: boolean;
-  error: string | null;
-
-  // Manual refresh trigger
-  refreshApps: () => void;
-}
-
-interface MetricsMessage {
-  type: 'metrics';
-  systemStatus?: SystemStats;
-  storageInfo?: StorageStats;
-  networkStats?: NetworkStats;
-  installedApps?: InstalledApp[];
-  runningApps?: AppUsage[];
-}
-
-interface ErrorMessage {
-  type: 'error';
-  message?: string;
-}
-
-type SSEMessage =
-  | MetricsMessage
-  | ErrorMessage
-  | (InstallProgress & { type: 'install-progress' });
-
-type SharedState = {
-  systemStats: SystemStats | null;
-  storageStats: StorageStats | null;
-  networkStats: NetworkStats | null;
-  runningApps: AppUsage[];
-  installedApps: InstalledApp[];
-  installProgress: InstallProgress[];
-  connected: boolean;
-  error: string | null;
-};
-
-type Subscriber = {
-  callback: (state: SharedState) => void;
-  fast: boolean;
-};
+import { useCallback, useEffect, useState } from "react";
+import type {
+  InstallProgress,
+  SSEMessage,
+  SharedState,
+  Subscriber,
+  UseSystemStatusReturn,
+} from "./system-status-types";
 
 const subscribers = new Set<Subscriber>();
 let sharedState: SharedState = {
@@ -131,7 +35,7 @@ function notifySubscribers() {
 function updateSharedState(update: Partial<SharedState>) {
   const nextState: SharedState = { ...sharedState, ...update };
   const changed = (Object.keys(nextState) as (keyof SharedState)[]).some(
-    (key) => sharedState[key] !== nextState[key]
+    (key) => sharedState[key] !== nextState[key],
   );
 
   if (!changed) return;
@@ -142,11 +46,11 @@ function updateSharedState(update: Partial<SharedState>) {
 
 function updateInstallProgress(
   prev: InstallProgress[],
-  update: InstallProgress
+  update: InstallProgress,
 ): InstallProgress[] {
   const filtered = prev.filter((p) => p.appId !== update.appId);
 
-  if (update.status === 'completed' || update.status === 'error') {
+  if (update.status === "completed" || update.status === "error") {
     return filtered;
   }
 
@@ -170,7 +74,7 @@ function stopEventSource() {
 function scheduleReconnect() {
   if (subscribers.size === 0) return;
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-    updateSharedState({ error: 'Connection lost. Please refresh the page.' });
+    updateSharedState({ error: "Connection lost. Please refresh the page." });
     return;
   }
 
@@ -194,7 +98,7 @@ function connectEventSource(wantFast: boolean) {
   }
 
   try {
-    const es = new EventSource(`/api/system/stream${wantFast ? '?fast=1' : ''}`);
+    const es = new EventSource(`/api/system/stream${wantFast ? "?fast=1" : ""}`);
     eventSource = es;
     currentFastMode = wantFast;
 
@@ -207,7 +111,7 @@ function connectEventSource(wantFast: boolean) {
       try {
         const data: SSEMessage = JSON.parse(event.data);
 
-        if (data.type === 'metrics') {
+        if (data.type === "metrics") {
           const nextInstalled = data.installedApps ?? sharedState.installedApps;
           const rawRunning = data.runningApps ?? sharedState.runningApps;
           const runningWithIcons = rawRunning.map((app) => {
@@ -225,28 +129,31 @@ function connectEventSource(wantFast: boolean) {
             runningApps: runningWithIcons,
             error: null,
           });
-        } else if (data.type === 'install-progress') {
+        } else if (data.type === "install-progress") {
           updateSharedState({
             installProgress: updateInstallProgress(sharedState.installProgress, data),
           });
-        } else if (data.type === 'error') {
-          console.error('[SystemStatus] Server error:', data.message);
-          updateSharedState({ error: data.message || 'Unknown error' });
+        } else if (data.type === "error") {
+          console.error("[SystemStatus] Server error:", data.message);
+          updateSharedState({ error: data.message || "Unknown error" });
         }
       } catch (parseError) {
-        console.error('[SystemStatus] Failed to parse SSE message:', parseError);
+        console.error("[SystemStatus] Failed to parse SSE message:", parseError);
       }
     };
 
     es.onerror = () => {
-      console.log('[SystemStatus] SSE error/disconnected');
+      console.log("[SystemStatus] SSE error/disconnected");
       updateSharedState({ connected: false });
       stopEventSource();
       scheduleReconnect();
     };
   } catch (err) {
-    console.error('[SystemStatus] Failed to create EventSource:', err);
-    updateSharedState({ error: 'Failed to connect to system metrics stream', connected: false });
+    console.error("[SystemStatus] Failed to create EventSource:", err);
+    updateSharedState({
+      error: "Failed to connect to system metrics stream",
+      connected: false,
+    });
   }
 }
 
@@ -258,7 +165,10 @@ function syncEventSource() {
   connectEventSource(shouldUseFast());
 }
 
-function subscribeToSystemStatus(callback: (state: SharedState) => void, fast: boolean) {
+function subscribeToSystemStatus(
+  callback: (state: SharedState) => void,
+  fast: boolean,
+) {
   const subscriber: Subscriber = { callback, fast };
   subscribers.add(subscriber);
   callback(sharedState);
@@ -276,19 +186,22 @@ function subscribeToSystemStatus(callback: (state: SharedState) => void, fast: b
   };
 }
 
-/**
- * Hook for real-time system status via Server-Sent Events (SSE)
- * Uses a singleton EventSource connection shared across all consumers
- */
-export function useSystemStatus(options: { fast?: boolean } = {}): UseSystemStatusReturn {
+export function useSystemStatus(
+  options: { fast?: boolean; enabled?: boolean } = {},
+): UseSystemStatusReturn {
   const [state, setState] = useState<SharedState>(sharedState);
   const fast = options.fast ?? false;
+  const enabled = options.enabled ?? true;
 
-  useEffect(() => subscribeToSystemStatus(setState, fast), [fast]);
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    return subscribeToSystemStatus(setState, fast);
+  }, [enabled, fast]);
 
-  // Manual refresh trigger - dispatches event for backwards compatibility
   const refreshApps = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('refreshInstalledApps'));
+    window.dispatchEvent(new CustomEvent("refreshInstalledApps"));
   }, []);
 
   return {

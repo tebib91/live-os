@@ -4,7 +4,7 @@ import { progressBar, text, card } from "@/components/ui/design-tokens";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import type { InstallProgress } from "@/hooks/useSystemStatus";
+import type { InstallProgress } from "@/hooks/system-status-types";
 
 interface InstallProgressOverlayProps {
   installs: InstallProgress[];

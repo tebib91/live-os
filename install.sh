@@ -779,6 +779,11 @@ setup_liveos() {
         exit 1
     fi
 
+    # Regenerate Prisma client to match installed runtime
+    print_status "Generating Prisma client..."
+    npx prisma generate --schema=prisma/schema.prisma
+
+
     print_status "Building project..."
     npm run build
 

@@ -4,10 +4,8 @@
 import { getAppWebUI } from "@/app/actions/docker";
 import type { InstalledApp } from "@/components/app-store/types";
 import { Card } from "@/components/ui/card";
-import {
-  useSystemStatus,
-  type InstalledApp as WSInstalledApp,
-} from "@/hooks/useSystemStatus";
+import { useSystemStatus } from "@/hooks/useSystemStatus";
+import type { InstalledApp as WSInstalledApp } from "@/hooks/system-status-types";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";

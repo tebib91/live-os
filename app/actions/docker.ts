@@ -1,21 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
-import type { InstallConfig, InstalledApp } from "@/components/app-store/types";
-import prisma from "@/lib/prisma";
-import { triggerAppsUpdate } from "@/lib/system-status/websocket-server";
 import {
   sendInstallProgress,
   type InstallProgressPayload,
 } from "@/app/api/system/stream/route";
-import { logAction } from "./logger";
+import type { InstallConfig, InstalledApp } from "@/components/app-store/types";
+import prisma from "@/lib/prisma";
+import { triggerAppsUpdate } from "@/lib/system-status/websocket-server";
 import { exec } from "child_process";
 import fs from "fs/promises";
-import path from "path";
 import os from "os";
+import path from "path";
 import { env } from "process";
 import { promisify } from "util";
 import YAML from "yaml";
+import { logAction } from "./logger";
 
 const execAsync = promisify(exec);
 
@@ -716,19 +716,19 @@ export async function getAppLogs(
     const command = `docker logs --tail ${lines} ${containerName}`;
     console.log(`[Docker] getAppLogs: Executing: ${command}`);
 
-    const { stdout } = await execAsync(command);
-
-    if (!stdout) {
+    const { stdout, stderr } = await execAsync(command);
+    const logs = stdout || stderr;
+    if (!logs) {
       console.log(`[Docker] getAppLogs: No logs available for "${appId}"`);
       return "No logs available";
     }
 
     console.log(
       `[Docker] getAppLogs: ✅ Retrieved ${
-        stdout.split("\n").length
+        logs.split("\n").length
       } lines of logs for "${appId}"`
     );
-    return stdout;
+    return logs;
   } catch (error: any) {
     console.error(
       `[Docker] getAppLogs: ❌ Error getting logs for "${appId}":`,

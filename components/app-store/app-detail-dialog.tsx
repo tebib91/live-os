@@ -24,7 +24,7 @@ import {
   type CustomDeployInitialData,
 } from "./custom-deploy-dialog";
 import type { App, InstalledApp } from "./types";
-import type { InstallProgress } from "@/hooks/useSystemStatus";
+import type { InstallProgress } from "@/hooks/system-status-types";
 
 interface AppDetailDialogProps {
   open: boolean;
