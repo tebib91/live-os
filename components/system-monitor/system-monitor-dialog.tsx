@@ -1,19 +1,18 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
+import { colors, dialog } from "@/components/ui/design-tokens";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { dialog, colors } from "@/components/ui/design-tokens";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { useEffect, useRef, useState } from "react";
 
+import { AppList } from "./app-list";
 import { DialogHeader } from "./dialog-header";
 import { MetricChartCard } from "./metric-chart-card";
 import { NetworkChart } from "./network-chart";
-import { AppBreakdownPanel } from "./app-breakdown-panel";
-import { AppList } from "./app-list";
-import { formatBytes, getMetricColor } from "./utils";
 import type { ChartDataPoint, SelectedMetric } from "./types";
+import { formatBytes, getMetricColor } from "./utils";
 
 interface SystemMonitorDialogProps {
   open: boolean;
@@ -32,8 +31,12 @@ export function SystemMonitorDialog({
   const [memoryHistory, setMemoryHistory] = useState<ChartDataPoint[]>([]);
   const [storageHistory, setStorageHistory] = useState<ChartDataPoint[]>([]);
   const [gpuHistory, setGpuHistory] = useState<ChartDataPoint[]>([]);
-  const [networkUploadHistory, setNetworkUploadHistory] = useState<ChartDataPoint[]>([]);
-  const [networkDownloadHistory, setNetworkDownloadHistory] = useState<ChartDataPoint[]>([]);
+  const [networkUploadHistory, setNetworkUploadHistory] = useState<
+    ChartDataPoint[]
+  >([]);
+  const [networkDownloadHistory, setNetworkDownloadHistory] = useState<
+    ChartDataPoint[]
+  >([]);
 
   const lastUpdateRef = useRef<number>(0);
 
@@ -45,13 +48,23 @@ export function SystemMonitorDialog({
     if (now - lastUpdateRef.current < 500) return;
     lastUpdateRef.current = now;
 
-    setCpuHistory((prev) => [...prev, { value: systemStats.cpu.usage }].slice(-30));
-    setMemoryHistory((prev) => [...prev, { value: systemStats.memory.usage }].slice(-30));
-    setStorageHistory((prev) => [...prev, { value: storageStats.usagePercent }].slice(-30));
+    setCpuHistory((prev) =>
+      [...prev, { value: systemStats.cpu.usage }].slice(-30),
+    );
+    setMemoryHistory((prev) =>
+      [...prev, { value: systemStats.memory.usage }].slice(-30),
+    );
+    setStorageHistory((prev) =>
+      [...prev, { value: storageStats.usagePercent }].slice(-30),
+    );
     const gpuUsage = systemStats.hardware?.graphics?.utilizationGpu ?? 0;
     setGpuHistory((prev) => [...prev, { value: gpuUsage }].slice(-30));
-    setNetworkUploadHistory((prev) => [...prev, { value: networkStats.uploadMbps }].slice(-60));
-    setNetworkDownloadHistory((prev) => [...prev, { value: networkStats.downloadMbps }].slice(-60));
+    setNetworkUploadHistory((prev) =>
+      [...prev, { value: networkStats.uploadMbps }].slice(-60),
+    );
+    setNetworkDownloadHistory((prev) =>
+      [...prev, { value: networkStats.downloadMbps }].slice(-60),
+    );
   }, [open, systemStats, storageStats, networkStats]);
 
   // Clear history when dialog closes
@@ -99,7 +112,10 @@ export function SystemMonitorDialog({
         showCloseButton={false}
         className={`max-w-[95vw] sm:max-w-[1200px] max-h-[90vh] ${dialog.content} p-0 gap-0 overflow-hidden`}
       >
-        <DialogHeader connected={connected} onClose={() => onOpenChange(false)} />
+        <DialogHeader
+          connected={connected}
+          onClose={() => onOpenChange(false)}
+        />
 
         <ScrollArea className="h-[calc(90vh-120px)]">
           <div className="p-6 space-y-4 bg-white/5 backdrop-blur-xl">
@@ -119,7 +135,9 @@ export function SystemMonitorDialog({
 
               <MetricChartCard
                 label="Memory"
-                value={formatBytes(currentSystemStats.memory.used).split(" ")[0]}
+                value={
+                  formatBytes(currentSystemStats.memory.used).split(" ")[0]
+                }
                 unit="GB"
                 subtitle={`${formatBytes(currentSystemStats.memory.total)} total • Click to view by app`}
                 color={colors.memory}
@@ -149,14 +167,6 @@ export function SystemMonitorDialog({
                 data={storageHistory}
               />
             </div>
-
-            {/* App Breakdown Panel */}
-            <AppBreakdownPanel
-              selectedMetric={selectedMetric}
-              apps={runningApps}
-              connected={connected}
-              onClose={() => setSelectedMetric(null)}
-            />
 
             {/* Network Chart */}
             <NetworkChart

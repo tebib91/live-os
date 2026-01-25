@@ -317,10 +317,10 @@ export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
 
   console.info("[network-storage] Discovering SMB hosts via avahi-browse...");
   try {
-    // avahi-browse -r -t _smb._tcp
+    // avahi-browse -r -p -t _smb._tcp (use -p for parseable lines)
     const { stdout } = await execFileAsync(
       "avahi-browse",
-      ["-r", "-t", "_smb._tcp"],
+      ["-r", "-p", "_smb._tcp"],
       { timeout: 5000 },
     );
 
@@ -335,26 +335,58 @@ export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
       // ignore
     }
 
-    stdout
+    const lines = stdout
       .split("\n")
       .map((line) => line.trim())
-      .filter(Boolean)
-      .forEach((line) => {
-        // Format: =;eth0;IPv4;NAME;_smb._tcp;local;HOST.local;IP;PORT;
-        const parts = line.split(";");
-        if (parts.length >= 8 && parts[0] === "=") {
-          const name = parts[3];
-          const host = parts[6]?.replace(/\.local\.?$/, "") || name;
-          const ip = parts[7];
+      .filter(Boolean);
 
-          // Skip local machine and duplicates
-          if (host.toLowerCase() === localHostname) return;
-          if (seen.has(host.toLowerCase())) return;
-          seen.add(host.toLowerCase());
+    // First try parseable (-p) lines: =;iface;proto;name;type;domain;hostname;ip;port;txt;
+    lines.forEach((line) => {
+      const parts = line.split(";");
+      if (parts.length >= 8 && parts[0] === "=") {
+        const name = parts[3];
+        const host = parts[6]?.replace(/\.local\.?$/, "") || name;
+        const ip = parts[7];
 
-          hosts.push({ name, host, ip });
+        if (!name || !host || !ip) return;
+        if (host.toLowerCase() === localHostname) return;
+        if (seen.has(host.toLowerCase())) return;
+        seen.add(host.toLowerCase());
+        hosts.push({ name, host, ip });
+      }
+    });
+
+    // Fallback: resolve multiline human-readable output (no -p)
+    if (hosts.length === 0) {
+      let current: Partial<DiscoveredHost> = {};
+      lines.forEach((line) => {
+        if (line.startsWith("=") || line.startsWith("+")) {
+          // start of a new record
+          if (current.name && current.host && current.ip) {
+            const host = (current.host as string).toLowerCase();
+            if (!seen.has(host) && host !== localHostname) {
+              seen.add(host);
+              hosts.push(current as DiscoveredHost);
+            }
+          }
+          const name = line.split(" ").slice(3).join(" ").trim();
+          current = { name };
+        } else if (line.startsWith("hostname")) {
+          const match = line.match(/\[(.+?)\]/);
+          current.host = match?.[1]?.replace(/\.local\.?$/, "");
+        } else if (line.startsWith("address")) {
+          const match = line.match(/\[(.+?)\]/);
+          current.ip = match?.[1];
         }
       });
+      if (current.name && current.host && current.ip) {
+        const host = (current.host as string).toLowerCase();
+        if (!seen.has(host) && host !== localHostname) {
+          seen.add(host);
+          hosts.push(current as DiscoveredHost);
+        }
+      }
+    }
     console.info(
       `[network-storage] Discovery complete: ${hosts.length} host(s) found`,
     );
