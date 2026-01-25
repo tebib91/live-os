@@ -54,7 +54,7 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
     isLoading: widgetsLoading,
   } = useWidgets();
 
-  const sampleApps = [
+  const dockApps = [
     {
       id: "finder",
       name: "Finder",
@@ -312,7 +312,7 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
         <div className="fixed bottom-0 left-0 right-0 mb-4 flex justify-center pointer-events-none z-50">
           <div className="pointer-events-auto">
             <DockOs
-              apps={sampleApps}
+              apps={dockApps}
               onAppClick={handleAppClick}
               openApps={openApps}
             />

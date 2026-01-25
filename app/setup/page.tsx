@@ -10,7 +10,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
-import { VERSION } from "@/lib/config";
+import { PIN_LENGTH, VERSION } from "@/lib/config";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -53,8 +53,8 @@ export default function SetupPage() {
       return;
     }
 
-    if (pin.length !== 4) {
-      setError("PIN must be exactly 4 digits");
+    if (pin.length !== PIN_LENGTH) {
+      setError(`PIN must be exactly ${PIN_LENGTH} digits`);
       return;
     }
 
@@ -234,7 +234,7 @@ export default function SetupPage() {
     );
   }
 
-  const pinMatch = pin.length === 4 && pin === confirmPin;
+  const pinMatch = pin.length === PIN_LENGTH && pin === confirmPin;
 
   return (
     <WallpaperLayout>
@@ -257,7 +257,7 @@ export default function SetupPage() {
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                 <p className="text-sm text-blue-400">
                   This will be your admin account with full system access.
-                  Choose a memorable username and 4-digit PIN.
+                  Choose a memorable username and {PIN_LENGTH}-digit PIN.
                 </p>
               </div>
 
@@ -288,7 +288,7 @@ export default function SetupPage() {
                 </Label>
                 <div className="flex justify-center">
                   <InputOTP
-                    maxLength={4}
+                    maxLength={PIN_LENGTH}
                     value={pin}
                     onChange={setPin}
                     disabled={loading}
@@ -315,6 +315,16 @@ export default function SetupPage() {
                         index={3}
                         className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
                       />
+                      <InputOTPSlot
+                        mask
+                        index={4}
+                        className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                      />
+                      <InputOTPSlot
+                        mask
+                        index={5}
+                        className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                      />
                     </InputOTPGroup>
                   </InputOTP>
                 </div>
@@ -328,7 +338,7 @@ export default function SetupPage() {
                 <div className="flex justify-center">
                   <div className="relative">
                     <InputOTP
-                      maxLength={4}
+                      maxLength={PIN_LENGTH}
                       value={confirmPin}
                       onChange={setConfirmPin}
                       disabled={loading}
@@ -355,6 +365,16 @@ export default function SetupPage() {
                           index={3}
                           className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
                         />
+                        <InputOTPSlot
+                          mask
+                          index={4}
+                          className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                        />
+                        <InputOTPSlot
+                          mask
+                          index={5}
+                          className="bg-zinc-800/90 border-zinc-700 text-white w-12 h-12 text-xl"
+                        />
                       </InputOTPGroup>
                     </InputOTP>
                     {pinMatch && (
@@ -362,7 +382,7 @@ export default function SetupPage() {
                     )}
                   </div>
                 </div>
-                {confirmPin.length === 4 && !pinMatch && (
+                {confirmPin.length === PIN_LENGTH && !pinMatch && (
                   <p className="text-xs text-red-400 text-center">
                     PINs do not match
                   </p>

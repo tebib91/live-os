@@ -84,6 +84,7 @@ export function NetworkStorageDialog({
   const [loading, setLoading] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [loadingServerInfo, setLoadingServerInfo] = useState(false);
+  const [serverInfoLoaded, setServerInfoLoaded] = useState(false);
   const [busyShareId, setBusyShareId] = useState<string | null>(null);
   const [addingShare, setAddingShare] = useState<string | null>(null);
 
@@ -156,7 +157,7 @@ export function NetworkStorageDialog({
     } catch (err) {
       setGlobalError(
         "Failed to load network shares: " +
-          ((err as Error)?.message || "Unknown error"),
+        ((err as Error)?.message || "Unknown error"),
       );
     } finally {
       setLoading(false);
@@ -164,11 +165,29 @@ export function NetworkStorageDialog({
   }, []);
 
   const loadServerInfo = useCallback(
-    async (host: DiscoveredHost, credentials?: { username: string; password: string }) => {
+    async (
+      host: DiscoveredHost,
+      credentials?: { username: string; password: string },
+      allowGuest = false,
+    ) => {
+      const username = credentials?.username?.trim();
+      if (!username && !allowGuest) {
+        setServerInfoLoaded(true);
+        setServerInfo({
+          host: host.host,
+          isLiveOS: false,
+          shares: [],
+          requiresAuth: true,
+          error: "Authentication required",
+        });
+        return;
+      }
+
+      setServerInfoLoaded(true);
       setLoadingServerInfo(true);
       setServerInfo(null);
       try {
-        const info = await getServerInfo(host.host, credentials);
+        const info = await getServerInfo(host.host, host.ip, credentials, allowGuest);
         setServerInfo(info);
       } catch (err) {
         setServerInfo({
@@ -192,6 +211,7 @@ export function NetworkStorageDialog({
       setView("list");
       setSelectedServer(null);
       setServerInfo(null);
+      setServerInfoLoaded(false);
       setDiscoverStatus("");
     }
   }, [open, loadShares, discover]);
@@ -200,12 +220,19 @@ export function NetworkStorageDialog({
     setSelectedServer(host);
     setView("server-shares");
     setServerCredentials({ username: "", password: "" });
-    loadServerInfo(host);
+    setServerInfo(null);
+    setServerInfoLoaded(false);
   };
 
   const handleRetryWithCredentials = () => {
     if (selectedServer) {
-      loadServerInfo(selectedServer, serverCredentials);
+      loadServerInfo(selectedServer, serverCredentials, false);
+    }
+  };
+
+  const handleBrowseAsGuest = () => {
+    if (selectedServer) {
+      loadServerInfo(selectedServer, serverCredentials, true);
     }
   };
 
@@ -218,6 +245,7 @@ export function NetworkStorageDialog({
     try {
       const result = await addNetworkShare({
         host: selectedServer.host,
+        ip: selectedServer.ip,
         share: shareName,
         username: serverCredentials.username || undefined,
         password: serverCredentials.password || undefined,
@@ -335,11 +363,16 @@ export function NetworkStorageDialog({
     );
   };
 
+  const shouldShowAuthPrompt =
+    view === "server-shares" &&
+    !!selectedServer &&
+    (!serverInfoLoaded || serverInfo?.requiresAuth === true);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-xl sm:max-w-2xl max-h-[85vh] bg-black/70 border border-white/10 backdrop-blur-xl shadow-xl p-0 gap-0 overflow-hidden ring-1 ring-white/10 rounded-2xl"
+        className=" max-w-xl sm:max-w-2xl max-h-[50vh] bg-black/70 border border-white/10 backdrop-blur-xl shadow-xl p-0 gap-0 overflow-hidden ring-1 ring-white/10 rounded-2xl"
         aria-describedby="network-storage-description"
       >
         {/* Header */}
@@ -354,6 +387,7 @@ export function NetworkStorageDialog({
                   setView("list");
                   setSelectedServer(null);
                   setServerInfo(null);
+                  setServerInfoLoaded(false);
                   setFormError(null);
                 }}
               >
@@ -426,13 +460,6 @@ export function NetworkStorageDialog({
         {/* Content */}
         <ScrollArea className="h-[calc(85vh-72px)]">
           <div className="p-4 space-y-4">
-            {discoverStatus && view === "list" && (
-              <div className="text-[11px] text-white/60 px-1 flex items-center gap-2">
-                {discovering && <Loader2 className="h-3 w-3 animate-spin text-cyan-200" />}
-                <span>{discoverStatus}</span>
-              </div>
-            )}
-
             {globalError && (
               <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -595,7 +622,7 @@ export function NetworkStorageDialog({
                   </div>
                 )}
 
-                {!loadingServerInfo && serverInfo && (
+                {!loadingServerInfo && (
                   <>
                     {/* Server info header */}
                     <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
@@ -607,7 +634,7 @@ export function NetworkStorageDialog({
                           <span className="text-white font-semibold">
                             {selectedServer.name || selectedServer.host}
                           </span>
-                          {serverInfo.isLiveOS && (
+                          {serverInfo?.isLiveOS && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 text-cyan-200 text-[10px] px-2 py-0.5 uppercase tracking-wide">
                               LiveOS
                             </span>
@@ -615,18 +642,18 @@ export function NetworkStorageDialog({
                         </div>
                         <div className="text-xs text-white/60">
                           {selectedServer.ip || selectedServer.host}
-                          {serverInfo.shares.length > 0 &&
-                            ` • ${serverInfo.shares.length} share${serverInfo.shares.length !== 1 ? "s" : ""} available`}
+                          {(serverInfo?.shares.length ?? 0) > 0 &&
+                            ` • ${serverInfo?.shares.length} share${serverInfo?.shares.length !== 1 ? "s" : ""} available`}
                         </div>
                       </div>
                     </div>
 
-                    {/* Auth required prompt */}
-                    {serverInfo.requiresAuth && (
+                    {/* Auth required prompt (default before any guest attempt) */}
+                    {shouldShowAuthPrompt && (
                       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
                         <div className="flex items-center gap-2 text-amber-200 text-sm">
                           <Lock className="h-4 w-4" />
-                          <span>Authentication required to browse shares</span>
+                          <span>Enter credentials to browse shares</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Input
@@ -657,14 +684,23 @@ export function NetworkStorageDialog({
                           size="sm"
                           className="bg-amber-500 hover:bg-amber-600 text-white"
                           onClick={handleRetryWithCredentials}
+                          disabled={!serverCredentials.username.trim()}
                         >
                           Authenticate
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="border border-white/15 text-white/80 hover:bg-white/10"
+                          onClick={handleBrowseAsGuest}
+                        >
+                          Browse as guest
                         </Button>
                       </div>
                     )}
 
                     {/* Error display */}
-                    {serverInfo.error && !serverInfo.requiresAuth && (
+                    {serverInfo?.error && !serverInfo.requiresAuth && (
                       <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
                         <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                         <div>{serverInfo.error}</div>
@@ -672,7 +708,7 @@ export function NetworkStorageDialog({
                     )}
 
                     {/* Share list */}
-                    {serverInfo.shares.length > 0 && (
+                    {serverInfo && !serverInfo.requiresAuth && serverInfo.shares.length > 0 && (
                       <div className="space-y-2">
                         <div className="text-xs text-white/60 uppercase tracking-[0.2em] px-1">
                           Available Shares
@@ -720,7 +756,8 @@ export function NetworkStorageDialog({
                       </div>
                     )}
 
-                    {!serverInfo.requiresAuth &&
+                    {serverInfo &&
+                      !serverInfo.requiresAuth &&
                       !serverInfo.error &&
                       serverInfo.shares.length === 0 && (
                         <div className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-center">
@@ -821,6 +858,15 @@ export function NetworkStorageDialog({
             )}
           </div>
         </ScrollArea>
+
+        {discoverStatus && view === "list" && (
+          <div className="pointer-events-none absolute bottom-3 right-4 flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-1 text-[11px] text-white/70">
+            {discovering && (
+              <Loader2 className="h-3 w-3 animate-spin text-cyan-200" />
+            )}
+            <span>{discoverStatus}</span>
+          </div>
+        )}
       </DialogContent>
 
       {/* Credential prompt for connecting existing share */}

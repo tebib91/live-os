@@ -1,7 +1,7 @@
 'use server';
 
-import os from 'os';
 import { exec } from 'child_process';
+import os from 'os';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);

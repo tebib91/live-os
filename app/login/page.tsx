@@ -9,6 +9,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { PIN_LENGTH } from "@/lib/config";
 import { Loader2, LogIn, ShieldCheck, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -125,7 +126,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <p className="text-sm text-zinc-300">
-                    Enter your 4-digit PIN
+                    Enter your {PIN_LENGTH}-digit PIN
                   </p>
                   <p className="text-xs text-zinc-500">
                     Secure authentication code
@@ -135,7 +136,7 @@ export default function LoginPage() {
 
               <div className="flex flex-col items-center gap-4">
                 <InputOTP
-                  maxLength={4}
+                  maxLength={PIN_LENGTH}
                   value={pin}
                   onChange={setPin}
                   disabled={loading}
@@ -162,6 +163,16 @@ export default function LoginPage() {
                       index={3}
                       className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
                     />
+                    <InputOTPSlot
+                      mask
+                      index={4}
+                      className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
+                    />
+                    <InputOTPSlot
+                      mask
+                      index={5}
+                      className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
+                    />
                   </InputOTPGroup>
                 </InputOTP>
 
@@ -172,7 +183,7 @@ export default function LoginPage() {
             {/* Submit Button */}
             <Button
               type="submit"
-              disabled={loading || !username || pin.length !== 4}
+              disabled={loading || !username || pin.length !== PIN_LENGTH}
               className="w-full bg-white/10 text-white hover:bg-white/20 border border-white/20"
             >
               {loading ? (

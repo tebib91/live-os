@@ -17,8 +17,8 @@ import type * as Prisma from "./prismaNamespace"
 
 const config: runtime.GetPrismaClientConfig = {
   "previewFeatures": [],
-  "clientVersion": "7.3.0",
-  "engineVersion": "9d6ad21cbbceab97458517b147a6a09ff43aa735",
+  "clientVersion": "7.2.0",
+  "engineVersion": "0c8ef2ce45c83248ab3df073180d5eda9e8be7a3",
   "activeProvider": "sqlite",
   "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"../app/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"sqlite\"\n}\n\nmodel User {\n  id        String    @id @default(cuid())\n  username  String    @unique\n  pin       String\n  role      Role      @default(ADMIN)\n  sessions  Session[]\n  createdAt DateTime  @default(now())\n  updatedAt DateTime  @updatedAt\n}\n\nmodel Session {\n  id        String   @id @default(cuid())\n  token     String   @unique\n  userId    String\n  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)\n  expiresAt DateTime\n  createdAt DateTime @default(now())\n\n  @@index([token])\n  @@index([userId])\n}\n\nenum Role {\n  ADMIN\n  USER\n  GUEST\n}\n\nmodel Settings {\n  id               Int      @id\n  currentWallpaper String?\n  selectedWidgets  Json?\n  userLatitude     Float?\n  userLongitude    Float?\n  userCity         String?\n  userCountry      String?\n  updatedAt        DateTime @updatedAt\n}\n\nmodel Store {\n  id           String   @id @default(cuid())\n  slug         String   @unique\n  url          String\n  name         String\n  description  String?\n  localPath    String\n  manifestHash String?\n  apps         App[]\n  createdAt    DateTime @default(now())\n  updatedAt    DateTime @updatedAt\n}\n\nmodel App {\n  id          String   @id @default(cuid())\n  storeId     String\n  appId       String\n  title       String\n  name        String\n  icon        String\n  tagline     String?\n  overview    String?\n  category    Json?\n  developer   String?\n  screenshots Json?\n  version     String?\n  port        Int?\n  path        String?\n  website     String?\n  repo        String?\n  composePath String\n  container   Json?\n  createdAt   DateTime @default(now())\n  updatedAt   DateTime @updatedAt\n\n  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)\n\n  @@unique([storeId, appId])\n  @@index([appId])\n  @@index([title])\n}\n\nmodel InstalledApp {\n  id            String   @id @default(cuid())\n  appId         String\n  name          String\n  icon          String\n  containerName String   @unique\n  createdAt     DateTime @default(now())\n  updatedAt     DateTime @updatedAt\n}\n",
   "runtimeDataModel": {
@@ -37,14 +37,12 @@ async function decodeBase64AsWasm(wasmBase64: string): Promise<WebAssembly.Modul
 }
 
 config.compilerWasm = {
-  getRuntime: async () => await import("@prisma/client/runtime/query_compiler_fast_bg.sqlite.mjs"),
+  getRuntime: async () => await import("@prisma/client/runtime/query_compiler_bg.sqlite.mjs"),
 
   getQueryCompilerWasmModule: async () => {
-    const { wasm } = await import("@prisma/client/runtime/query_compiler_fast_bg.sqlite.wasm-base64.mjs")
+    const { wasm } = await import("@prisma/client/runtime/query_compiler_bg.sqlite.wasm-base64.mjs")
     return await decodeBase64AsWasm(wasm)
-  },
-
-  importName: "./query_compiler_fast_bg.js"
+  }
 }
 
 

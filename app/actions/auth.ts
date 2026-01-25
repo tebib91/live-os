@@ -1,7 +1,12 @@
 "use server";
 
 import { hasUsersRaw } from "@/lib/auth-utils";
-import { SESSION_COOKIE_NAME, SESSION_DURATION } from "@/lib/config";
+import {
+  PIN_LENGTH,
+  PIN_REGEX,
+  SESSION_COOKIE_NAME,
+  SESSION_DURATION,
+} from "@/lib/config";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
@@ -50,8 +55,11 @@ export async function registerUser(
       return { success: false, error: "Username too short" };
     }
 
-    if (!/^\d{4}$/.test(pin)) {
-      return { success: false, error: "PIN must be exactly 4 digits" };
+    if (!PIN_REGEX.test(pin)) {
+      return {
+        success: false,
+        error: `PIN must be exactly ${PIN_LENGTH} digits`,
+      };
     }
 
     const hashedPin = await bcrypt.hash(pin, 10);
@@ -100,9 +108,9 @@ export async function login(
   return withActionLogging("auth:login", async () => {
     try {
       const normalizedUsername = username.trim();
-      const normalizedPin = pin.replace(/\D/g, "").slice(0, 4);
+      const normalizedPin = pin.replace(/\D/g, "").slice(0, PIN_LENGTH);
 
-      if (!normalizedUsername || normalizedPin.length !== 4) {
+      if (!normalizedUsername || normalizedPin.length !== PIN_LENGTH) {
         return {
           success: false,
           error: "Invalid username or PIN",
@@ -167,10 +175,10 @@ export async function login(
 export async function verifyPin(pin: string): Promise<AuthResult> {
   try {
     // Validate input early to avoid unnecessary database lookups
-    if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+    if (!pin || pin.length !== PIN_LENGTH || !PIN_REGEX.test(pin)) {
       return {
         success: false,
-        error: "PIN must be exactly 4 digits",
+        error: `PIN must be exactly ${PIN_LENGTH} digits`,
       };
     }
 

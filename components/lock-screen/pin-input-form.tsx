@@ -7,6 +7,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { card, iconBox, text, button } from "@/components/ui/design-tokens";
+import { PIN_LENGTH } from "@/lib/config";
 import { Loader2, ShieldCheck, User } from "lucide-react";
 
 interface PinInputFormProps {
@@ -35,7 +36,7 @@ export function PinInputForm({
             <User className="h-5 w-5 text-white" />
           </div>
           <div>
-            <p className={text.subdued}>Enter your 4-digit PIN</p>
+            <p className={text.subdued}>Enter your {PIN_LENGTH}-digit PIN</p>
             <p className="text-xs text-zinc-500">Unlock LiveOS for {username}</p>
           </div>
         </div>
@@ -43,7 +44,7 @@ export function PinInputForm({
         {/* PIN Input */}
         <div className="flex flex-col items-center gap-4">
           <InputOTP
-            maxLength={4}
+            maxLength={PIN_LENGTH}
             value={pin}
             onChange={onPinChange}
             autoFocus
@@ -71,6 +72,16 @@ export function PinInputForm({
                 index={3}
                 className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
               />
+              <InputOTPSlot
+                mask
+                index={4}
+                className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
+              />
+              <InputOTPSlot
+                mask
+                index={5}
+                className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
+              />
             </InputOTPGroup>
           </InputOTP>
 
@@ -82,7 +93,7 @@ export function PinInputForm({
       {/* Submit button */}
       <Button
         type="submit"
-        disabled={pin.length !== 4 || submitting}
+        disabled={pin.length !== PIN_LENGTH || submitting}
         className={`w-full ${button.ghost}`}
       >
         {submitting ? (

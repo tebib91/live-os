@@ -3,9 +3,13 @@
 "use client";
 
 import { getFirewallStatus } from "@/app/actions/firewall";
+import {
+  listLanDevices,
+  type LanDevice
+} from "@/app/actions/network";
 import { getWallpapers, updateSettings } from "@/app/actions/settings";
 import { getSystemInfo, getUptime } from "@/app/actions/system";
-import { listLanDevices, type LanDevice } from "@/app/actions/network";
+import { checkForUpdates, type UpdateStatus } from "@/app/actions/update";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,34 +19,35 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
+import { VERSION } from "@/lib/config";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AdvancedSettingsDialog } from "./advanced-settings-dialog";
 import { FirewallDialog } from "./firewall";
 import { HardwareInfo } from "./hardware-utils";
+import { NetworkDevicesDialog } from "./network-devices-dialog";
 import {
   AccountSection,
+  AdvancedSettingsSection,
   DeviceInfoSection,
   FirewallSection,
   LanguageSection,
   NetworkDevicesSection,
-  AdvancedSettingsSection,
+  SystemDetailsCard,
   TroubleshootSection,
   UpdateSection,
-  SystemDetailsCard,
   WallpaperOption,
   WallpaperSection,
   WifiSection,
 } from "./sections";
 import { SettingsSidebar } from "./settings-sidebar";
 import { SystemDetailsDialog } from "./system-details-dialog";
-import { NetworkDevicesDialog } from "./network-devices-dialog";
-import { WifiDialog } from "./wifi-dialog";
-import { checkForUpdates, type UpdateStatus } from "@/app/actions/update";
-import { VERSION } from "@/lib/config";
 import { LiveOsTailDialog } from "./troubleshoot/liveos-tail-dialog";
+import { WifiDialog } from "./wifi-dialog";
+
+const LAN_DEVICES_TIMEOUT_MS = 10000;
 
 interface SettingsDialogProps {
   open: boolean;
@@ -80,7 +85,6 @@ export function SettingsDialog({
   const [logsDialogOpen, setLogsDialogOpen] = useState(false);
   const [advancedDialogOpen, setAdvancedDialogOpen] = useState(false);
   const [savingWallpaper, setSavingWallpaper] = useState(false);
-  const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   // Fetch static data once when dialog opens
@@ -90,9 +94,14 @@ export function SettingsDialog({
       fetchWallpapers();
       fetchUptime();
       fetchFirewallStatus();
-      fetchLanDevices();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (networkDevicesOpen) {
+      fetchLanDevices();
+    }
+  }, [networkDevicesOpen]);
 
   const fetchSystemInfo = async () => {
     const info = await getSystemInfo();
@@ -121,7 +130,17 @@ export function SettingsDialog({
     setLanDevicesLoading(true);
     setLanDevicesError(null);
     try {
-      const result = await listLanDevices();
+      const timeoutPromise = new Promise<LanDevicesResult>((resolve) => {
+        setTimeout(
+          () =>
+            resolve({
+              devices: [],
+              error: "LAN scan timed out",
+            }),
+          LAN_DEVICES_TIMEOUT_MS,
+        );
+      });
+      const result = await Promise.race([listLanDevices(), timeoutPromise]);
       setLanDevices(result.devices);
       if (result.error) setLanDevicesError(result.error);
     } catch (error) {
@@ -149,16 +168,14 @@ export function SettingsDialog({
   const handleWallpaperSelect = async (path: string) => {
     onWallpaperChange?.(path);
     setSavingWallpaper(true);
-    startTransition(() => {
-      updateSettings({ currentWallpaper: path })
-        .catch((error) => {
-          console.error("Failed to update wallpaper:", error);
-          toast.error(
-            "Wallpaper could not be saved. It will reset on refresh.",
-          );
-        })
-        .finally(() => setSavingWallpaper(false));
-    });
+    try {
+      await updateSettings({ currentWallpaper: path });
+    } catch (error) {
+      console.error("Failed to update wallpaper:", error);
+      toast.error("Wallpaper could not be saved. It will reset on refresh.");
+    } finally {
+      setSavingWallpaper(false);
+    }
   };
 
   const formatBytes = (bytes: number, decimals = 1) => {
@@ -280,13 +297,13 @@ export function SettingsDialog({
                 onShutdown={handleShutdown}
               />
               <AccountSection />
-        <WallpaperSection
-          wallpapers={wallpapers}
-          wallpapersLoading={wallpapersLoading}
-          currentWallpaper={currentWallpaper}
-          onSelect={handleWallpaperSelect}
-          saving={savingWallpaper || pending}
-        />
+              <WallpaperSection
+                wallpapers={wallpapers}
+                wallpapersLoading={wallpapersLoading}
+                currentWallpaper={currentWallpaper}
+                onSelect={handleWallpaperSelect}
+                saving={savingWallpaper}
+              />
               <WifiSection
                 onOpenDialog={() => setWifiDialogOpen(true)}
                 ssid={hardware?.wifi?.ssid}

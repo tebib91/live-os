@@ -14,11 +14,13 @@ import { logAction } from "./logger";
 
 const execFileAsync = promisify(execFile);
 const STORE_FILENAME = ".network-shares.json";
+const AVAHI_TIMEOUT_MS = 10000;
 
 // Stored locally under the Devices directory; passwords are kept in plain text to allow reconnects.
 type StoredShare = {
   id: string;
   host: string;
+  ip?: string;
   share: string;
   username?: string;
   password?: string;
@@ -151,15 +153,19 @@ function buildMountOptions(username?: string, password?: string) {
 }
 
 async function mountShare(share: StoredShare, passwordOverride?: string) {
-  const resolved = await resolveHost(share.host);
+  const resolved =
+    share.ip && net.isIP(share.ip) ? share.ip : await resolveHost(share.host);
   if (!resolved) {
     await logAction("network-storage:resolve-failed", {
       host: share.host,
+      ip: share.ip,
       share: share.share,
     });
     return {
       success: false as const,
-      error: `Could not resolve host "${share.host}"`,
+      error: share.ip
+        ? `Could not reach IP "${share.ip}" for host "${share.host}"`
+        : `Could not resolve host "${share.host}"`,
     };
   }
 
@@ -285,6 +291,7 @@ async function withStatus(share: StoredShare): Promise<NetworkShare> {
   return {
     id: share.id,
     host: share.host,
+    ip: share.ip,
     share: share.share,
     username: share.username,
     mountPath: share.mountPath,
@@ -317,13 +324,12 @@ export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
 
   console.info("[network-storage] Discovering SMB hosts via avahi-browse...");
   try {
-    // avahi-browse -r -p -t _smb._tcp (use -p for parseable lines)
+    // Use -t so the command terminates and doesn't get killed by the timeout.
     const { stdout } = await execFileAsync(
       "avahi-browse",
-      ["-r", "-p", "_smb._tcp"],
-      { timeout: 5000 },
+      ["-r", "-p", "-t", "_smb._tcp"],
+      { timeout: AVAHI_TIMEOUT_MS },
     );
-
     // Get local hostname to filter it out
     let localHostname = "";
     try {
@@ -392,13 +398,24 @@ export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
     );
     await logAction("network-storage:discover:done", { hosts: hosts.length });
   } catch (err) {
+    const error = err as Error & { stdout?: string | Buffer; stderr?: string | Buffer };
+    const stdout = error.stdout?.toString?.().trim?.();
+    const stderr = error.stderr?.toString?.().trim?.();
     await logAction("network-storage:discover:error", {
-      error: (err as Error)?.message || "unknown",
+      error: error?.message || "unknown",
+      stdout: stdout || undefined,
+      stderr: stderr || undefined,
     });
     console.warn(
       "[network-storage] Discovery failed:",
-      (err as Error)?.message || err,
+      error?.message || err,
     );
+    if (stdout) {
+      console.info("[network-storage] avahi stdout:", stdout);
+    }
+    if (stderr) {
+      console.warn("[network-storage] avahi stderr:", stderr);
+    }
   }
   return { hosts };
 }
@@ -409,18 +426,28 @@ export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
  */
 export async function discoverSharesOnServer(
   host: string,
+  ip?: string,
   credentials?: { username?: string; password?: string },
+  allowGuest = false,
 ): Promise<{ success: boolean; shares: string[]; error?: string }> {
-  await logAction("network-storage:discover-shares:start", { host });
+  await logAction("network-storage:discover-shares:start", {
+    host,
+    ip,
+    allowGuest,
+  });
   console.info("[network-storage] Listing shares on host:", host);
 
-  const resolved = await resolveHost(host);
+  const resolved = ip && net.isIP(ip) ? ip : await resolveHost(host);
   if (!resolved) {
     console.warn(
       "[network-storage] discoverSharesOnServer: DNS failed for",
       host,
     );
     return { success: false, shares: [], error: `Could not resolve host "${host}"` };
+  }
+
+  if (!credentials?.username && !allowGuest) {
+    return { success: false, shares: [], error: "Authentication required" };
   }
 
   try {
@@ -546,8 +573,12 @@ async function resolveHost(host: string): Promise<string | null> {
 async function checkReachable(
   host: string,
   timeoutMs = 3000,
+  addressOverride?: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const address = await resolveHost(host);
+  const address =
+    addressOverride && net.isIP(addressOverride)
+      ? addressOverride
+      : await resolveHost(host);
   if (!address) {
     return { ok: false, error: `Could not resolve host "${host}"` };
   }
@@ -575,15 +606,18 @@ async function checkReachable(
 
 export async function addNetworkShare(input: {
   host: string;
+  ip?: string;
   share: string;
   username?: string;
   password?: string;
 }): Promise<{ success: boolean; share?: NetworkShare; error?: string }> {
   await logAction("network-storage:add:start", {
     host: input.host,
+    ip: input.ip,
     share: input.share,
   });
   const host = input.host.trim();
+  const ip = input.ip?.trim();
   const share = input.share.replace(/^[\\/]+/, "").trim();
 
   if (!host || !share) {
@@ -599,6 +633,7 @@ export async function addNetworkShare(input: {
   const record: StoredShare = {
     id: existing?.id || crypto.randomUUID(),
     host,
+    ip: ip || existing?.ip,
     share,
     username: input.username?.trim() || existing?.username,
     password: input.password ?? existing?.password,
@@ -608,7 +643,7 @@ export async function addNetworkShare(input: {
   };
 
   // Quick reachability check
-  const reach = await checkReachable(host);
+  const reach = await checkReachable(host, 3000, record.ip);
   if (!reach.ok) {
     record.lastError = reach.error;
     const nextShares = existing
@@ -668,13 +703,14 @@ export async function connectNetworkShare(
     record.password = credentials.password;
   }
 
-  const reach = await checkReachable(record.host);
+  const reach = await checkReachable(record.host, 3000, record.ip);
   if (!reach.ok) {
     record.lastError = reach.error;
     await saveShares(shares.map((s) => (s.id === record.id ? record : s)));
     await logAction("network-storage:connect:unreachable", {
       id,
       host: record.host,
+      ip: record.ip,
       error: reach.error,
     });
     return { success: false, error: reach.error, share: await withStatus(record) };
@@ -765,7 +801,9 @@ export async function removeNetworkShare(
  */
 export async function getServerInfo(
   host: string,
+  ip?: string,
   credentials?: { username?: string; password?: string },
+  allowGuest = false,
 ): Promise<{
   host: string;
   isLiveOS: boolean;
@@ -774,12 +812,12 @@ export async function getServerInfo(
   requiresAuth: boolean;
   error?: string;
 }> {
-  await logAction("network-storage:server-info:start", { host });
+  await logAction("network-storage:server-info:start", { host, ip, allowGuest });
 
   // Check if LiveOS device in parallel with share discovery
   const [liveOSCheck, sharesResult] = await Promise.all([
     isLiveOSDevice(host),
-    discoverSharesOnServer(host, credentials),
+    discoverSharesOnServer(host, ip, credentials, allowGuest),
   ]);
 
   const requiresAuth =

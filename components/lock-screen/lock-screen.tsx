@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser, verifyPin, type AuthUser } from "@/app/actions/auth";
 import { card } from "@/components/ui/design-tokens";
+import { PIN_LENGTH } from "@/lib/config";
 import { UserHeader } from "./user-header";
 import { PinInputForm } from "./pin-input-form";
 
@@ -50,7 +51,7 @@ export function LockScreen({ open, onUnlock }: LockScreenProps) {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (pin.length !== 4 || submitting) return;
+    if (pin.length !== PIN_LENGTH || submitting) return;
 
     setSubmitting(true);
     setError("");
