@@ -35,8 +35,8 @@ export function LockScreen({ open, onUnlock }: LockScreenProps) {
       .then((currentUser) => {
         if (active) setUser(currentUser);
       })
-      .catch((err) => {
-        console.error("Failed to load user for lock screen:", err);
+      .catch(() => {
+        // Silently fail - will show "User" as fallback
       })
       .finally(() => {
         if (active) setLoadingUser(false);
@@ -65,8 +65,7 @@ export function LockScreen({ open, onUnlock }: LockScreenProps) {
       } else {
         setError(result.error || "Invalid PIN");
       }
-    } catch (err) {
-      console.error("Failed to verify PIN:", err);
+    } catch {
       setError("An unexpected error occurred");
     } finally {
       setSubmitting(false);

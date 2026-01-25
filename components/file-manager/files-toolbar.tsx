@@ -12,6 +12,7 @@ import {
   Search,
   X,
   Home,
+  Upload,
 } from 'lucide-react';
 import { type MouseEvent, type ReactNode } from 'react';
 
@@ -38,6 +39,7 @@ interface FilesToolbarProps {
   onToggleCreateFolder: () => void;
   onToggleCreateFile: () => void;
   onQuickCreateFile: () => void;
+  onUpload: () => void;
   onClose: () => void;
 }
 
@@ -59,6 +61,7 @@ export function FilesToolbar({
   onToggleCreateFolder,
   onToggleCreateFile,
   onQuickCreateFile,
+  onUpload,
   onClose,
 }: FilesToolbarProps) {
   const renderCrumb = (crumb: Breadcrumb, index: number): ReactNode => (
@@ -140,6 +143,15 @@ export function FilesToolbar({
         >
           <FilePlus className="h-4 w-4 mr-2" />
           File
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={onUpload}
+          disabled={loading}
+          className="h-9 px-4 rounded-lg border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-sm shadow-sm"
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Upload
         </Button>
 
         <label className="flex items-center gap-2 text-xs text-white/70">

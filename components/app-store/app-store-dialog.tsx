@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { motion } from "framer-motion";
 import { Loader2, MoreHorizontal, Search, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppDetailDialog } from "./app-detail-dialog";
 import { AppListItem } from "./app-list-item";
 import { AppStoreSettingsDialog } from "./appstore-settings-dialog";
@@ -45,20 +45,18 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
     }
   }, [open]);
 
-  const loadApps = async () => {
-    console.log("[appstore] Loading apps from stores...");
+  const loadApps = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const loadedApps = await getAppStoreApps();
       setApps(loadedApps);
-    } catch (err) {
-      console.error("Failed to load apps:", err);
+    } catch {
       setError("Unable to load applications. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -102,13 +100,22 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   // Get new apps (last 9 added)
   const newApps = useMemo(() => apps.slice(-9).reverse(), [apps]);
 
-  const getInstalledApp = (app: App) => {
+  const getInstalledApp = useCallback((app: App) => {
     return (
       installedApps.find(
         (installed) => installed.appId.toLowerCase() === app.id.toLowerCase(),
       ) || undefined
     );
-  };
+  }, [installedApps]);
+
+  // Memoized callbacks for list items
+  const handleSelectApp = useCallback((app: App) => {
+    setSelectedApp(app);
+  }, []);
+
+  const handleCloseDialog = useCallback(() => onOpenChange(false), [onOpenChange]);
+  const handleOpenSettings = useCallback(() => setSettingsOpen(true), []);
+  const handleClearSearch = useCallback(() => setSearchQuery(""), []);
 
   const isDiscoverView = selectedCategory === "discover" && searchQuery === "";
 
@@ -147,7 +154,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setSettingsOpen(true)}
+                onClick={handleOpenSettings}
                 className="h-9 w-9 rounded-full text-white/70 hover:text-white hover:bg-white/10"
               >
                 <MoreHorizontal className="h-5 w-5" />
@@ -157,7 +164,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onOpenChange(false)}
+                onClick={handleCloseDialog}
                 className="h-9 w-9 rounded-full text-white/70 hover:text-white hover:bg-white/10"
               >
                 <X className="h-5 w-5" />
@@ -327,7 +334,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                     <p className="text-zinc-400">No applications found</p>
                     {searchQuery && (
                       <button
-                        onClick={() => setSearchQuery("")}
+                        onClick={handleClearSearch}
                         className="text-sm text-blue-400 hover:text-blue-300"
                       >
                         Clear search

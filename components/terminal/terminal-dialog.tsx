@@ -56,7 +56,6 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
   const activeTarget = targets.find((t) => t.id === targetId) ?? targets[0];
 
   useEffect(() => {
-    console.log('TerminalDialog open state changed:', open);
     if (!open) return;
 
     let term: Terminal | null = null;
@@ -131,7 +130,6 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('Terminal WebSocket connected');
         setStatusMessage(null);
         term?.writeln('\x1b[1;32mConnected to server terminal\x1b[0m');
         if (activeTarget?.id && activeTarget.id !== 'host') {
@@ -150,14 +148,12 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
         term?.write(event.data);
       };
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+      ws.onerror = () => {
         setStatusMessage('Connection error. Ensure node-pty is installed on the server.');
         term?.writeln('\x1b[1;31mConnection error\x1b[0m');
       };
 
       ws.onclose = () => {
-        console.log('Terminal WebSocket disconnected');
         setStatusMessage(
           (prev) =>
             prev ||
@@ -193,9 +189,8 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
     };
 
     // Initialize terminal
-    initTerminal().catch((error) => {
-      console.error('Failed to initialize terminal:', error);
-      setStatusMessage('Failed to initialize terminal. Check console for details.');
+    initTerminal().catch(() => {
+      setStatusMessage('Failed to initialize terminal.');
     });
 
     // Cleanup on unmount

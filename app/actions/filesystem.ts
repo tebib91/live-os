@@ -585,22 +585,61 @@ export async function copyItems(
 }
 
 /**
+ * Get trash directory path
+ */
+export async function getTrashPath(): Promise<string> {
+  const homeRoot = await ensureHomeRoot();
+  return path.join(homeRoot, '.Trash');
+}
+
+/**
+ * Get trash info (path, item count, total size)
+ */
+export async function getTrashInfo(): Promise<{
+  path: string;
+  itemCount: number;
+  totalSize: number;
+}> {
+  const trashDir = await getTrashPath();
+
+  try {
+    await fs.mkdir(trashDir, { recursive: true });
+    const items = await fs.readdir(trashDir);
+
+    let totalSize = 0;
+    for (const item of items) {
+      try {
+        const itemPath = path.join(trashDir, item);
+        const stats = await fs.stat(itemPath);
+        totalSize += stats.size;
+      } catch {
+        // Skip items we can't stat
+      }
+    }
+
+    return {
+      path: trashDir,
+      itemCount: items.length,
+      totalSize,
+    };
+  } catch {
+    return { path: trashDir, itemCount: 0, totalSize: 0 };
+  }
+}
+
+/**
  * Move item to trash (.Trash directory)
  */
 export async function trashItem(
   itemPath: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log('[filesystem] trashItem:', itemPath);
-
     const { valid, sanitized } = await validatePath(itemPath);
     if (!valid) {
       return { success: false, error: 'Invalid path' };
     }
 
-    // Get home directory for .Trash
-    const homeRoot = await ensureHomeRoot();
-    const trashDir = path.join(homeRoot, '.Trash');
+    const trashDir = await getTrashPath();
 
     // Ensure .Trash directory exists
     await fs.mkdir(trashDir, { recursive: true });
@@ -626,9 +665,73 @@ export async function trashItem(
     await fs.rename(sanitized, trashPath);
 
     return { success: true };
-  } catch (error: any) {
-    console.error('Trash item error:', error);
-    return { success: false, error: error.message || 'Failed to move item to trash' };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to move item to trash';
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Empty the trash (permanently delete all items)
+ */
+export async function emptyTrash(): Promise<{ success: boolean; deletedCount: number; error?: string }> {
+  try {
+    const trashDir = await getTrashPath();
+
+    let deletedCount = 0;
+    try {
+      const items = await fs.readdir(trashDir);
+
+      for (const item of items) {
+        try {
+          const itemPath = path.join(trashDir, item);
+          const stats = await fs.stat(itemPath);
+
+          if (stats.isDirectory()) {
+            await fs.rm(itemPath, { recursive: true, force: true });
+          } else {
+            await fs.unlink(itemPath);
+          }
+          deletedCount++;
+        } catch {
+          // Continue with other items if one fails
+        }
+      }
+    } catch {
+      // Trash doesn't exist or can't be read
+    }
+
+    return { success: true, deletedCount };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to empty trash';
+    return { success: false, deletedCount: 0, error: message };
+  }
+}
+
+/**
+ * Permanently delete item (bypasses trash)
+ */
+export async function permanentDelete(
+  itemPath: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { valid, sanitized } = await validatePath(itemPath);
+    if (!valid) {
+      return { success: false, error: 'Invalid path' };
+    }
+
+    const stats = await fs.stat(sanitized);
+
+    if (stats.isDirectory()) {
+      await fs.rm(sanitized, { recursive: true, force: true });
+    } else {
+      await fs.unlink(sanitized);
+    }
+
+    return { success: true };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to delete item';
+    return { success: false, error: message };
   }
 }
 

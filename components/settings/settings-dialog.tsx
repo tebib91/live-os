@@ -1,5 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { getFirewallStatus } from "@/app/actions/firewall";
+import { LanDevice, listLanDevices } from "@/app/actions/network";
+import { getWallpapers, updateSettings } from "@/app/actions/settings";
+import { getSystemInfo, getUptime } from "@/app/actions/system";
+import { UpdateStatus, checkForUpdates } from "@/app/actions/update";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,10 +14,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { VERSION } from "@/lib/config";
 import { X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { AdvancedSettingsDialog } from "./advanced-settings-dialog";
 import { FirewallDialog } from "./firewall";
+import { HardwareInfo } from "./hardware-utils";
 import { NetworkDevicesDialog } from "./network-devices-dialog";
 import {
   AccountSection,
@@ -23,14 +34,41 @@ import {
   SystemDetailsCard,
   TroubleshootSection,
   UpdateSection,
+  WallpaperOption,
   WallpaperSection,
   WifiSection,
 } from "./sections";
 import { SettingsSidebar } from "./settings-sidebar";
 import { SystemDetailsDialog } from "./system-details-dialog";
 import { LiveOsTailDialog } from "./troubleshoot/liveos-tail-dialog";
-import { useSettingsDialogData } from "./use-settings-dialog-data";
 import { WifiDialog } from "./wifi-dialog";
+
+// Pure utility functions - defined outside component to avoid recreation
+const formatBytes = (bytes: number, decimals = 1) => {
+  if (bytes === 0) return "0 GB";
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+};
+
+const getMetricColor = (
+  percentage: number,
+): "cyan" | "green" | "yellow" | "red" => {
+  if (percentage < 80) return "cyan";
+  if (percentage < 90) return "yellow";
+  return "red";
+};
+
+const formatUptime = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+};
 
 interface SettingsDialogProps {
   open: boolean;
@@ -45,45 +83,169 @@ export function SettingsDialog({
   onWallpaperChange,
   currentWallpaper,
 }: SettingsDialogProps) {
-  const {
-    systemStats,
-    storageStats,
-    hardware,
-    systemInfo,
-    wallpapers,
-    wallpapersLoading,
-    firewallEnabled,
-    lanDevices,
-    lanDevicesLoading,
-    lanDevicesError,
-    updateStatus,
-    checkingUpdate,
-    savingWallpaper,
-    wifiDialogOpen,
-    setWifiDialogOpen,
-    firewallDialogOpen,
-    setFirewallDialogOpen,
-    systemDetailsOpen,
-    setSystemDetailsOpen,
-    networkDevicesOpen,
-    setNetworkDevicesOpen,
-    logsDialogOpen,
-    setLogsDialogOpen,
-    advancedDialogOpen,
-    setAdvancedDialogOpen,
-    fetchLanDevices,
-    fetchFirewallStatus,
-    handleWallpaperSelect,
-    handleLogout,
-    handleRestart,
-    handleShutdown,
-    handleCheckUpdate,
-    formatBytes,
-    getMetricColor,
-    uptimeLabel,
-    setLanDevices,
-    setLanDevicesError,
-  } = useSettingsDialogData({ open, onWallpaperChange });
+  // Real-time metrics from SSE stream
+  const { systemStats, storageStats } = useSystemStatus();
+
+  // Static data - fetched once when dialog opens
+  const [systemInfo, setSystemInfo] = useState<any>(null);
+  const [wallpapers, setWallpapers] = useState<WallpaperOption[]>([]);
+  const [wallpapersLoading, setWallpapersLoading] = useState(false);
+  const [wifiDialogOpen, setWifiDialogOpen] = useState(false);
+  const [firewallDialogOpen, setFirewallDialogOpen] = useState(false);
+  const [firewallEnabled, setFirewallEnabled] = useState<boolean | undefined>(
+    undefined,
+  );
+  const [systemDetailsOpen, setSystemDetailsOpen] = useState(false);
+  const [networkDevicesOpen, setNetworkDevicesOpen] = useState(false);
+  const [uptimeSeconds, setUptimeSeconds] = useState<number>(0);
+  const [lanDevices, setLanDevices] = useState<LanDevice[]>([]);
+  const [lanDevicesLoading, setLanDevicesLoading] = useState(false);
+  const [lanDevicesError, setLanDevicesError] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
+  const [advancedDialogOpen, setAdvancedDialogOpen] = useState(false);
+  const [savingWallpaper, setSavingWallpaper] = useState(false);
+  const router = useRouter();
+
+  // Memoized fetch functions
+  const fetchSystemInfo = useCallback(async () => {
+    const info = await getSystemInfo();
+    setSystemInfo(info);
+  }, []);
+
+  const fetchUptime = useCallback(async () => {
+    try {
+      const seconds = await getUptime();
+      setUptimeSeconds(seconds);
+    } catch {
+      // Silently fail - uptime is non-critical
+    }
+  }, []);
+
+  const fetchFirewallStatus = useCallback(async () => {
+    try {
+      const result = await getFirewallStatus();
+      setFirewallEnabled(result.status.enabled);
+    } catch {
+      // Silently fail - will show unknown status
+    }
+  }, []);
+
+  const fetchLanDevices = useCallback(async () => {
+    setLanDevicesLoading(true);
+    setLanDevicesError(null);
+    try {
+      const result = await listLanDevices();
+      setLanDevices(result.devices);
+      if (result.error) setLanDevicesError(result.error);
+    } catch {
+      setLanDevicesError("Failed to scan network devices");
+      setLanDevices([]);
+    } finally {
+      setLanDevicesLoading(false);
+    }
+  }, []);
+
+  const fetchWallpapers = useCallback(async () => {
+    setWallpapersLoading(true);
+    try {
+      const availableWallpapers = await getWallpapers();
+      setWallpapers(availableWallpapers);
+    } catch {
+      setWallpapers([]);
+    } finally {
+      setWallpapersLoading(false);
+    }
+  }, []);
+
+  // Fetch static data once when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchSystemInfo();
+      fetchWallpapers();
+      fetchUptime();
+      fetchFirewallStatus();
+      fetchLanDevices();
+    }
+  }, [open, fetchSystemInfo, fetchWallpapers, fetchUptime, fetchFirewallStatus, fetchLanDevices]);
+
+  const handleWallpaperSelect = useCallback(async (path: string) => {
+    onWallpaperChange?.(path);
+    setSavingWallpaper(true);
+    try {
+      await updateSettings({ currentWallpaper: path });
+    } catch {
+      toast.error(
+        "Wallpaper could not be saved. It will reset on refresh.",
+      );
+    } finally {
+      setSavingWallpaper(false);
+    }
+  }, [onWallpaperChange]);
+
+  const hardware: HardwareInfo | undefined = systemStats?.hardware;
+  const uptimeLabel = formatUptime(uptimeSeconds || 0);
+
+  const handleLogout = useCallback(async () => {
+    const res = await fetch("/api/auth/logout", { method: "POST" });
+    if (res.ok) {
+      toast.success("Logged out");
+      router.push("/login");
+    } else {
+      toast.error("Failed to log out");
+    }
+  }, [router]);
+
+  const handleRestart = useCallback(async () => {
+    const res = await fetch("/api/system/restart", { method: "POST" });
+    if (res.ok) {
+      toast.success("Restarting system...");
+    } else {
+      toast.error("Restart failed");
+    }
+  }, []);
+
+  const handleShutdown = useCallback(async () => {
+    const res = await fetch("/api/system/shutdown", { method: "POST" });
+    if (res.ok) {
+      toast.success("Shutting down...");
+    } else {
+      toast.error("Shutdown failed");
+    }
+  }, []);
+
+  const handleCheckUpdate = useCallback(async () => {
+    setCheckingUpdate(true);
+    try {
+      const status = await checkForUpdates();
+      setUpdateStatus(status);
+      toast.success(status.message || "Update check completed");
+    } catch {
+      toast.error("Failed to check for updates");
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }, []);
+
+  // Memoized callbacks for dialog openers to prevent child re-renders
+  const handleCloseDialog = useCallback(() => onOpenChange(false), [onOpenChange]);
+  const handleOpenWifiDialog = useCallback(() => setWifiDialogOpen(true), []);
+  const handleOpenNetworkDevices = useCallback(() => setNetworkDevicesOpen(true), []);
+  const handleOpenFirewallDialog = useCallback(() => setFirewallDialogOpen(true), []);
+  const handleOpenLogsDialog = useCallback(() => setLogsDialogOpen(true), []);
+  const handleOpenAdvancedDialog = useCallback(() => setAdvancedDialogOpen(true), []);
+  const handleOpenSystemDetails = useCallback(() => setSystemDetailsOpen(true), []);
+
+  const handleFirewallDialogChange = useCallback((open: boolean) => {
+    setFirewallDialogOpen(open);
+    if (!open) fetchFirewallStatus();
+  }, [fetchFirewallStatus]);
+
+  const handleNetworkDevicesChange = useCallback((devices: LanDevice[], error: string | null) => {
+    setLanDevices(devices);
+    setLanDevicesError(error);
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -107,7 +269,7 @@ export function SettingsDialog({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onOpenChange(false)}
+            onClick={handleCloseDialog}
             className="h-10 w-10 rounded-full border border-white/15 bg-white/10 text-white/60 hover:text-white hover:bg-white/20 transition-colors"
           >
             <X className="h-5 w-5" />
@@ -127,8 +289,8 @@ export function SettingsDialog({
 
             <div className="w-20 flex-1 min-w-0 bg-white/5 p-6 space-y-4 backdrop-blur-xl">
               <DeviceInfoSection
-                systemInfo={systemInfo!}
-                uptimeLabel={uptimeLabel()}
+                systemInfo={systemInfo}
+                uptimeLabel={uptimeLabel}
                 onLogout={handleLogout}
                 onRestart={handleRestart}
                 onShutdown={handleShutdown}
@@ -142,7 +304,7 @@ export function SettingsDialog({
                 saving={savingWallpaper}
               />
               <WifiSection
-                onOpenDialog={() => setWifiDialogOpen(true)}
+                onOpenDialog={handleOpenWifiDialog}
                 ssid={hardware?.wifi?.ssid}
                 quality={hardware?.wifi?.quality}
               />
@@ -151,10 +313,10 @@ export function SettingsDialog({
                 loading={lanDevicesLoading}
                 error={lanDevicesError}
                 onRefresh={fetchLanDevices}
-                onOpenDialog={() => setNetworkDevicesOpen(true)}
+                onOpenDialog={handleOpenNetworkDevices}
               />
               <FirewallSection
-                onOpenDialog={() => setFirewallDialogOpen(true)}
+                onOpenDialog={handleOpenFirewallDialog}
                 enabled={firewallEnabled}
               />
               <UpdateSection
@@ -163,15 +325,15 @@ export function SettingsDialog({
                 onCheck={handleCheckUpdate}
                 checking={checkingUpdate}
               />
-              <TroubleshootSection onOpenDialog={() => setLogsDialogOpen(true)} />
+              <TroubleshootSection onOpenDialog={handleOpenLogsDialog} />
               <LanguageSection />
               <AdvancedSettingsSection
-                onOpenDialog={() => setAdvancedDialogOpen(true)}
+                onOpenDialog={handleOpenAdvancedDialog}
               />
               {hardware && (
                 <SystemDetailsCard
                   hardware={hardware}
-                  onOpenTabs={() => setSystemDetailsOpen(true)}
+                  onOpenTabs={handleOpenSystemDetails}
                 />
               )}
             </div>
@@ -185,10 +347,7 @@ export function SettingsDialog({
           <NetworkDevicesDialog
             open={networkDevicesOpen}
             onOpenChange={setNetworkDevicesOpen}
-            onDevicesChange={(devices, error) => {
-              setLanDevices(devices);
-              setLanDevicesError(error);
-            }}
+            onDevicesChange={handleNetworkDevicesChange}
             initialDevices={lanDevices}
             initialError={lanDevicesError}
           />
@@ -202,10 +361,7 @@ export function SettingsDialog({
         {firewallDialogOpen && (
           <FirewallDialog
             open={firewallDialogOpen}
-            onOpenChange={(open) => {
-              setFirewallDialogOpen(open);
-              if (!open) fetchFirewallStatus();
-            }}
+            onOpenChange={handleFirewallDialogChange}
           />
         )}
         <SystemDetailsDialog

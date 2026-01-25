@@ -764,6 +764,158 @@ sudo apt install -y \
 - File browser integration (future)
 - One-click app installation
 
+## File Manager Module
+
+### Current Status
+
+The file manager (`components/file-manager/`) provides comprehensive file browsing with ~85% feature parity to CasaOS.
+
+**Implemented Features:**
+- File browsing with history/breadcrumbs, grid/list views
+- Create, rename, delete (soft), move, copy operations
+- Text file editing (Monaco editor with syntax highlighting)
+- Compression (tar.gz) and decompression (8 formats)
+- SMB/NFS network storage mounting and SMB sharing
+- Favorites, search, keyboard shortcuts (Cmd+X/C/V)
+- File preview (images), download via API routes
+- Path traversal protection, permission display
+
+### Missing Features Roadmap
+
+| Feature | Priority | Status |
+|---------|----------|--------|
+| **File Upload** | 🔴 Critical | Not implemented - drag-drop or file input |
+| **Multi-select** | 🔴 Critical | Can't select multiple files for batch operations |
+| **Drag-and-Drop** | 🟠 High | No file reordering or inter-folder dragging |
+| **Empty Trash** | 🟠 High | Soft delete works, but no permanent delete |
+| **Recents** | 🟡 Medium | Sidebar stub exists but not functional |
+| **Video/Audio/PDF Preview** | 🟡 Medium | Components exist but not fully integrated |
+| **Right-click Empty Space** | 🟡 Medium | Context menu only works on files |
+| **File Properties Dialog** | 🟢 Low | No detailed stats (owner, permissions UI) |
+| **Advanced Search** | 🟢 Low | No regex, size/date filters |
+
+### Dead Code to Remove
+
+**⚠️ `app/actions/files.ts`** (160 lines) - Contains duplicate implementations never imported:
+- `listFiles()` → duplicated in `filesystem.ts` as `readDirectory()`
+- `createFolder()` → duplicated in `filesystem.ts` as `createDirectory()`
+- `deleteItem()`, `renameItem()`, `getItemInfo()` → all duplicated
+
+**Action:** Delete this file entirely.
+
+### Architecture Issues
+
+| Issue | Location | Recommendation |
+|-------|----------|----------------|
+| **Mega-hook** | `use-files-dialog.ts` (650+ lines) | Split into `use-file-navigation.ts`, `use-file-operations.ts`, `use-file-selection.ts` |
+| **Partial viewer integration** | `file-viewer/*.tsx` | Video/audio/PDF viewers exist but only images work in fullscreen |
+| **Stub feature** | `files-sidebar.tsx:60-62` | "Recents" button has no onClick handler |
+
+### File Manager Performance Rules
+
+**CRITICAL: File operations can be slow on Raspberry Pi**
+
+#### Directory Listing
+```tsx
+// ✅ GOOD - Limit items displayed, paginate
+const visibleItems = items.slice(0, 50);
+
+// ✅ GOOD - Memoize sorted/filtered results
+const sortedItems = useMemo(() =>
+  items.sort((a, b) => a.name.localeCompare(b.name)),
+  [items]
+);
+
+// ❌ BAD - Render thousands of items
+{items.map(item => <FileCard key={item.path} />)}
+```
+
+#### File Operations
+```tsx
+// ✅ GOOD - Show loading state during operations
+const [isOperating, setIsOperating] = useState(false);
+
+// ✅ GOOD - Debounce search input
+const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
+// ❌ BAD - Search on every keystroke
+useEffect(() => { searchFiles(query); }, [query]);
+```
+
+#### Large Files
+```tsx
+// ✅ GOOD - Stream large files, don't load into memory
+// API routes use streaming for downloads
+
+// ✅ GOOD - Limit text editor to 1MB
+if (file.size > 1024 * 1024) {
+  toast.error('File too large to edit');
+  return;
+}
+
+// ❌ BAD - Load entire large file into state
+const content = await readFileContent(hugePath);
+```
+
+#### Thumbnails & Icons
+```tsx
+// ✅ GOOD - Use static icons from public/icons/files/
+<img src={`/icons/files/${getFileIcon(type)}.svg`} />
+
+// ✅ GOOD - Lazy load image thumbnails
+<Image loading="lazy" src={thumbnailUrl} />
+
+// ❌ BAD - Generate thumbnails on-the-fly for every file
+const thumbnail = await generateThumbnail(path);
+```
+
+#### Performance Checklist (File Manager)
+
+| Check | Rule |
+|-------|------|
+| Directory listing | Max 50-100 visible items, virtualize for more |
+| Search debounce | ≥ 300ms delay |
+| File size limits | 1MB for text editor, streaming for downloads |
+| Icon loading | Static SVGs, no runtime generation |
+| Operations | Show loading states, abort on unmount |
+| History array | Max 50 navigation entries |
+
+### File Manager Structure
+
+```
+components/file-manager/
+├── files-dialog.tsx            # Main orchestrator (304 lines)
+├── files-content.tsx           # Grid/list view (157 lines)
+├── files-toolbar.tsx           # Navigation bar (215 lines)
+├── files-sidebar.tsx           # Sidebar nav
+├── file-editor-modal.tsx       # Monaco text editor
+├── file-creation-row.tsx       # Inline create input
+├── use-files-dialog.ts         # Main hook (⚠️ 650+ lines - needs split)
+├── context-menu/               # Right-click menu system
+│   ├── file-context-menu.tsx
+│   ├── use-context-menu-actions.ts
+│   ├── file-clipboard-context.tsx
+│   └── constants.ts
+├── file-viewer/                # Preview components
+│   ├── image-viewer.tsx        # ✅ Working
+│   ├── video-viewer.tsx        # ⚠️ Not integrated
+│   ├── audio-viewer.tsx        # ⚠️ Not integrated
+│   └── pdf-viewer.tsx          # ⚠️ Not integrated
+├── network-storage-dialog.tsx  # SMB/NFS discovery
+└── smb-share-dialog.tsx        # SMB sharing
+
+app/actions/
+├── filesystem.ts               # Core operations (873 lines) ✅
+├── files.ts                    # ⚠️ DEAD CODE - DELETE
+├── network-storage.ts          # SMB/NFS mounting
+├── smb-share.ts                # Samba shares
+└── favorites.ts                # Favorites management
+
+app/api/files/
+├── download/route.ts           # File download endpoint
+└── view/route.ts               # File view endpoint
+```
+
 ## Code Quality Standards
 
 ### When Writing Code

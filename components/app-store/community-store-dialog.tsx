@@ -54,7 +54,7 @@ export function CommunityStoreDialog({
         const imported = await listImportedStores();
         setImportedStores(imported);
       } catch (err) {
-        console.error(err);
+        // Error handled by toast
         setError("Unable to load CasaOS community stores right now.");
       } finally {
         setLoading(false);
@@ -71,7 +71,7 @@ export function CommunityStoreDialog({
       setCopiedUrl(url);
       setTimeout(() => setCopiedUrl(null), 1800);
     } catch (err) {
-      console.error("Failed to copy URL:", err);
+      // Error handled by toast
       setError("Copy failed. Please copy manually.");
     }
   };
@@ -107,7 +107,7 @@ export function CommunityStoreDialog({
       setImportedStores(imported);
       onImported?.();
     } catch (err) {
-      console.error("Failed to remove store", err);
+      // Error handled by toast
       setError("Failed to remove store");
     } finally {
       setRemovingStore(null);

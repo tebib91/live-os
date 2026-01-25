@@ -157,7 +157,7 @@ export function CustomDeployDialog({
         toast.error(result.error || "Failed to deploy application");
       }
     } catch (error) {
-      console.error("Deploy error:", error);
+      // Error handled by toast
       toast.error("Failed to deploy application");
     } finally {
       setLoading(false);

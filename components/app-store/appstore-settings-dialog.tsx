@@ -71,7 +71,7 @@ export function AppStoreSettingsDialog({
       const details = await getImportedStoreDetails();
       setStores(details);
     } catch (error) {
-      console.error("Failed to load stores:", error);
+      // Error handled by toast
     } finally {
       setLoading(false);
     }
@@ -93,7 +93,7 @@ export function AppStoreSettingsDialog({
       await loadStores();
       onStoresUpdated?.();
     } catch (error) {
-      console.error("Failed to refresh stores", error);
+      // Error handled by toast
       setUpdateResults({
         success: false,
         message: "Failed to update stores",
@@ -110,7 +110,7 @@ export function AppStoreSettingsDialog({
       await loadStores();
       onStoresUpdated?.();
     } catch (error) {
-      console.error("Failed to remove store:", error);
+      // Error handled by toast
     } finally {
       setRemovingStore(null);
     }

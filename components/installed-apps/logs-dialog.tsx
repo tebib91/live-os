@@ -31,7 +31,7 @@ export function LogsDialog({ open, onOpenChange, app }: LogsDialogProps) {
       const logContent = await getAppLogs(app.appId, 100);
       setLogs(logContent);
     } catch (error) {
-      console.error('Failed to load logs:', error);
+      // Error handled by UI
       setLogs('Error loading logs');
     } finally {
       setLoading(false);

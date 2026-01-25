@@ -10,19 +10,28 @@ interface FilesSidebarProps {
   homePath: string;
   shortcuts: DefaultDirectory[];
   favorites: string[];
+  trashPath: string;
+  trashItemCount: number;
+  currentPath: string;
   onNavigate: (path: string) => void;
   getShortcutPath: (name: string) => string;
   onOpenNetwork: () => void;
+  onEmptyTrash: () => void;
 }
 
 export function FilesSidebar({
   homePath,
   shortcuts,
   favorites,
+  trashPath,
+  trashItemCount,
+  currentPath,
   onNavigate,
   getShortcutPath,
   onOpenNetwork,
+  onEmptyTrash,
 }: FilesSidebarProps) {
+  const isInTrash = currentPath === trashPath;
   const homeLabel = homePath.split('/').filter(Boolean).pop() || 'Home';
 
   // Get folder name from path
@@ -140,14 +149,32 @@ export function FilesSidebar({
         </div>
       </ScrollArea>
 
-      <div className="p-3 border-t border-white/10">
+      <div className="p-3 border-t border-white/10 space-y-1">
         <button
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/60 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10"
-          onClick={() => onNavigate(getShortcutPath('.Trash'))}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors border ${
+            isInTrash
+              ? 'bg-white/10 text-white/90 border-white/10'
+              : 'text-white/60 hover:bg-white/5 hover:text-white border-transparent hover:border-white/10'
+          }`}
+          onClick={() => onNavigate(trashPath)}
         >
           <Trash2 className="w-4 h-4 text-white/50" />
           <span className="text-sm -tracking-[0.01em]">Trash</span>
+          {trashItemCount > 0 && (
+            <span className="ml-auto text-xs text-white/40 bg-white/10 px-1.5 py-0.5 rounded-full">
+              {trashItemCount}
+            </span>
+          )}
         </button>
+        {isInTrash && trashItemCount > 0 && (
+          <button
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors border border-red-500/20 text-sm"
+            onClick={onEmptyTrash}
+          >
+            <Trash2 className="w-4 h-4" />
+            Empty Trash
+          </button>
+        )}
       </div>
     </div>
   );

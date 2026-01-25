@@ -2,11 +2,14 @@
 
 import {
   createDirectory,
-  deleteItem,
+  trashItem,
   createFile,
   readFileContent,
   writeFileContent,
   getDefaultDirectories,
+  getTrashInfo,
+  emptyTrash,
+  moveItems,
   openPath,
   readDirectory,
   renameItem,
@@ -112,6 +115,8 @@ export function useFilesDialog(open: boolean) {
   });
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [trashPath, setTrashPath] = useState('');
+  const [trashItemCount, setTrashItemCount] = useState(0);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorPath, setEditorPath] = useState('');
   const [editorContent, setEditorContent] = useState('');
@@ -151,20 +156,22 @@ export function useFilesDialog(open: boolean) {
 
     const loadDefaults = async () => {
       try {
-        const [dirResult, favResult] = await Promise.all([
+        const [dirResult, favResult, trashResult] = await Promise.all([
           getDefaultDirectories(),
           getFavorites(),
+          getTrashInfo(),
         ]);
         const normalizedHome = dirResult.home || DEFAULT_ROOT;
         setHomePath(normalizedHome);
         setShortcuts(dirResult.directories);
         setFavorites(favResult.favorites);
+        setTrashPath(trashResult.path);
+        setTrashItemCount(trashResult.itemCount);
         setHistory([normalizedHome]);
         setHistoryIndex(0);
         setCurrentPath(normalizedHome);
         setReady(true);
-      } catch (error) {
-        console.error(error);
+      } catch {
         toast.error('Failed to load default directories');
       }
     };
@@ -194,40 +201,42 @@ export function useFilesDialog(open: boolean) {
     };
   }, []);
 
-  const handleNavigate = (path: string) => {
-    if (!path) return;
-    console.log("[files-dialog] navigate ->", path);
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(path);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-    setCurrentPath(path);
-  };
+  // Max history entries to prevent memory leaks
+  const MAX_HISTORY = 50;
 
-  const handleGoToParent = () => {
+  const handleNavigate = useCallback((path: string) => {
+    if (!path) return;
+    setHistory((prev) => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(path);
+      // Limit history to prevent memory leak
+      return newHistory.slice(-MAX_HISTORY);
+    });
+    setHistoryIndex((prev) => Math.min(prev + 1, MAX_HISTORY - 1));
+    setCurrentPath(path);
+  }, [historyIndex]);
+
+  const handleGoToParent = useCallback(() => {
     if (content?.parent) {
-      console.log("[files-dialog] goToParent ->", content.parent);
       handleNavigate(content.parent);
     }
-  };
+  }, [content?.parent, handleNavigate]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (historyIndex > 0) {
-      console.log("[files-dialog] back ->", history[historyIndex - 1]);
       setHistoryIndex(historyIndex - 1);
       setCurrentPath(history[historyIndex - 1]);
     }
-  };
+  }, [historyIndex, history]);
 
-  const handleForward = () => {
+  const handleForward = useCallback(() => {
     if (historyIndex < history.length - 1) {
-      console.log("[files-dialog] forward ->", history[historyIndex + 1]);
       setHistoryIndex(historyIndex + 1);
       setCurrentPath(history[historyIndex + 1]);
     }
-  };
+  }, [historyIndex, history]);
 
-  const handleOpenNative = async (pathToOpen: string) => {
+  const handleOpenNative = useCallback(async (pathToOpen: string) => {
     if (!pathToOpen) return;
     setOpeningNative(true);
     try {
@@ -237,15 +246,14 @@ export function useFilesDialog(open: boolean) {
       } else {
         toast.error(result.error || 'Failed to open');
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast.error('Failed to open');
     } finally {
       setOpeningNative(false);
     }
-  };
+  }, []);
 
-  const openFileInEditor = async (filePath: string) => {
+  const openFileInEditor = useCallback(async (filePath: string) => {
     try {
       const result = await readFileContent(filePath);
       if (result.error) {
@@ -256,13 +264,12 @@ export function useFilesDialog(open: boolean) {
       setEditorContent(result.content);
       setEditorOriginalContent(result.content);
       setEditorOpen(true);
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast.error('Failed to open file');
     }
-  };
+  }, []);
 
-  const handleItemOpen = (item: FileSystemItem) => {
+  const handleItemOpen = useCallback((item: FileSystemItem) => {
     if (item.type === 'directory') {
       handleNavigate(item.path);
       return;
@@ -272,7 +279,7 @@ export function useFilesDialog(open: boolean) {
       return;
     }
     handleOpenNative(item.path);
-  };
+  }, [handleNavigate, openFileInEditor, handleOpenNative]);
 
   const breadcrumbs = useMemo(() => {
     const normalizedHome = homePath.endsWith('/') ? homePath.slice(0, -1) : homePath || '/';
@@ -296,16 +303,16 @@ export function useFilesDialog(open: boolean) {
     return trail;
   }, [currentPath, homePath]);
 
-  const shortcutPath = (name: string) => {
+  const shortcutPath = useCallback((name: string) => {
     const match = shortcuts.find(
       (dir) => dir.name.toLowerCase() === name.toLowerCase()
     );
     if (match) return match.path;
     const trimmedHome = homePath.endsWith('/') ? homePath.slice(0, -1) : homePath;
     return `${trimmedHome}/${name}`;
-  };
+  }, [shortcuts, homePath]);
 
-  const handleContextMenu = (event: React.MouseEvent, item: FileSystemItem) => {
+  const handleContextMenu = useCallback((event: React.MouseEvent, item: FileSystemItem) => {
     event.preventDefault();
     const menuWidth = 240;
     const menuHeight = 260;
@@ -314,20 +321,20 @@ export function useFilesDialog(open: boolean) {
     const posX = Math.min(Math.max(preferredX, 8), window.innerWidth - menuWidth - 8);
     const posY = Math.min(Math.max(preferredY, 8), window.innerHeight - menuHeight - 8);
     setContextMenu({ x: posX, y: posY, item });
-  };
+  }, []);
 
-  const handleShare = async (item: FileSystemItem) => {
+  const handleShare = useCallback(async (item: FileSystemItem) => {
     try {
       await navigator.clipboard.writeText(item.path);
       toast.success('Path copied to clipboard');
     } catch {
       toast.error('Failed to copy path');
     }
-  };
+  }, []);
 
-  const showInfo = (item: FileSystemItem) => {
+  const showInfo = useCallback((item: FileSystemItem) => {
     toast.info(`${item.type === 'directory' ? 'Folder' : 'File'} • ${item.path}`);
-  };
+  }, []);
 
   const saveEditor = useCallback(async () => {
     setEditorSaving(true);
@@ -343,7 +350,7 @@ export function useFilesDialog(open: boolean) {
     }
   }, [currentPath, editorContent, editorPath, loadDirectory]);
 
-  const handleCreateFolder = async () => {
+  const handleCreateFolder = useCallback(async () => {
     if (!newFolderName.trim()) {
       toast.error('Please enter a folder name');
       return;
@@ -358,9 +365,9 @@ export function useFilesDialog(open: boolean) {
     } else {
       toast.error(result.error || 'Failed to create folder');
     }
-  };
+  }, [currentPath, newFolderName, loadDirectory]);
 
-  const handleCreateFileSubmit = async () => {
+  const handleCreateFileSubmit = useCallback(async () => {
     if (!newFileName.trim()) {
       toast.error('Please enter a file name');
       return;
@@ -374,23 +381,23 @@ export function useFilesDialog(open: boolean) {
     } else {
       toast.error(result.error || 'Failed to create file');
     }
-  };
+  }, [currentPath, newFileName, loadDirectory]);
 
-  const handleDelete = async (item: FileSystemItem) => {
-    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) {
+  const handleDelete = useCallback(async (item: FileSystemItem) => {
+    if (!confirm(`Move "${item.name}" to Trash?`)) {
       return;
     }
 
-    const result = await deleteItem(item.path);
+    const result = await trashItem(item.path);
     if (result.success) {
-      toast.success('Item deleted successfully');
+      toast.success('Item moved to Trash');
       loadDirectory(currentPath);
     } else {
-      toast.error(result.error || 'Failed to delete item');
+      toast.error(result.error || 'Failed to move item to Trash');
     }
-  };
+  }, [currentPath, loadDirectory]);
 
-  const handleRename = async (item: FileSystemItem) => {
+  const handleRename = useCallback(async (item: FileSystemItem) => {
     const newName = prompt(`Rename "${item.name}" to:`, item.name);
     if (!newName || newName === item.name) {
       return;
@@ -403,7 +410,17 @@ export function useFilesDialog(open: boolean) {
     } else {
       toast.error(result.error || 'Failed to rename item');
     }
-  };
+  }, [currentPath, loadDirectory]);
+
+  const handleMoveItem = useCallback(async (sourcePath: string, targetFolderPath: string) => {
+    const result = await moveItems([sourcePath], targetFolderPath);
+    if (result.success) {
+      toast.success('Item moved successfully');
+      loadDirectory(currentPath);
+    } else {
+      toast.error(result.error || 'Failed to move item');
+    }
+  }, [currentPath, loadDirectory]);
 
   const filteredItems = useMemo(
     () => content?.items.filter((item) => showHidden || !item.isHidden) || [],
@@ -426,13 +443,13 @@ export function useFilesDialog(open: boolean) {
     return () => window.removeEventListener('keydown', handler);
   }, [editorOpen, saveEditor]);
 
-  const handleCreateFile = () => {
+  const handleCreateFile = useCallback(() => {
     setCreatingFolder(false);
     setNewFileName('');
     setCreatingFile(true);
-  };
+  }, []);
 
-  const toggleFolderCreation = () =>
+  const toggleFolderCreation = useCallback(() => {
     setCreatingFolder((prev) => {
       const next = !prev;
       if (next) {
@@ -441,8 +458,9 @@ export function useFilesDialog(open: boolean) {
       }
       return next;
     });
+  }, []);
 
-  const toggleFileCreation = () =>
+  const toggleFileCreation = useCallback(() => {
     setCreatingFile((prev) => {
       const next = !prev;
       if (next) {
@@ -451,32 +469,64 @@ export function useFilesDialog(open: boolean) {
       }
       return next;
     });
+  }, []);
 
-  const cancelFolderCreation = () => {
+  const cancelFolderCreation = useCallback(() => {
     setCreatingFolder(false);
     setNewFolderName('');
-  };
+  }, []);
 
-  const cancelFileCreation = () => {
+  const cancelFileCreation = useCallback(() => {
     setCreatingFile(false);
     setNewFileName('');
-  };
+  }, []);
 
-  const closeContextMenu = () => setContextMenu((prev) => ({ ...prev, item: null }));
+  const closeContextMenu = useCallback(() => {
+    setContextMenu((prev) => ({ ...prev, item: null }));
+  }, []);
 
   const refreshFavorites = useCallback(async () => {
     try {
       const result = await getFavorites();
       setFavorites(result.favorites);
-    } catch (error) {
-      console.error('Failed to refresh favorites:', error);
+    } catch {
+      // Silently fail - favorites are non-critical
     }
   }, []);
+
+  const refreshTrashInfo = useCallback(async () => {
+    try {
+      const result = await getTrashInfo();
+      setTrashPath(result.path);
+      setTrashItemCount(result.itemCount);
+    } catch {
+      // Silently fail
+    }
+  }, []);
+
+  const handleEmptyTrash = useCallback(async () => {
+    if (!confirm('Permanently delete all items in Trash? This cannot be undone.')) {
+      return;
+    }
+
+    const result = await emptyTrash();
+    if (result.success) {
+      toast.success(`Deleted ${result.deletedCount} item(s) from Trash`);
+      refreshTrashInfo();
+      // Reload if currently viewing trash
+      if (currentPath === trashPath) {
+        loadDirectory(currentPath);
+      }
+    } else {
+      toast.error(result.error || 'Failed to empty trash');
+    }
+  }, [currentPath, trashPath, loadDirectory, refreshTrashInfo]);
 
   const refresh = useCallback(() => {
     loadDirectory(currentPath);
     refreshFavorites();
-  }, [currentPath, loadDirectory, refreshFavorites]);
+    refreshTrashInfo();
+  }, [currentPath, loadDirectory, refreshFavorites, refreshTrashInfo]);
 
   return {
     // state
@@ -495,6 +545,8 @@ export function useFilesDialog(open: boolean) {
     historyLength: history.length,
     shortcuts,
     favorites,
+    trashPath,
+    trashItemCount,
     filteredItems,
     breadcrumbs,
     contextMenu,
@@ -528,6 +580,7 @@ export function useFilesDialog(open: boolean) {
     createFile: handleCreateFileSubmit,
     deleteItem: handleDelete,
     renameItem: handleRename,
+    moveItem: handleMoveItem,
     startFileCreation: handleCreateFile,
     toggleFolderCreation,
     toggleFileCreation,
@@ -539,5 +592,6 @@ export function useFilesDialog(open: boolean) {
     isTextLike,
     refresh,
     refreshFavorites,
+    emptyTrash: handleEmptyTrash,
   };
 }

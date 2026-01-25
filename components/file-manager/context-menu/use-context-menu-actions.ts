@@ -109,8 +109,7 @@ export function useContextMenuActions({
             onRefresh();
           } catch (error) {
             toast.error('Paste operation failed');
-            console.error(error);
-          }
+                      }
           break;
 
         case 'trash':
@@ -125,8 +124,7 @@ export function useContextMenuActions({
             }
           } catch (error) {
             toast.error('Failed to move item to trash');
-            console.error(error);
-          }
+                      }
           break;
 
         case 'compress':
@@ -140,8 +138,7 @@ export function useContextMenuActions({
             }
           } catch (error) {
             toast.error('Failed to compress item');
-            console.error(error);
-          }
+                      }
           break;
 
         case 'uncompress':
@@ -155,8 +152,7 @@ export function useContextMenuActions({
             }
           } catch (error) {
             toast.error('Failed to extract archive');
-            console.error(error);
-          }
+                      }
           break;
 
         case 'shareNetwork':
@@ -173,8 +169,7 @@ export function useContextMenuActions({
             }
           } catch (error) {
             toast.error('Failed to add to favorites');
-            console.error(error);
-          }
+                      }
           break;
 
         case 'removeFavorite':
@@ -187,8 +182,7 @@ export function useContextMenuActions({
             }
           } catch (error) {
             toast.error('Failed to remove from favorites');
-            console.error(error);
-          }
+                      }
           break;
       }
     },

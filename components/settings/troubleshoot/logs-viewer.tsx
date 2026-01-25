@@ -41,8 +41,8 @@ export function LogsViewer() {
     try {
       const entries = await getSystemLogs(source, 100);
       setLogs(entries);
-    } catch (error) {
-      console.error("Failed to fetch logs:", error);
+    } catch {
+      // Error handled silently - logs may fail on some systems
     } finally {
       setLoading(false);
     }

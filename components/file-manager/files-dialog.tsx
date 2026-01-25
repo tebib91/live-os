@@ -4,6 +4,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { FileCreationRow } from '@/components/file-manager/file-creation-row';
 import { FileEditorModal } from '@/components/file-manager/file-editor-modal';
 import { FilesContent } from '@/components/file-manager/files-content';
+import { FileUploadZone } from '@/components/file-manager/file-upload-zone';
 import {
   FilesContextMenu,
   FileClipboardProvider,
@@ -17,7 +18,7 @@ import { useFilesDialog } from '@/components/file-manager/use-files-dialog';
 import { FileViewer, getViewerType } from '@/components/file-manager/file-viewer';
 import type { FileSystemItem } from '@/app/actions/filesystem';
 import { trashItem } from '@/app/actions/filesystem';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 
 interface FilesDialogProps {
@@ -41,6 +42,8 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
     historyLength,
     shortcuts,
     favorites,
+    trashPath,
+    trashItemCount,
     filteredItems,
     breadcrumbs,
     contextMenu,
@@ -68,6 +71,7 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
     createFolder,
     createFile,
     renameItem,
+    moveItem,
     startFileCreation,
     toggleFolderCreation,
     toggleFileCreation,
@@ -77,6 +81,7 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
     toDirectoryItem,
     closeContextMenu,
     refresh,
+    emptyTrash,
   } = useFilesDialog(open);
 
   const { clipboard, cut, copy, clear: clearClipboard } = useFileClipboard();
@@ -84,9 +89,45 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
   const [smbShareDialogOpen, setSmbShareDialogOpen] = useState(false);
   const [shareTargetItem, setShareTargetItem] = useState<FileSystemItem | null>(null);
   const [viewerItem, setViewerItem] = useState<FileSystemItem | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedItem = contextMenu.item;
 
   const isDirty = editorContent !== editorOriginalContent;
+
+  // Handle upload button click
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  // Handle file selection from input
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const formData = new FormData();
+    formData.append('targetDir', currentPath);
+    Array.from(files).forEach((file) => formData.append('files', file));
+
+    try {
+      const response = await fetch('/api/files/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(result.message);
+        refresh();
+      } else {
+        toast.error(result.error || 'Upload failed');
+      }
+    } catch {
+      toast.error('Upload failed - network error');
+    }
+
+    // Reset input
+    e.target.value = '';
+  }, [currentPath, refresh]);
 
   // Handle opening files - check if viewable first
   const handleOpenItem = useCallback((item: FileSystemItem) => {
@@ -175,32 +216,46 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
             homePath={homePath}
             shortcuts={shortcuts}
             favorites={favorites}
+            trashPath={trashPath}
+            trashItemCount={trashItemCount}
+            currentPath={currentPath}
             onNavigate={navigate}
             getShortcutPath={shortcutPath}
             onOpenNetwork={() => setNetworkDialogOpen(true)}
+            onEmptyTrash={emptyTrash}
           />
 
           <div className="flex-1 flex flex-col bg-white/5 backdrop-blur-xl">
+            {/* Hidden file input for upload */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+
             <FilesToolbar
               breadcrumbs={breadcrumbs}
               historyIndex={historyIndex}
               historyLength={historyLength}
-            loading={loading}
-            showHidden={showHidden}
-            viewMode={viewMode}
-            canGoToParent={Boolean(content?.parent)}
-            onNavigate={navigate}
+              loading={loading}
+              showHidden={showHidden}
+              viewMode={viewMode}
+              canGoToParent={Boolean(content?.parent)}
+              onNavigate={navigate}
               onBreadcrumbContextMenu={(event, path, label) =>
                 openContextMenu(event, toDirectoryItem(path, label))
               }
-            onBack={back}
-            onForward={forward}
-            onGoToParent={goToParent}
-            onToggleHidden={setShowHidden}
-            onSetViewMode={setViewMode}
-            onToggleCreateFolder={toggleFolderCreation}
-            onToggleCreateFile={toggleFileCreation}
-            onQuickCreateFile={startFileCreation}
+              onBack={back}
+              onForward={forward}
+              onGoToParent={goToParent}
+              onToggleHidden={setShowHidden}
+              onSetViewMode={setViewMode}
+              onToggleCreateFolder={toggleFolderCreation}
+              onToggleCreateFile={toggleFileCreation}
+              onQuickCreateFile={startFileCreation}
+              onUpload={handleUploadClick}
               onClose={() => onOpenChange(false)}
             />
 
@@ -226,13 +281,16 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
               />
             )}
 
-            <FilesContent
-              loading={loading}
-              viewMode={viewMode}
-              items={filteredItems}
-              onOpenItem={handleOpenItem}
-              onContextMenu={openContextMenu}
-            />
+            <FileUploadZone targetDir={currentPath} onUploadComplete={refresh}>
+              <FilesContent
+                loading={loading}
+                viewMode={viewMode}
+                items={filteredItems}
+                onOpenItem={handleOpenItem}
+                onContextMenu={openContextMenu}
+                onMoveItem={moveItem}
+              />
+            </FileUploadZone>
 
             <div className="px-6 py-3 border-t border-zinc-800">
               <div className="text-xs text-white/40 text-right -tracking-[0.01em]">

@@ -82,7 +82,7 @@ export function AppInstallDialog({
         toast.error(result.error || 'Failed to install application');
       }
     } catch (error: any) {
-      console.error('Installation error:', error);
+      // Error handled by toast
       toast.error('Failed to install application');
     } finally {
       setInstalling(false);
@@ -128,7 +128,7 @@ export function AppInstallDialog({
         toast.error(result.error || 'Failed to load compose file');
       }
     } catch (error) {
-      console.error('Failed to load compose:', error);
+      // Error handled by toast
       toast.error('Failed to load compose file');
     } finally {
       setLoadingCompose(false);
