@@ -41,7 +41,7 @@ export function resolveAsset(
   }
 
   const safePath = asset.replace(/^\.?\//, "");
-  return `/external-apps/${storeId}/${safePath}`;
+  return `/api/external-apps/${storeId}/${safePath}`;
 }
 
 export async function fileExists(filePath: string): Promise<boolean> {
