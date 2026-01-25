@@ -4,7 +4,10 @@ import Image from "next/image";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import type { App, InstalledApp } from "./types";
-import { Check } from "lucide-react";
+import { Check, Download, ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getAppWebUI } from "@/app/actions/docker";
+import { toast } from "sonner";
 
 interface AppListItemProps {
   app: App;
@@ -19,6 +22,17 @@ interface AppListItemProps {
  */
 export function AppListItem({ app, installedApp, index = 0, onClick }: AppListItemProps) {
   const [iconSrc, setIconSrc] = useState(app.icon);
+  const isInstalled = Boolean(installedApp);
+
+  const handleOpen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = await getAppWebUI(app.id);
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      toast.error("Unable to determine app URL. Ensure the app is running.");
+    }
+  };
 
   return (
     <motion.div
@@ -26,7 +40,7 @@ export function AppListItem({ app, installedApp, index = 0, onClick }: AppListIt
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03, duration: 0.3 }}
       onClick={onClick}
-      className="group flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-colors hover:bg-white/5"
+      className="group flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors hover:bg-white/5"
     >
       {/* App Icon */}
       <div className="relative h-12 w-12 flex-shrink-0 rounded-xl overflow-hidden bg-white/10 ring-1 ring-white/10">
@@ -54,6 +68,30 @@ export function AppListItem({ app, installedApp, index = 0, onClick }: AppListIt
           {app.tagline || app.overview || "No description"}
         </p>
       </div>
+
+      {/* CTA */}
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={isInstalled ? handleOpen : onClick}
+        className={`h-8 px-3 text-xs ${
+          isInstalled
+            ? "border-emerald-300/40 text-emerald-100 hover:bg-emerald-500/10"
+            : "border-white/20 text-white hover:bg-white/10"
+        }`}
+      >
+        {isInstalled ? (
+          <>
+            <ExternalLink className="h-3.5 w-3.5 mr-1" />
+            Open
+          </>
+        ) : (
+          <>
+            <Download className="h-3.5 w-3.5 mr-1" />
+            Install
+          </>
+        )}
+      </Button>
     </motion.div>
   );
 }

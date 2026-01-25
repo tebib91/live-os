@@ -93,6 +93,7 @@ export function AppStoreSettingsDialog({
       await loadStores();
       onStoresUpdated?.();
     } catch (error) {
+      console.error("Failed to refresh stores", error);
       setUpdateResults({
         success: false,
         message: "Failed to update stores",
@@ -141,7 +142,7 @@ export function AppStoreSettingsDialog({
             <div className="space-y-1">
               <h3 className="text-sm font-semibold text-white">Import Community Store</h3>
               <p className="text-xs text-white/60">
-                Add Umbrel-compatible community app stores by URL.
+                Add CasaOS-compatible community app stores by URL.
               </p>
             </div>
             <Button

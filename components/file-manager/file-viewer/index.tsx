@@ -4,17 +4,7 @@ import type { FileSystemItem } from "@/app/actions/filesystem";
 import { useMemo, useCallback } from "react";
 import { ViewerWrapper } from "./viewer-wrapper";
 import { ImageViewer } from "./image-viewer";
-import { VideoViewer } from "./video-viewer";
-import { AudioViewer } from "./audio-viewer";
-import { PdfViewer } from "./pdf-viewer";
-import {
-  getViewerType,
-  getDownloadUrl,
-  isFileViewable,
-  type ViewerType,
-} from "./types";
-import { FileText, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { getViewerType, getDownloadUrl } from "./types";
 
 export { isFileViewable, getViewerType } from "./types";
 
@@ -94,23 +84,4 @@ export function FileViewer({
 /**
  * Fallback for unsupported file types.
  */
-function UnsupportedViewer({ item }: { item: FileSystemItem; onClose: () => void }) {
-  return (
-    <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-      <FileText className="w-16 h-16 text-white/40" />
-      <div className="text-center">
-        <h4 className="text-white font-semibold">{item.name}</h4>
-        <p className="text-white/50 text-sm mt-1">
-          This file type cannot be previewed
-        </p>
-      </div>
-      <Button
-        onClick={() => window.open(getDownloadUrl(item.path), "_blank")}
-        className="bg-white/10 hover:bg-white/20"
-      >
-        <Download className="w-4 h-4 mr-2" />
-        Download
-      </Button>
-    </div>
-  );
-}
+// intentionally removed; non-image types are handled elsewhere

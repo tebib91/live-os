@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Role } from "../generated/prisma/enums";
-import { ensureDefaultUmbrelStoreInstalled } from "./appstore";
+import { ensureDefaultCasaStoreInstalled } from "./appstore";
 import { withActionLogging } from "./logger";
 
 export interface AuthUser {
@@ -60,8 +60,8 @@ export async function registerUser(
       data: { username, pin: hashedPin, role: "ADMIN" },
     });
 
-    ensureDefaultUmbrelStoreInstalled().catch((error) =>
-      console.error("[Auth] Failed to bootstrap Umbrel store:", error),
+    ensureDefaultCasaStoreInstalled().catch((error) =>
+      console.error("[Auth] Failed to bootstrap CasaOS store:", error),
     );
 
     const session = await createSession(user.id);
@@ -152,6 +152,7 @@ export async function login(
         },
       };
     } catch (error) {
+      console.error("[Auth] login error:", error);
       return {
         success: false,
         error: "An error occurred during login",

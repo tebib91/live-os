@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Ignore third-party app repositories:
     "umbrel-apps-ref/**",
+    "external-apps/**",
     "scripts/**",
     "app/generated/**",
   ]),

@@ -1,6 +1,6 @@
 "use client";
 
-import { deployCustomCompose, deployCustomRun } from "@/app/actions/docker";
+import { deployCustomCompose, deployCustomRun } from "@/app/actions/custom-deploy";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

@@ -959,6 +959,7 @@ export const AppScalarFieldEnum = {
   website: 'website',
   repo: 'repo',
   composePath: 'composePath',
+  container: 'container',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

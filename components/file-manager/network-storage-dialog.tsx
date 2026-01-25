@@ -34,6 +34,7 @@ import {
   Plus,
   RefreshCw,
   Server,
+  Trash2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -76,6 +77,7 @@ export function NetworkStorageDialog({
   const [discovered, setDiscovered] = useState<DiscoveredHost[]>([]);
   const [selectedServer, setSelectedServer] = useState<DiscoveredHost | null>(null);
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null);
+  const [discoverStatus, setDiscoverStatus] = useState<string>("");
 
   // UI state
   const [view, setView] = useState<ViewState>("list");
@@ -128,11 +130,18 @@ export function NetworkStorageDialog({
 
   const discover = useCallback(async () => {
     setDiscovering(true);
+    setDiscoverStatus("Discovering network devices...");
     try {
       const { hosts } = await discoverSmbHosts();
       setDiscovered(hosts);
+      setDiscoverStatus(
+        hosts.length > 0
+          ? `Found ${hosts.length} server${hosts.length === 1 ? "" : "s"}`
+          : "No servers found during discovery",
+      );
     } catch {
       setDiscovered([]);
+      setDiscoverStatus("Discovery failed");
     } finally {
       setDiscovering(false);
     }
@@ -183,6 +192,7 @@ export function NetworkStorageDialog({
       setView("list");
       setSelectedServer(null);
       setServerInfo(null);
+      setDiscoverStatus("");
     }
   }, [open, loadShares, discover]);
 
@@ -416,6 +426,13 @@ export function NetworkStorageDialog({
         {/* Content */}
         <ScrollArea className="h-[calc(85vh-72px)]">
           <div className="p-4 space-y-4">
+            {discoverStatus && view === "list" && (
+              <div className="text-[11px] text-white/60 px-1 flex items-center gap-2">
+                {discovering && <Loader2 className="h-3 w-3 animate-spin text-cyan-200" />}
+                <span>{discoverStatus}</span>
+              </div>
+            )}
+
             {globalError && (
               <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -548,7 +565,7 @@ export function NetworkStorageDialog({
                           disabled={busyShareId === share.id}
                           title="Remove"
                         >
-                          <X className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}

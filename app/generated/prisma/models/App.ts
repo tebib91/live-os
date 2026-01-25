@@ -92,6 +92,7 @@ export type AppCountAggregateOutputType = {
   website: number
   repo: number
   composePath: number
+  container: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -164,6 +165,7 @@ export type AppCountAggregateInputType = {
   website?: true
   repo?: true
   composePath?: true
+  container?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -273,6 +275,7 @@ export type AppGroupByOutputType = {
   website: string | null
   repo: string | null
   composePath: string
+  container: runtime.JsonValue | null
   createdAt: Date
   updatedAt: Date
   _count: AppCountAggregateOutputType | null
@@ -318,6 +321,7 @@ export type AppWhereInput = {
   website?: Prisma.StringNullableFilter<"App"> | string | null
   repo?: Prisma.StringNullableFilter<"App"> | string | null
   composePath?: Prisma.StringFilter<"App"> | string
+  container?: Prisma.JsonNullableFilter<"App">
   createdAt?: Prisma.DateTimeFilter<"App"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"App"> | Date | string
   store?: Prisma.XOR<Prisma.StoreScalarRelationFilter, Prisma.StoreWhereInput>
@@ -341,6 +345,7 @@ export type AppOrderByWithRelationInput = {
   website?: Prisma.SortOrderInput | Prisma.SortOrder
   repo?: Prisma.SortOrderInput | Prisma.SortOrder
   composePath?: Prisma.SortOrder
+  container?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   store?: Prisma.StoreOrderByWithRelationInput
@@ -368,6 +373,7 @@ export type AppWhereUniqueInput = Prisma.AtLeast<{
   website?: Prisma.StringNullableFilter<"App"> | string | null
   repo?: Prisma.StringNullableFilter<"App"> | string | null
   composePath?: Prisma.StringFilter<"App"> | string
+  container?: Prisma.JsonNullableFilter<"App">
   createdAt?: Prisma.DateTimeFilter<"App"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"App"> | Date | string
   store?: Prisma.XOR<Prisma.StoreScalarRelationFilter, Prisma.StoreWhereInput>
@@ -391,6 +397,7 @@ export type AppOrderByWithAggregationInput = {
   website?: Prisma.SortOrderInput | Prisma.SortOrder
   repo?: Prisma.SortOrderInput | Prisma.SortOrder
   composePath?: Prisma.SortOrder
+  container?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.AppCountOrderByAggregateInput
@@ -421,6 +428,7 @@ export type AppScalarWhereWithAggregatesInput = {
   website?: Prisma.StringNullableWithAggregatesFilter<"App"> | string | null
   repo?: Prisma.StringNullableWithAggregatesFilter<"App"> | string | null
   composePath?: Prisma.StringWithAggregatesFilter<"App"> | string
+  container?: Prisma.JsonNullableWithAggregatesFilter<"App">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"App"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"App"> | Date | string
 }
@@ -442,6 +450,7 @@ export type AppCreateInput = {
   website?: string | null
   repo?: string | null
   composePath: string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   store: Prisma.StoreCreateNestedOneWithoutAppsInput
@@ -465,6 +474,7 @@ export type AppUncheckedCreateInput = {
   website?: string | null
   repo?: string | null
   composePath: string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -486,6 +496,7 @@ export type AppUpdateInput = {
   website?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   repo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   composePath?: Prisma.StringFieldUpdateOperationsInput | string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   store?: Prisma.StoreUpdateOneRequiredWithoutAppsNestedInput
@@ -509,6 +520,7 @@ export type AppUncheckedUpdateInput = {
   website?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   repo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   composePath?: Prisma.StringFieldUpdateOperationsInput | string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -531,6 +543,7 @@ export type AppCreateManyInput = {
   website?: string | null
   repo?: string | null
   composePath: string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -552,6 +565,7 @@ export type AppUpdateManyMutationInput = {
   website?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   repo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   composePath?: Prisma.StringFieldUpdateOperationsInput | string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -574,6 +588,7 @@ export type AppUncheckedUpdateManyInput = {
   website?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   repo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   composePath?: Prisma.StringFieldUpdateOperationsInput | string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -611,6 +626,7 @@ export type AppCountOrderByAggregateInput = {
   website?: Prisma.SortOrder
   repo?: Prisma.SortOrder
   composePath?: Prisma.SortOrder
+  container?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -730,6 +746,7 @@ export type AppCreateWithoutStoreInput = {
   website?: string | null
   repo?: string | null
   composePath: string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -751,6 +768,7 @@ export type AppUncheckedCreateWithoutStoreInput = {
   website?: string | null
   repo?: string | null
   composePath: string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -801,6 +819,7 @@ export type AppScalarWhereInput = {
   website?: Prisma.StringNullableFilter<"App"> | string | null
   repo?: Prisma.StringNullableFilter<"App"> | string | null
   composePath?: Prisma.StringFilter<"App"> | string
+  container?: Prisma.JsonNullableFilter<"App">
   createdAt?: Prisma.DateTimeFilter<"App"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"App"> | Date | string
 }
@@ -822,6 +841,7 @@ export type AppCreateManyStoreInput = {
   website?: string | null
   repo?: string | null
   composePath: string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -843,6 +863,7 @@ export type AppUpdateWithoutStoreInput = {
   website?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   repo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   composePath?: Prisma.StringFieldUpdateOperationsInput | string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -864,6 +885,7 @@ export type AppUncheckedUpdateWithoutStoreInput = {
   website?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   repo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   composePath?: Prisma.StringFieldUpdateOperationsInput | string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -885,6 +907,7 @@ export type AppUncheckedUpdateManyWithoutStoreInput = {
   website?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   repo?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   composePath?: Prisma.StringFieldUpdateOperationsInput | string
+  container?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -909,6 +932,7 @@ export type AppSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = ru
   website?: boolean
   repo?: boolean
   composePath?: boolean
+  container?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   store?: boolean | Prisma.StoreDefaultArgs<ExtArgs>
@@ -932,6 +956,7 @@ export type AppSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extension
   website?: boolean
   repo?: boolean
   composePath?: boolean
+  container?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   store?: boolean | Prisma.StoreDefaultArgs<ExtArgs>
@@ -955,6 +980,7 @@ export type AppSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extension
   website?: boolean
   repo?: boolean
   composePath?: boolean
+  container?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   store?: boolean | Prisma.StoreDefaultArgs<ExtArgs>
@@ -978,11 +1004,12 @@ export type AppSelectScalar = {
   website?: boolean
   repo?: boolean
   composePath?: boolean
+  container?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type AppOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "storeId" | "appId" | "title" | "name" | "icon" | "tagline" | "overview" | "category" | "developer" | "screenshots" | "version" | "port" | "path" | "website" | "repo" | "composePath" | "createdAt" | "updatedAt", ExtArgs["result"]["app"]>
+export type AppOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "storeId" | "appId" | "title" | "name" | "icon" | "tagline" | "overview" | "category" | "developer" | "screenshots" | "version" | "port" | "path" | "website" | "repo" | "composePath" | "container" | "createdAt" | "updatedAt", ExtArgs["result"]["app"]>
 export type AppInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   store?: boolean | Prisma.StoreDefaultArgs<ExtArgs>
 }
@@ -1016,6 +1043,7 @@ export type $AppPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
     website: string | null
     repo: string | null
     composePath: string
+    container: runtime.JsonValue | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["app"]>
@@ -1459,6 +1487,7 @@ export interface AppFieldRefs {
   readonly website: Prisma.FieldRef<"App", 'String'>
   readonly repo: Prisma.FieldRef<"App", 'String'>
   readonly composePath: Prisma.FieldRef<"App", 'String'>
+  readonly container: Prisma.FieldRef<"App", 'Json'>
   readonly createdAt: Prisma.FieldRef<"App", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"App", 'DateTime'>
 }

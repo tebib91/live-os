@@ -315,6 +315,7 @@ export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
   const hosts: DiscoveredHost[] = [];
   const seen = new Set<string>();
 
+  console.info("[network-storage] Discovering SMB hosts via avahi-browse...");
   try {
     // avahi-browse -r -t _smb._tcp
     const { stdout } = await execFileAsync(
@@ -354,11 +355,18 @@ export async function discoverSmbHosts(): Promise<{ hosts: DiscoveredHost[] }> {
           hosts.push({ name, host, ip });
         }
       });
+    console.info(
+      `[network-storage] Discovery complete: ${hosts.length} host(s) found`,
+    );
     await logAction("network-storage:discover:done", { hosts: hosts.length });
   } catch (err) {
     await logAction("network-storage:discover:error", {
       error: (err as Error)?.message || "unknown",
     });
+    console.warn(
+      "[network-storage] Discovery failed:",
+      (err as Error)?.message || err,
+    );
   }
   return { hosts };
 }
@@ -372,9 +380,14 @@ export async function discoverSharesOnServer(
   credentials?: { username?: string; password?: string },
 ): Promise<{ success: boolean; shares: string[]; error?: string }> {
   await logAction("network-storage:discover-shares:start", { host });
+  console.info("[network-storage] Listing shares on host:", host);
 
   const resolved = await resolveHost(host);
   if (!resolved) {
+    console.warn(
+      "[network-storage] discoverSharesOnServer: DNS failed for",
+      host,
+    );
     return { success: false, shares: [], error: `Could not resolve host "${host}"` };
   }
 
@@ -411,6 +424,9 @@ export async function discoverSharesOnServer(
       host,
       count: shares.length,
     });
+    console.info(
+      `[network-storage] Shares on ${host}: ${shares.length} found`,
+    );
 
     return { success: true, shares };
   } catch (err: any) {
@@ -419,6 +435,11 @@ export async function discoverSharesOnServer(
       host,
       error: message,
     });
+    console.warn(
+      "[network-storage] discoverSharesOnServer failed:",
+      host,
+      message,
+    );
 
     // Check if it's an authentication error
     if (message.includes("NT_STATUS_ACCESS_DENIED") || message.includes("NT_STATUS_LOGON_FAILURE")) {

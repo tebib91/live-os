@@ -12,12 +12,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  getUmbrelCommunityStores,
-  importUmbrelStore,
+  getCasaCommunityStores,
+  importAppStore,
   listImportedStores,
   removeImportedStore,
-  type CommunityStore,
 } from "@/app/actions/appstore";
+import type { CommunityStore } from "@/app/actions/store/types";
 import { ExternalLink, Loader2, Clipboard, Check, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
@@ -49,13 +49,13 @@ export function CommunityStoreDialog({
       try {
         setLoading(true);
         setError(null);
-        const data = await getUmbrelCommunityStores();
+        const data = await getCasaCommunityStores();
         setStores(data);
         const imported = await listImportedStores();
         setImportedStores(imported);
       } catch (err) {
         console.error(err);
-        setError("Unable to load Umbrel community stores right now.");
+        setError("Unable to load CasaOS community stores right now.");
       } finally {
         setLoading(false);
       }
@@ -87,7 +87,7 @@ export function CommunityStoreDialog({
     setImportSuccess(null);
     setError(null);
     setImportingUrl(url);
-    const result = await importUmbrelStore(url, meta);
+    const result = await importAppStore(url, meta);
     setImportingUrl(null);
     if (!result.success) {
       setError(result.error || "Failed to import store.");
@@ -197,11 +197,11 @@ export function CommunityStoreDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] bg-zinc-900/80 text-white border border-white/10 backdrop-blur-md">
-        <DialogHeader>
+          <DialogHeader>
           <DialogTitle>Import Community App Store</DialogTitle>
           <DialogDescription className="text-zinc-300">
-            Browse Umbrel community app stores or add a custom store URL.
-            Stores use the Umbrel app manifest format (umbrel-app.yml).
+            Browse CasaOS community app stores or add a custom store URL.
+            Stores use CasaOS docker-compose files with x-casaos metadata.
           </DialogDescription>
         </DialogHeader>
 

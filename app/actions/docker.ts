@@ -12,20 +12,41 @@ import { logAction } from "./logger";
 import { exec } from "child_process";
 import fs from "fs/promises";
 import path from "path";
+import os from "os";
 import { env } from "process";
 import { promisify } from "util";
+import YAML from "yaml";
 
 const execAsync = promisify(exec);
 
-// Container name prefix for LiveOS apps
 const CONTAINER_PREFIX = process.env.CONTAINER_PREFIX || "";
 const DEFAULT_APP_ICON = "/icons/default-application-icon.png";
-// Root where imported external app stores live (CasaOS ZIPs, etc.)
 const STORES_ROOT = path.join(process.cwd(), "external-apps");
 const INTERNAL_APPS_ROOT = path.join(process.cwd(), "internal-apps");
 const CUSTOM_APPS_ROOT = path.join(process.cwd(), "custom-apps");
 const FALLBACK_APP_NAME = "Application";
 
+async function detectComposeContainerName(
+  appDir: string,
+  composePath: string,
+): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync(
+      `cd "${appDir}" && docker compose -f "${composePath}" ps --format "{{.Names}}"`,
+    );
+    const names = stdout
+      .split("\n")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    return names[0] || null;
+  } catch (error) {
+    console.warn(
+      "[Docker] detectComposeContainerName failed:",
+      (error as Error)?.message || error,
+    );
+    return null;
+  }
+}
 async function resolveHostPort(containerName: string): Promise<string | null> {
   try {
     const { stdout } = await execAsync(
@@ -47,7 +68,6 @@ async function resolveHostPort(containerName: string): Promise<string | null> {
     return null;
   }
 }
-
 async function recordInstalledApp(
   appId: string,
   containerName: string,
@@ -63,10 +83,10 @@ async function recordInstalledApp(
 }
 
 async function getAppMeta(appId: string, override?: { name?: string; icon?: string }) {
-  const appMeta = await prisma.app.findFirst({
-    where: { appId },
-    orderBy: { createdAt: "desc" },
-  });
+    const appMeta = await prisma.app.findFirst({
+      where: { appId },
+      orderBy: { createdAt: "desc" },
+    });
 
   return {
     name:
@@ -118,19 +138,18 @@ function getContainerName(appId: string): string {
   return `${CONTAINER_PREFIX}${appId.toLowerCase()}`;
 }
 
-function getAppIdFromContainerName(name: string): string {
-  return CONTAINER_PREFIX
-    ? name.replace(new RegExp(`^${CONTAINER_PREFIX}`), "")
-    : name;
+async function getRecordedContainerName(appId: string): Promise<string | null> {
+  try {
+    const record = await prisma.installedApp.findFirst({
+      where: { appId },
+      orderBy: { updatedAt: "desc" },
+      select: { containerName: true },
+    });
+    return record?.containerName || null;
+  } catch {
+    return null;
+  }
 }
-
-type RunningAppUsage = {
-  id: string;
-  appId: string;
-  name: string;
-  icon: string;
-  cpuUsage: number;
-};
 
 /**
  * Install an app with docker-compose
@@ -200,11 +219,11 @@ export async function installApp(
       `[Docker] installApp: ✅ All ${config.volumes.length} volume paths validated`
     );
 
-    const resolvedCompose = await findComposeForApp(appId);
-    if (!resolvedCompose) {
-      console.warn(
-        `[Docker] installApp: ❌ Compose file not found for "${appId}" in available app roots`
-      );
+  const resolvedCompose = await findComposeForApp(appId);
+  if (!resolvedCompose) {
+    console.warn(
+      `[Docker] installApp: ❌ Compose file not found for "${appId}" in available app roots`
+    );
       emitProgress(1, "Compose file not found", "error");
       return {
         success: false,
@@ -213,15 +232,23 @@ export async function installApp(
     }
 
     const { appDir, composePath } = resolvedCompose;
-    console.log(`[Docker] installApp: Using compose at ${composePath}`);
+    const sanitizedComposePath = await sanitizeComposeFile(composePath);
+    console.log(`[Docker] installApp: Using compose at ${sanitizedComposePath}`);
     emitProgress(0.2, "Configuring install");
 
     // Build environment variables
     console.log("[Docker] installApp: Building environment variables...");
+    const envVars: NodeJS.ProcessEnv = { ...env };
+    if (!envVars.APP_DATA_DIR) {
+      envVars.APP_DATA_DIR = path.join("/DATA/AppData", appId);
+    }
+    if (!envVars.UMBREL_ROOT) {
+      envVars.UMBREL_ROOT = "/DATA";
+    }
 
     // Add port overrides
     config.ports.forEach((port) => {
-      env[`PORT_${port.container}`] = port.published;
+      envVars[`PORT_${port.container}`] = port.published;
       console.log(
         `[Docker] installApp: Set PORT_${port.container}=${port.published}`
       );
@@ -232,26 +259,26 @@ export async function installApp(
       const key = `VOLUME_${volume.container
         .replace(/\//g, "_")
         .toUpperCase()}`;
-      env[key] = volume.source;
+      envVars[key] = volume.source;
       console.log(`[Docker] installApp: Set ${key}=${volume.source}`);
     });
 
     // Add environment variables
     config.environment.forEach((envVar) => {
-      env[envVar.key] = envVar.value;
+      envVars[envVar.key] = envVar.value;
       console.log(`[Docker] installApp: Set ${envVar.key}=${envVar.value}`);
     });
 
     // Set container name
     const containerName = getContainerName(appId);
-    env.CONTAINER_NAME = containerName;
+    envVars.CONTAINER_NAME = containerName;
     console.log(`[Docker] installApp: Container name: ${containerName}`);
 
     // Execute docker compose up (using Compose V2 syntax)
-    const command = `cd "${appDir}" && docker compose -f "${composePath}" up -d`;
+    const command = `cd "${appDir}" && docker compose -f "${sanitizedComposePath}" up -d`;
     console.log(`[Docker] installApp: Executing: ${command}`);
     emitProgress(0.35, "Pulling images");
-    const { stdout, stderr } = await execAsync(command, { env });
+    const { stdout, stderr } = await execAsync(command, { env: envVars });
 
     if (stdout)
       console.log(
@@ -266,9 +293,16 @@ export async function installApp(
     }
     emitProgress(0.9, "Finalizing install");
 
-    await recordInstalledApp(appId, containerName, metaOverride);
+    const detectedContainer =
+      (await detectComposeContainerName(appDir, sanitizedComposePath)) ||
+      containerName;
+
+    await recordInstalledApp(appId, detectedContainer, metaOverride);
     await triggerAppsUpdate();
-    await logAction("install:success", { appId, containerName });
+    await logAction("install:success", {
+      appId,
+      containerName: detectedContainer,
+    });
     emitProgress(1, "Installation complete", "completed");
     console.log(`[Docker] installApp: ✅ Successfully installed "${appId}"`);
     return { success: true };
@@ -301,54 +335,7 @@ export async function installApp(
 /**
  * Get running app CPU usage from Docker stats
  */
-export async function getRunningAppUsage(): Promise<RunningAppUsage[]> {
-  console.log("[Docker] getRunningAppUsage: Fetching running app CPU usage...");
-
-  try {
-    const command =
-      'docker stats --no-stream --format "{{.Name}}\t{{.CPUPerc}}"';
-    console.log(`[Docker] getRunningAppUsage: Executing: ${command}`);
-    const { stdout } = await execAsync(command);
-
-    if (!stdout.trim()) {
-      console.log("[Docker] getRunningAppUsage: No running containers found");
-      return [];
-    }
-
-    const apps = stdout
-      .trim()
-      .split("\n")
-      .map((line) => {
-        const [name, cpuPercentRaw] = line.split("\t");
-        if (!name || !cpuPercentRaw) return null;
-
-        if (CONTAINER_PREFIX && !name.startsWith(CONTAINER_PREFIX)) {
-          return null;
-        }
-
-        const cpuUsage = parseFloat(cpuPercentRaw.replace("%", "").trim());
-        const appId = getAppIdFromContainerName(name);
-
-        return {
-          id: name,
-          appId,
-          name: appId,
-          icon: DEFAULT_APP_ICON,
-          cpuUsage: Number.isNaN(cpuUsage) ? 0 : cpuUsage,
-        };
-      })
-      .filter((app): app is RunningAppUsage => Boolean(app))
-      .sort((a, b) => b.cpuUsage - a.cpuUsage);
-
-    console.log(
-      `[Docker] getRunningAppUsage: ✅ Found ${apps.length} running apps`
-    );
-    return apps;
-  } catch (error) {
-    console.error("[Docker] getRunningAppUsage: ❌ Error:", error);
-    return [];
-  }
-}
+// getRunningAppUsage removed (streamlined API)
 
 /**
  * Get list of installed LiveOS apps
@@ -406,7 +393,7 @@ export async function getInstalledApps(): Promise<InstalledApp[]> {
       const [name, statusRaw, image] = line.split("\t");
 
       // Clean appId (remove prefix if any)
-      const appId = CONTAINER_PREFIX
+      const rawId = CONTAINER_PREFIX
         ? name.replace(new RegExp(`^${CONTAINER_PREFIX}`), "")
         : name;
 
@@ -415,21 +402,23 @@ export async function getInstalledApps(): Promise<InstalledApp[]> {
       if (statusRaw.includes("Up")) status = "running";
       else if (statusRaw.includes("Exited")) status = "error";
 
+      const record = metaByContainer.get(name);
+      const resolvedAppId = record?.appId || rawId;
+      const storeMeta = appMetaById.get(resolvedAppId);
+
       console.log(
-        `[Docker] getInstalledApps: Container "${name}" (appId: ${appId}) - Status: ${status}, Image: ${image}`
+        `[Docker] getInstalledApps: Container "${name}" (appId: ${resolvedAppId}) - Status: ${status}, Image: ${image}`
       );
 
       // Get first exposed port if available
       const hostPort = await resolveHostPort(name);
       const webUIPort = hostPort ? parseInt(hostPort, 10) : undefined;
 
-      const record = metaByContainer.get(name);
-      const storeMeta = appMetaById.get(appId);
-
       apps.push({
         id: name,
-        appId,
-        name: record?.name || storeMeta?.title || storeMeta?.name || appId,
+        appId: resolvedAppId,
+        name:
+          record?.name || storeMeta?.title || storeMeta?.name || rawId,
         icon: record?.icon || storeMeta?.icon || DEFAULT_APP_ICON,
         status,
         webUIPort,
@@ -446,6 +435,22 @@ export async function getInstalledApps(): Promise<InstalledApp[]> {
     console.error("[Docker] getInstalledApps: ❌ Error:", error);
     return [];
   }
+}
+
+/**
+ * Get a single installed app by id.
+ */
+export async function getAppById(
+  appId: string,
+): Promise<InstalledApp | null> {
+  if (!validateAppId(appId)) return null;
+  const apps = await getInstalledApps();
+  const match = apps.find(
+    (a) =>
+      a.appId.toLowerCase() === appId.toLowerCase() ||
+      a.containerName === getContainerName(appId),
+  );
+  return match ?? null;
 }
 
 /**
@@ -482,7 +487,11 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
       return null;
     }
 
-    const containerName = getContainerName(appId);
+    const recordedContainer = await getRecordedContainerName(appId);
+    const containerCandidates = [
+      recordedContainer,
+      getContainerName(appId),
+    ].filter(Boolean) as string[];
     const host =
       process.env.LIVEOS_DOMAIN ||
       process.env.LIVEOS_HOST ||
@@ -492,7 +501,11 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
     const protocol = process.env.LIVEOS_HTTPS === "true" ? "https" : "http";
 
     // 1) Prefer published host port from Docker (works for bridge mode)
-    const hostPort = await resolveHostPort(containerName);
+    let hostPort: string | null = null;
+    for (const name of containerCandidates) {
+      hostPort = await resolveHostPort(name);
+      if (hostPort) break;
+    }
     // 2) Pull app metadata for fallback port/path
     const appMeta = await prisma.app.findFirst({
       where: { appId },
@@ -608,6 +621,45 @@ export async function restartApp(appId: string): Promise<boolean> {
 }
 
 /**
+ * Update an app by pulling new images and recreating containers.
+ */
+export async function updateApp(appId: string): Promise<boolean> {
+  if (!validateAppId(appId)) return false;
+  const resolved = await findComposeForApp(appId);
+  if (!resolved) {
+    console.warn(`[Docker] updateApp: compose not found for ${appId}`);
+    return false;
+  }
+
+  try {
+    const sanitized = await sanitizeComposeFile(resolved.composePath);
+    const containerName = getContainerName(appId);
+    const envVars: NodeJS.ProcessEnv = {
+      ...process.env,
+      CONTAINER_NAME: containerName,
+    };
+    await execAsync(
+      `cd "${resolved.appDir}" && docker compose -f "${sanitized}" pull`,
+      { env: envVars },
+    );
+    await execAsync(
+      `cd "${resolved.appDir}" && docker compose -f "${sanitized}" up -d`,
+      { env: envVars },
+    );
+    await triggerAppsUpdate();
+    await logAction("update:success", { appId, containerName });
+    return true;
+  } catch (error) {
+    console.error(`[Docker] updateApp: ❌ failed for ${appId}:`, error);
+    await logAction("update:error", {
+      appId,
+      error: (error as Error)?.message ?? "unknown",
+    });
+    return false;
+  }
+}
+
+/**
  * Uninstall an app (remove container and volumes)
  */
 export async function uninstallApp(appId: string): Promise<boolean> {
@@ -686,282 +738,7 @@ export async function getAppLogs(
   }
 }
 
-/**
- * Deploy custom Docker Compose configuration
- */
-export async function deployCustomCompose(
-  appName: string,
-  dockerCompose: string
-): Promise<{ success: boolean; error?: string }> {
-  console.log(
-    `[Docker] deployCustomCompose: Deploying custom compose for "${appName}"...`
-  );
-
-  try {
-    // Validate app name
-    console.log("[Docker] deployCustomCompose: Validating app name...");
-    if (!validateAppId(appName)) {
-      console.warn(
-        `[Docker] deployCustomCompose: ❌ Invalid app name: "${appName}"`
-      );
-      return {
-        success: false,
-        error:
-          "Invalid app name. Use only lowercase letters, numbers, and hyphens.",
-      };
-    }
-
-    // Create custom apps directory if it doesn't exist
-    const customAppsPath = path.join(process.cwd(), "custom-apps");
-    console.log(
-      `[Docker] deployCustomCompose: Custom apps path: ${customAppsPath}`
-    );
-    await fs.mkdir(customAppsPath, { recursive: true });
-
-    // Create app directory
-    const appPath = path.join(customAppsPath, appName);
-    console.log(`[Docker] deployCustomCompose: App path: ${appPath}`);
-
-    try {
-      await fs.access(appPath);
-      console.warn(
-        `[Docker] deployCustomCompose: ❌ App "${appName}" already exists`
-      );
-      return { success: false, error: "An app with this name already exists" };
-    } catch {
-      // App doesn't exist, continue
-      console.log(
-        "[Docker] deployCustomCompose: App does not exist, proceeding..."
-      );
-    }
-
-    console.log("[Docker] deployCustomCompose: Creating app directory...");
-    await fs.mkdir(appPath, { recursive: true });
-
-    // Save docker-compose.yml
-    const composePath = path.join(appPath, "docker-compose.yml");
-    console.log(
-      `[Docker] deployCustomCompose: Writing compose file to: ${composePath}`
-    );
-    await fs.writeFile(composePath, dockerCompose, "utf-8");
-    console.log(
-      `[Docker] deployCustomCompose: Compose file written (${dockerCompose.length} bytes)`
-    );
-
-    // Set container name prefix
-    const containerName = getContainerName(appName);
-    const containerEnv = {
-      ...process.env,
-      CONTAINER_NAME: containerName,
-    };
-    console.log(
-      `[Docker] deployCustomCompose: Container name: ${containerName}`
-    );
-
-    // Execute docker compose up
-    const command = `cd "${appPath}" && docker compose up -d`;
-    console.log(`[Docker] deployCustomCompose: Executing: ${command}`);
-    const { stdout, stderr } = await execAsync(command, { env: containerEnv });
-
-    if (stdout) console.log(`[Docker] deployCustomCompose: stdout: ${stdout}`);
-    if (
-      stderr &&
-      !stderr.includes("Creating") &&
-      !stderr.includes("Starting") &&
-      !stderr.includes("Running")
-    ) {
-      console.error("[Docker] deployCustomCompose: stderr:", stderr);
-      return { success: false, error: stderr };
-    }
-
-    console.log(
-      `[Docker] deployCustomCompose: ✅ Successfully deployed "${appName}"`
-    );
-    await recordInstalledApp(appName, containerName);
-    await triggerAppsUpdate();
-    return { success: true };
-  } catch (error: any) {
-    console.error(
-      `[Docker] deployCustomCompose: ❌ Error deploying "${appName}":`,
-      error
-    );
-    return {
-      success: false,
-      error: error.message || "Failed to deploy application",
-    };
-  }
-}
-
-/**
- * Deploy custom Docker Run configuration
- */
-export async function deployCustomRun(
-  appName: string,
-  imageName: string,
-  containerName?: string,
-  ports?: string,
-  volumes?: string,
-  envVars?: string
-): Promise<{ success: boolean; error?: string }> {
-  console.log(
-    `[Docker] deployCustomRun: Deploying custom container for "${appName}"...`
-  );
-  console.log(`[Docker] deployCustomRun: Image: ${imageName}`);
-
-  try {
-    // Validate app name
-    console.log("[Docker] deployCustomRun: Validating app name...");
-    if (!validateAppId(appName)) {
-      console.warn(
-        `[Docker] deployCustomRun: ❌ Invalid app name: "${appName}"`
-      );
-      return {
-        success: false,
-        error:
-          "Invalid app name. Use only lowercase letters, numbers, and hyphens.",
-      };
-    }
-
-    if (!imageName.trim()) {
-      console.warn("[Docker] deployCustomRun: ❌ Image name is empty");
-      return { success: false, error: "Docker image name is required" };
-    }
-
-    // Build docker run command
-    const finalContainerName =
-      containerName?.trim() || getContainerName(appName);
-    console.log(
-      `[Docker] deployCustomRun: Container name: ${finalContainerName}`
-    );
-
-    let command = `docker run -d --name "${finalContainerName}" --restart unless-stopped`;
-
-    // Parse and add port mappings
-    if (ports?.trim()) {
-      console.log(`[Docker] deployCustomRun: Adding port mappings: ${ports}`);
-      const portMappings = ports
-        .split(",")
-        .map((p) => p.trim())
-        .filter(Boolean);
-      for (const portMapping of portMappings) {
-        if (!portMapping.includes(":")) {
-          console.warn(
-            `[Docker] deployCustomRun: ❌ Invalid port mapping: ${portMapping}`
-          );
-          return {
-            success: false,
-            error: `Invalid port mapping: ${portMapping}. Use format host:container`,
-          };
-        }
-        const [hostPort, containerPort] = portMapping.split(":");
-        if (!validatePort(hostPort) || !validatePort(containerPort)) {
-          console.warn(
-            `[Docker] deployCustomRun: ❌ Invalid port in mapping: ${portMapping}`
-          );
-          return {
-            success: false,
-            error: `Invalid port in mapping: ${portMapping}`,
-          };
-        }
-        command += ` -p ${portMapping}`;
-      }
-      console.log(
-        `[Docker] deployCustomRun: Added ${portMappings.length} port mappings`
-      );
-    }
-
-    // Parse and add volume mounts
-    if (volumes?.trim()) {
-      const volumeMounts = volumes
-        .split("\n")
-        .map((v) => v.trim())
-        .filter(Boolean);
-      console.log(
-        `[Docker] deployCustomRun: Adding ${volumeMounts.length} volume mounts`
-      );
-      for (const volumeMount of volumeMounts) {
-        if (!volumeMount.includes(":")) {
-          console.warn(
-            `[Docker] deployCustomRun: ❌ Invalid volume mount: ${volumeMount}`
-          );
-          return {
-            success: false,
-            error: `Invalid volume mount: ${volumeMount}. Use format host:container`,
-          };
-        }
-        command += ` -v "${volumeMount}"`;
-      }
-    }
-
-    // Parse and add environment variables
-    if (envVars?.trim()) {
-      const envLines = envVars
-        .split("\n")
-        .map((e) => e.trim())
-        .filter(Boolean);
-      console.log(
-        `[Docker] deployCustomRun: Adding ${envLines.length} environment variables`
-      );
-      for (const envLine of envLines) {
-        if (!envLine.includes("=")) {
-          console.warn(
-            `[Docker] deployCustomRun: ❌ Invalid env var: ${envLine}`
-          );
-          return {
-            success: false,
-            error: `Invalid environment variable: ${envLine}. Use format KEY=value`,
-          };
-        }
-        const [key, ...valueParts] = envLine.split("=");
-        const value = valueParts.join("="); // Handle values with = in them
-        command += ` -e "${key}=${value}"`;
-      }
-    }
-
-    // Add image name
-    command += ` ${imageName}`;
-
-    // Execute docker run
-    console.log(`[Docker] deployCustomRun: Executing: ${command}`);
-    const { stdout, stderr } = await execAsync(command);
-
-    if (stdout) console.log(`[Docker] deployCustomRun: stdout: ${stdout}`);
-    if (
-      stderr &&
-      !stderr.toLowerCase().includes("pulling") &&
-      !stderr.toLowerCase().includes("downloaded")
-    ) {
-      console.error("[Docker] deployCustomRun: stderr:", stderr);
-    }
-
-    console.log(
-      `[Docker] deployCustomRun: ✅ Successfully deployed "${appName}"`
-    );
-    await recordInstalledApp(appName, finalContainerName);
-    await triggerAppsUpdate();
-    return { success: true };
-  } catch (error: any) {
-    console.error(
-      `[Docker] deployCustomRun: ❌ Error deploying "${appName}":`,
-      error
-    );
-
-    // Check if error is about container name already in use
-    if (error.message.includes("already in use")) {
-      console.warn(`[Docker] deployCustomRun: Container name already in use`);
-      return {
-        success: false,
-        error:
-          "A container with this name already exists. Please choose a different name or remove the existing container.",
-      };
-    }
-
-    return {
-      success: false,
-      error: error.message || "Failed to deploy application",
-    };
-  }
-}
+// custom deploy moved to app/actions/custom-deploy.ts
 
 async function findComposeForApp(
   appId: string
@@ -986,7 +763,7 @@ async function findComposeForApp(
             await fs.access(candidate);
             return { appDir: fullPath, composePath: candidate };
           } catch {
-            // continue
+            // try next compose name
           }
         }
       }
@@ -1014,10 +791,41 @@ async function findComposeForApp(
     }
   } catch (error) {
     console.error(
-      "[Docker] findComposeForApp: ❌ Error searching app roots:",
-      error
+      '[Docker] findComposeForApp: ❌ Error searching compose files: ' + error
     );
   }
 
+  console.warn(
+    '[Docker] findComposeForApp: Compose file not found for app: ' + appId
+  );
   return null;
+}
+
+async function sanitizeComposeFile(
+  composePath: string,
+): Promise<string> {
+  try {
+    const raw = await fs.readFile(composePath, 'utf-8');
+    const doc = YAML.parse(raw);
+    if (doc?.services?.app_proxy) {
+      const proxy = doc.services.app_proxy;
+      if (!proxy.image && !proxy.build) {
+        delete doc.services.app_proxy;
+        console.log(
+          '[Docker] sanitizeCompose: removed app_proxy service with no image/build',
+        );
+      }
+    }
+
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'liveos-compose-'));
+    const tmpPath = path.join(tmpDir, path.basename(composePath));
+    await fs.writeFile(tmpPath, YAML.stringify(doc), 'utf-8');
+    return tmpPath;
+  } catch (error) {
+    console.warn(
+      '[Docker] sanitizeCompose: failed, using original compose file: ',
+      (error as Error)?.message || error,
+    );
+    return composePath;
+  }
 }
