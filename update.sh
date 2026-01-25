@@ -174,7 +174,7 @@ git reset --hard origin/"$REMOTE_BRANCH"
 # Install dependencies (skip Husky setup scripts)
 # Note: TypeScript is needed for build even in production
 print_status "Installing dependencies..."
-npm install --ignore-scripts
+npm ci --include=dev --ignore-scripts
 
 ensure_archive_tools
 ensure_cifs_utils
@@ -209,6 +209,10 @@ if ! npx prisma migrate deploy --schema=prisma/schema.prisma; then
     print_error "Prisma migrations failed. Database may be out of sync."
     exit 1
 fi
+
+# Regenerate Prisma client to match installed runtime
+print_status "Generating Prisma client..."
+npx prisma generate --schema=prisma/schema.prisma
 
 # Build project
 print_status "Building project..."
