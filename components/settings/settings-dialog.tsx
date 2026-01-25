@@ -17,7 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AdvancedSettingsDialog } from "./advanced-settings-dialog";
 import { FirewallDialog } from "./firewall";
@@ -79,6 +79,8 @@ export function SettingsDialog({
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [logsDialogOpen, setLogsDialogOpen] = useState(false);
   const [advancedDialogOpen, setAdvancedDialogOpen] = useState(false);
+  const [savingWallpaper, setSavingWallpaper] = useState(false);
+  const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   // Fetch static data once when dialog opens
@@ -146,12 +148,17 @@ export function SettingsDialog({
 
   const handleWallpaperSelect = async (path: string) => {
     onWallpaperChange?.(path);
-    try {
-      await updateSettings({ currentWallpaper: path });
-    } catch (error) {
-      console.error("Failed to update wallpaper:", error);
-      toast.error("Wallpaper could not be saved. It will reset on refresh.");
-    }
+    setSavingWallpaper(true);
+    startTransition(() => {
+      updateSettings({ currentWallpaper: path })
+        .catch((error) => {
+          console.error("Failed to update wallpaper:", error);
+          toast.error(
+            "Wallpaper could not be saved. It will reset on refresh.",
+          );
+        })
+        .finally(() => setSavingWallpaper(false));
+    });
   };
 
   const formatBytes = (bytes: number, decimals = 1) => {
@@ -273,12 +280,13 @@ export function SettingsDialog({
                 onShutdown={handleShutdown}
               />
               <AccountSection />
-              <WallpaperSection
-                wallpapers={wallpapers}
-                wallpapersLoading={wallpapersLoading}
-                currentWallpaper={currentWallpaper}
-                onSelect={handleWallpaperSelect}
-              />
+        <WallpaperSection
+          wallpapers={wallpapers}
+          wallpapersLoading={wallpapersLoading}
+          currentWallpaper={currentWallpaper}
+          onSelect={handleWallpaperSelect}
+          saving={savingWallpaper || pending}
+        />
               <WifiSection
                 onOpenDialog={() => setWifiDialogOpen(true)}
                 ssid={hardware?.wifi?.ssid}
