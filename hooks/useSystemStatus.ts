@@ -27,6 +27,12 @@ let reconnectAttempts = 0;
 let currentFastMode = false;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY = 3000;
+const TERMINAL_PROGRESS_TTL_MS = 2500;
+const installRemovalTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function normalizeId(value: string | undefined) {
+  return (value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
 
 function notifySubscribers() {
   subscribers.forEach(({ callback }) => callback(sharedState));
@@ -44,14 +50,33 @@ function updateSharedState(update: Partial<SharedState>) {
   notifySubscribers();
 }
 
+function scheduleInstallRemoval(appId: string) {
+  const existing = installRemovalTimers.get(appId);
+  if (existing) {
+    clearTimeout(existing);
+  }
+  const timer = setTimeout(() => {
+    installRemovalTimers.delete(appId);
+    updateSharedState({
+      installProgress: sharedState.installProgress.filter((p) => p.appId !== appId),
+    });
+  }, TERMINAL_PROGRESS_TTL_MS);
+  installRemovalTimers.set(appId, timer);
+}
+
 function updateInstallProgress(
   prev: InstallProgress[],
   update: InstallProgress,
 ): InstallProgress[] {
+  const existingTimer = installRemovalTimers.get(update.appId);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+    installRemovalTimers.delete(update.appId);
+  }
   const filtered = prev.filter((p) => p.appId !== update.appId);
 
   if (update.status === "completed" || update.status === "error") {
-    return filtered;
+    scheduleInstallRemoval(update.appId);
   }
 
   return [...filtered, update];
@@ -115,10 +140,29 @@ function connectEventSource(wantFast: boolean) {
           const nextInstalled = data.installedApps ?? sharedState.installedApps;
           const rawRunning = data.runningApps ?? sharedState.runningApps;
           const runningWithIcons = rawRunning.map((app) => {
-            const match =
-              nextInstalled.find((inst) => inst.containerName === app.id) ||
-              nextInstalled.find((inst) => inst.appId === app.id);
-            return match ? { ...app, icon: match.icon } : app;
+            const appIdNorm = normalizeId(app.id);
+            const match = nextInstalled.find((inst) => {
+              if (inst.containerName === app.id || inst.appId === app.id) {
+                return true;
+              }
+
+              const containerNorm = normalizeId(inst.containerName);
+              const appNorm = normalizeId(inst.appId);
+
+              if (!appIdNorm || (!containerNorm && !appNorm)) {
+                return false;
+              }
+
+              return (
+                containerNorm === appIdNorm ||
+                appNorm === appIdNorm ||
+                containerNorm.includes(appIdNorm) ||
+                appIdNorm.includes(containerNorm) ||
+                appNorm.includes(appIdNorm) ||
+                appIdNorm.includes(appNorm)
+              );
+            });
+            return match ? { ...app, icon: match.icon, name: match.name } : app;
           });
 
           updateSharedState({

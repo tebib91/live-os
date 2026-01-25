@@ -220,52 +220,85 @@ async function pollAndBroadcast() {
 async function getRunningApps() {
   try {
     const { stdout } = await execAsync(
-      'docker stats --no-stream --format "{{.Name}}\\t{{.CPUPerc}}\\t{{.MemUsage}}\\t{{.MemPerc}}"'
+      'docker stats --no-stream --format "{{ json . }}"'
     );
 
     if (!stdout.trim()) return [];
 
     const parseMemoryString = (memStr: string): number => {
-      const match = memStr.match(/^([\\d.]+)(\\w+)$/);
+      const cleaned = memStr.replace(/,/g, '').trim();
+      const match = cleaned.match(/^([\d.]+)\s*([a-zA-Z]+)?$/);
       if (!match) return 0;
-      const value = parseFloat(match[1]);
-      const unit = match[2].toLowerCase();
-      switch (unit) {
-        case 'gib':
-        case 'gb':
-          return value * 1024 * 1024 * 1024;
-        case 'mib':
-        case 'mb':
-          return value * 1024 * 1024;
-        case 'kib':
-        case 'kb':
-          return value * 1024;
-        case 'b':
-          return value;
-        default:
-          return 0;
-      }
+
+      const value = parseFloat(match[1] || '0');
+      if (!Number.isFinite(value)) return 0;
+
+      const unit = (match[2] || 'b').toLowerCase();
+
+      if (unit.startsWith('t')) return value * 1024 ** 4;
+      if (unit.startsWith('g')) return value * 1024 ** 3;
+      if (unit.startsWith('m')) return value * 1024 ** 2;
+      if (unit.startsWith('k')) return value * 1024;
+      return value;
+    };
+    const parseNetString = (netStr: string): number => {
+      const cleaned = netStr.replace(/,/g, '').trim();
+      const match = cleaned.match(/^([\d.]+)\s*([a-zA-Z]+)?$/);
+      if (!match) return 0;
+
+      const value = parseFloat(match[1] || '0');
+      if (!Number.isFinite(value)) return 0;
+
+      const unit = (match[2] || 'b').toLowerCase();
+
+      if (unit.startsWith('t')) return value * 1024 ** 4;
+      if (unit.startsWith('g')) return value * 1024 ** 3;
+      if (unit.startsWith('m')) return value * 1024 ** 2;
+      if (unit.startsWith('k')) return value * 1024;
+      return value;
     };
 
     return stdout
       .trim()
-      .split('\\n')
-      .map((line) => {
-        const [name, cpuStr, memUsageStr, memPercStr] = line.split('\\t');
-        const cpuUsage = parseFloat(cpuStr?.replace('%', '') || '0');
-        const memPercent = parseFloat(memPercStr?.replace('%', '') || '0');
-        const memParts = memUsageStr?.split(' / ') || [];
-        const memoryUsage = parseMemoryString(memParts[0]?.trim() || '0');
-        const memoryLimit = parseMemoryString(memParts[1]?.trim() || '0');
+      .split('\n')
+      .flatMap((line) => {
+        try {
+          const parsed = JSON.parse(line) as {
+            Name?: string;
+            CPUPerc?: string;
+            MemUsage?: string;
+            MemPerc?: string;
+            NetIO?: string;
+          };
+          const name = parsed.Name ?? "";
+          if (!name) return [];
 
-        return {
-          id: name,
-          name: name.replace(/-/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase()),
-          cpuUsage: Number.isFinite(cpuUsage) ? cpuUsage : 0,
-          memoryUsage: Number.isFinite(memoryUsage) ? memoryUsage : 0,
-          memoryLimit: Number.isFinite(memoryLimit) ? memoryLimit : 0,
-          memoryPercent: Number.isFinite(memPercent) ? memPercent : 0,
-        };
+          const cpuUsage = parseFloat(parsed.CPUPerc?.replace('%', '') || '0');
+          const memPercent = parseFloat(parsed.MemPerc?.replace('%', '') || '0');
+          const memParts = parsed.MemUsage?.split(' / ') || [];
+          const netParts = parsed.NetIO?.split(' / ') || [];
+          const memoryUsage = parseMemoryString(memParts[0]?.trim() || '0');
+          const memoryLimit = parseMemoryString(memParts[1]?.trim() || '0');
+          const netRx = parseNetString(netParts[0]?.trim() || '0');
+          const netTx = parseNetString(netParts[1]?.trim() || '0');
+
+          return [
+            {
+              id: name,
+              name: name.replace(/-/g, ' ').replace(/\\b\\w/g, (c) =>
+                c.toUpperCase(),
+              ),
+              cpuUsage: Number.isFinite(cpuUsage) ? cpuUsage : 0,
+              memoryUsage: Number.isFinite(memoryUsage) ? memoryUsage : 0,
+              memoryLimit: Number.isFinite(memoryLimit) ? memoryLimit : 0,
+              memoryPercent: Number.isFinite(memPercent) ? memPercent : 0,
+              netRx: Number.isFinite(netRx) ? netRx : 0,
+              netTx: Number.isFinite(netTx) ? netTx : 0,
+            },
+          ];
+        } catch {
+          return [];
+        }
       })
       .sort((a, b) => b.cpuUsage - a.cpuUsage);
   } catch (error) {

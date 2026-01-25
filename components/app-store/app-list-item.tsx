@@ -1,13 +1,13 @@
 "use client";
 
+import { getAppWebUI } from "@/app/actions/docker";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { Check, Download, ExternalLink } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
-import { motion } from "framer-motion";
-import type { App, InstalledApp } from "./types";
-import { Check, Download, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { getAppWebUI } from "@/app/actions/docker";
 import { toast } from "sonner";
+import type { App, InstalledApp } from "./types";
 
 interface AppListItemProps {
   app: App;
@@ -74,10 +74,9 @@ export function AppListItem({ app, installedApp, index = 0, onClick }: AppListIt
         size="sm"
         variant="outline"
         onClick={isInstalled ? handleOpen : onClick}
-        className={`h-8 px-3 text-xs ${
-          isInstalled
-            ? "border-emerald-300/40 text-emerald-100 hover:bg-emerald-500/10"
-            : "border-white/20 text-white hover:bg-white/10"
+        className={`h-8 px-3 text-xs bg-transparent shadow-none ${isInstalled
+          ? "border-emerald-300/40 text-emerald-100 hover:bg-emerald-500/10 hover:text-emerald-50"
+          : "border-white/20 text-white hover:bg-white/10 hover:text-white"
         }`}
       >
         {isInstalled ? (

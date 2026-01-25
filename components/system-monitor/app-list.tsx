@@ -31,6 +31,11 @@ export function AppList({ apps, connected }: AppListProps) {
             app={app}
             cpuLabel={`${app.cpuUsage.toFixed(1)}%`}
             memLabel={`${formatMemorySize(app.memoryUsage)}`}
+            netLabel={
+              app.netRx !== undefined && app.netTx !== undefined
+                ? `${formatMemorySize(app.netRx)} / ${formatMemorySize(app.netTx)}`
+                : undefined
+            }
           />
         ))}
       </div>

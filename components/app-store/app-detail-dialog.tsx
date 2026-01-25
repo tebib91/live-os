@@ -291,7 +291,11 @@ export function AppDetailDialog({
               <Button
                 onClick={isInstalled ? handleOpen : handleQuickInstall}
                 disabled={isInstalled ? false : installing || Boolean(isProgressActive)}
-                className={`flex-1 ${isInstalled ? "bg-emerald-500 hover:bg-emerald-600" : "bg-blue-500 hover:bg-blue-600"} text-white text-sm sm:text-base`}
+                variant="outline"
+                className={`flex-1 bg-transparent shadow-none text-sm sm:text-base ${isInstalled
+                  ? "border-emerald-300/40 text-emerald-100 hover:bg-emerald-500/10 hover:text-emerald-50"
+                  : "border-white/20 text-white hover:bg-white/10 hover:text-white"
+                }`}
               >
                 {isInstalled ? (
                   <>

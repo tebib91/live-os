@@ -10,6 +10,8 @@ export interface RunningApp {
   icon?: string;
   cpuUsage: number;
   memoryUsage: number;
+  netRx?: number;
+  netTx?: number;
 }
 
 export interface SystemStats {

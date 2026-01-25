@@ -1,22 +1,24 @@
 "use client";
 
 import { deployCustomCompose, deployCustomRun } from "@/app/actions/custom-deploy";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, FileCode, Loader2, Upload, X } from "lucide-react";
-import Image from "next/image";
-import { useEffect, useState } from "react";
+import { FileCode, Upload } from "lucide-react";
+import { type ChangeEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { CustomDeployFooter } from "./custom-deploy/custom-deploy-footer";
+import { CustomDeployHeader } from "./custom-deploy/custom-deploy-header";
+import { DockerComposeTab } from "./custom-deploy/docker-compose-tab";
+import { DockerRunTab } from "./custom-deploy/docker-run-tab";
+import {
+  serializeEnvVars,
+  serializePorts,
+  serializeVolumes,
+} from "./custom-deploy/docker-run-utils";
+import { useDockerRunForm } from "./custom-deploy/use-docker-run-form";
 
 export interface CustomDeployInitialData {
   appName?: string;
@@ -56,39 +58,24 @@ export function CustomDeployDialog({
     hasCompose ? "compose" : hasRun ? "run" : "compose",
   );
 
-  // Update state when initialData changes (for customize install)
+  const dockerRunForm = useDockerRunForm({
+    open,
+    dockerRun: initialData?.dockerRun,
+    appIcon: initialData?.appIcon,
+  });
   useEffect(() => {
-    if (open && initialData) {
-      if (initialData.appName) setAppName(initialData.appName);
-      if (initialData.dockerCompose) {
-        setDockerCompose(initialData.dockerCompose);
-        setDeployMethod("compose");
-      } else if (initialData.dockerRun) {
-        setDeployMethod("run");
-      }
-      if (initialData.dockerRun?.image)
-        setImageName(initialData.dockerRun.image);
-      if (initialData.dockerRun?.containerName)
-        setContainerName(initialData.dockerRun.containerName);
-      if (initialData.dockerRun?.ports) setPorts(initialData.dockerRun.ports);
-      if (initialData.dockerRun?.volumes)
-        setVolumes(initialData.dockerRun.volumes);
-      if (initialData.dockerRun?.env) setEnvVars(initialData.dockerRun.env);
+    if (!open) return;
+    setAppName(initialData?.appName ?? "");
+    setDockerCompose(initialData?.dockerCompose ?? "");
+    if (initialData?.dockerCompose) {
+      setDeployMethod("compose");
+      return;
+    }
+    if (initialData?.dockerRun) {
+      setDeployMethod("run");
     }
   }, [open, initialData]);
-
-  // Docker run fields
-  const [imageName, setImageName] = useState(
-    initialData?.dockerRun?.image ?? "",
-  );
-  const [containerName, setContainerName] = useState(
-    initialData?.dockerRun?.containerName ?? "",
-  );
-  const [ports, setPorts] = useState(initialData?.dockerRun?.ports ?? "");
-  const [volumes, setVolumes] = useState(initialData?.dockerRun?.volumes ?? "");
-  const [envVars, setEnvVars] = useState(initialData?.dockerRun?.env ?? "");
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -98,7 +85,6 @@ export function CustomDeployDialog({
       reader.readAsText(file);
     }
   };
-
   const handleDeploy = async () => {
     if (!appName.trim()) {
       toast.error("Please provide an app name");
@@ -110,7 +96,7 @@ export function CustomDeployDialog({
       return;
     }
 
-    if (deployMethod === "run" && !imageName.trim()) {
+    if (deployMethod === "run" && !dockerRunForm.imageName.trim()) {
       toast.error("Please provide a Docker image name");
       return;
     }
@@ -125,13 +111,20 @@ export function CustomDeployDialog({
         result = await deployCustomCompose(appName, dockerCompose);
       } else {
         // Deploy using docker run
+        const trimmedImage = dockerRunForm.imageName.trim();
+        const trimmedTag = dockerRunForm.imageTag.trim();
+        const fullImage = trimmedTag ? `${trimmedImage}:${trimmedTag}` : trimmedImage;
+        const serializedPorts = serializePorts(dockerRunForm.portMappings);
+        const serializedVolumes = serializeVolumes(dockerRunForm.volumeMounts);
+        const serializedEnvVars = serializeEnvVars(dockerRunForm.envVarRows);
         result = await deployCustomRun(
           appName,
-          imageName,
-          containerName || undefined,
-          ports || undefined,
-          volumes || undefined,
-          envVars || undefined,
+          fullImage,
+          dockerRunForm.containerName || undefined,
+          serializedPorts || undefined,
+          serializedVolumes || undefined,
+          serializedEnvVars || undefined,
+          dockerRunForm.iconUrl || undefined,
         );
       }
 
@@ -142,11 +135,7 @@ export function CustomDeployDialog({
         // Reset form
         setAppName("");
         setDockerCompose("");
-        setImageName("");
-        setContainerName("");
-        setPorts("");
-        setVolumes("");
-        setEnvVars("");
+        dockerRunForm.reset();
 
         // Trigger refresh of installed apps
         window.dispatchEvent(new CustomEvent("refreshInstalledApps"));
@@ -178,63 +167,11 @@ export function CustomDeployDialog({
           `,
         }}
       >
-        {/* Header */}
-        <div
-          className="relative px-6 py-5 border-b"
-          style={{ borderColor: "rgba(255, 255, 255, 0.15)" }}
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              {initialData?.appIcon && (
-                <div className="relative w-12 h-12 flex-shrink-0">
-                  <Image
-                    src={initialData.appIcon}
-                    alt={initialData.appTitle || "App"}
-                    fill
-                    className="object-contain rounded-lg"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = "/icons/default-app-icon.png";
-                    }}
-                  />
-                </div>
-              )}
-              <div>
-                <DialogTitle className="text-2xl font-semibold text-white">
-                  {initialData?.appTitle
-                    ? `Customize ${initialData.appTitle}`
-                    : "Custom Docker Deploy"}
-                </DialogTitle>
-                <DialogDescription
-                  id="custom-deploy-description"
-                  className="text-sm text-zinc-300 mt-1"
-                >
-                  {initialData?.appTitle
-                    ? "Modify the configuration before deploying"
-                    : "Deploy your own Docker container or compose file"}
-                </DialogDescription>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onOpenChange(false)}
-              className="h-9 w-9 rounded-full text-white transition-all"
-              style={{
-                background: "rgba(255, 255, 255, 0.05)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-              }}
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
+        <CustomDeployHeader
+          data={initialData}
+          descriptionId="custom-deploy-description"
+          onClose={() => onOpenChange(false)}
+        />
 
         <ScrollArea className="max-h-[calc(90vh-180px)]">
           <div className="p-6 space-y-6">
@@ -307,254 +244,52 @@ export function CustomDeployDialog({
               {/* Docker Compose Tab */}
               {(hasCompose || !initialData) && (
                 <TabsContent value="compose" className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="compose-file" className="text-zinc-200">
-                        Docker Compose Configuration *
-                      </Label>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          document.getElementById("file-upload")?.click()
-                        }
-                        disabled={loading}
-                        className="h-8 text-white hover:text-white transition-all"
-                        style={{
-                          background: "rgba(255, 255, 255, 0.1)",
-                          border: "1px solid rgba(255, 255, 255, 0.2)",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background =
-                            "rgba(255, 255, 255, 0.15)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background =
-                            "rgba(255, 255, 255, 0.1)";
-                        }}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload File
-                      </Button>
-                      <input
-                        id="file-upload"
-                        type="file"
-                        accept=".yml,.yaml"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </div>
-                    <Textarea
-                      id="compose-file"
-                      placeholder="version: '3.8'
-services:
-  myapp:
-    image: nginx:latest
-    ports:
-      - '8080:80'
-    volumes:
-      - ./data:/data"
-                      value={dockerCompose}
-                      onChange={(e) => setDockerCompose(e.target.value)}
-                      className="min-h-[300px] font-mono text-sm text-white placeholder:text-zinc-500 whitespace-pre-wrap break-words break-all w-full max-w-full"
-                      style={{
-                        background: "rgba(255, 255, 255, 0.05)",
-                        border: "1px solid rgba(255, 255, 255, 0.15)",
-                      }}
-                      disabled={loading}
-                    />
-                    <p className="text-xs text-zinc-400">
-                      Paste your docker-compose.yml content or upload a file
-                    </p>
-                  </div>
-
-                  <div
-                    className="rounded-xl p-4"
-                    style={{
-                      background: "rgba(59, 130, 246, 0.1)",
-                      border: "1px solid rgba(96, 165, 250, 0.3)",
-                    }}
-                  >
-                    <div className="flex gap-3">
-                      <AlertCircle className="h-5 w-5 text-blue-300 flex-shrink-0 mt-0.5" />
-                      <div className="text-sm text-blue-100/90">
-                        <p className="font-medium mb-1 text-white">
-                          Important Notes:
-                        </p>
-                        <ul className="list-disc list-inside space-y-1 text-xs">
-                          <li>
-                            Ensure ports don&apos;t conflict with existing apps
-                          </li>
-                          <li>Use absolute paths for volume mounts</li>
-                          <li>
-                            Container will restart automatically unless
-                            specified
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
+                  <DockerComposeTab
+                    loading={loading}
+                    dockerCompose={dockerCompose}
+                    onDockerComposeChange={setDockerCompose}
+                    onFileUpload={handleFileUpload}
+                  />
                 </TabsContent>
               )}
               {/* Docker Run Tab */}
               {(hasRun || !initialData) && (
                 <TabsContent value="run" className="space-y-4 mt-4">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="image-name" className="text-zinc-200">
-                        Docker Image *
-                      </Label>
-                      <Input
-                        id="image-name"
-                        placeholder="nginx:latest or ghcr.io/user/image:tag"
-                        value={imageName}
-                        onChange={(e) => setImageName(e.target.value)}
-                        className="text-white placeholder:text-zinc-500"
-                        style={{
-                          background: "rgba(255, 255, 255, 0.05)",
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                        }}
-                        disabled={loading}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="container-name" className="text-zinc-200">
-                        Container Name (Optional)
-                      </Label>
-                      <Input
-                        id="container-name"
-                        placeholder="my-container"
-                        value={containerName}
-                        onChange={(e) => setContainerName(e.target.value)}
-                        className="text-white placeholder:text-zinc-500"
-                        style={{
-                          background: "rgba(255, 255, 255, 0.05)",
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                        }}
-                        disabled={loading}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="ports" className="text-zinc-200">
-                        Port Mappings
-                      </Label>
-                      <Input
-                        id="ports"
-                        placeholder="8080:80, 8443:443"
-                        value={ports}
-                        onChange={(e) => setPorts(e.target.value)}
-                        className="text-white placeholder:text-zinc-500"
-                        style={{
-                          background: "rgba(255, 255, 255, 0.05)",
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                        }}
-                        disabled={loading}
-                      />
-                      <p className="text-xs text-zinc-400">
-                        Format: host:container, separated by commas
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="volumes" className="text-zinc-200">
-                        Volume Mounts
-                      </Label>
-                      <Textarea
-                        id="volumes"
-                        placeholder="/host/path:/container/path&#10;./data:/app/data"
-                        value={volumes}
-                        onChange={(e) => setVolumes(e.target.value)}
-                        className="min-h-[80px] font-mono text-sm text-white placeholder:text-zinc-500"
-                        style={{
-                          background: "rgba(255, 255, 255, 0.05)",
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                        }}
-                        disabled={loading}
-                      />
-                      <p className="text-xs text-zinc-400">
-                        One per line, format: host:container
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="env-vars" className="text-zinc-200">
-                        Environment Variables
-                      </Label>
-                      <Textarea
-                        id="env-vars"
-                        placeholder="KEY=value&#10;API_KEY=your-key&#10;DEBUG=true"
-                        value={envVars}
-                        onChange={(e) => setEnvVars(e.target.value)}
-                        className="min-h-[100px] font-mono text-sm text-white placeholder:text-zinc-500"
-                        style={{
-                          background: "rgba(255, 255, 255, 0.05)",
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                        }}
-                        disabled={loading}
-                      />
-                      <p className="text-xs text-zinc-400">
-                        One per line, format: KEY=value
-                      </p>
-                    </div>
-                  </div>
+                  <DockerRunTab
+                    loading={loading}
+                    imageName={dockerRunForm.imageName}
+                    imageTag={dockerRunForm.imageTag}
+                    onImageChange={dockerRunForm.handleImageChange}
+                    onTagChange={dockerRunForm.handleTagChange}
+                    iconUrl={dockerRunForm.iconUrl}
+                    onIconUrlChange={dockerRunForm.setIconUrl}
+                    onIconUrlPaste={dockerRunForm.handleIconPaste}
+                    containerName={dockerRunForm.containerName}
+                    onContainerNameChange={dockerRunForm.setContainerName}
+                    portMappings={dockerRunForm.portMappings}
+                    onAddPortMapping={dockerRunForm.addPortMapping}
+                    onUpdatePortMapping={dockerRunForm.updatePortMapping}
+                    onRemovePortMapping={dockerRunForm.removePortMapping}
+                    volumeMounts={dockerRunForm.volumeMounts}
+                    onAddVolumeMount={dockerRunForm.addVolumeMount}
+                    onUpdateVolumeMount={dockerRunForm.updateVolumeMount}
+                    onRemoveVolumeMount={dockerRunForm.removeVolumeMount}
+                    envVarRows={dockerRunForm.envVarRows}
+                    onAddEnvVarRow={dockerRunForm.addEnvVarRow}
+                    onUpdateEnvVarRow={dockerRunForm.updateEnvVarRow}
+                    onRemoveEnvVarRow={dockerRunForm.removeEnvVarRow}
+                  />
                 </TabsContent>
               )}
             </Tabs>
           </div>
         </ScrollArea>
 
-        {/* Footer */}
-        <div
-          className="flex items-center justify-end gap-3 px-6 py-4 border-t"
-          style={{ borderColor: "rgba(255, 255, 255, 0.15)" }}
-        >
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={loading}
-            className="text-white hover:text-white transition-all"
-            style={{
-              background: "rgba(255, 255, 255, 0.05)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeploy}
-            disabled={loading}
-            className="text-white hover:text-white transition-all"
-            style={{
-              background: "rgba(255, 255, 255, 0.15)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-            }}
-            onMouseEnter={(e) => {
-              if (!loading)
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.25)";
-            }}
-            onMouseLeave={(e) => {
-              if (!loading)
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
-            }}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Deploying...
-              </>
-            ) : (
-              "Deploy Application"
-            )}
-          </Button>
-        </div>
+        <CustomDeployFooter
+          loading={loading}
+          onCancel={() => onOpenChange(false)}
+          onDeploy={handleDeploy}
+        />
       </DialogContent>
     </Dialog>
   );

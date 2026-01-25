@@ -177,7 +177,18 @@ export function SystemMonitorDialog({
             />
 
             {/* Applications List */}
-            <AppList apps={runningApps} connected={connected} />
+            <AppList
+              apps={[
+                {
+                  id: "system",
+                  name: "System",
+                  cpuUsage: currentSystemStats.cpu.usage,
+                  memoryUsage: currentSystemStats.memory.used,
+                },
+                ...runningApps,
+              ]}
+              connected={connected}
+            />
           </div>
         </ScrollArea>
       </DialogContent>

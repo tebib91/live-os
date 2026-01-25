@@ -26,6 +26,8 @@ export interface AppUsage {
   memoryUsage: number;
   memoryLimit: number;
   memoryPercent: number;
+  netRx?: number;
+  netTx?: number;
 }
 
 export interface InstalledApp {

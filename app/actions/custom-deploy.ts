@@ -73,6 +73,7 @@ export async function deployCustomRun(
   ports?: string,
   volumes?: string,
   envVars?: string,
+  iconUrl?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!validateAppId(appName)) {
     return {
@@ -118,7 +119,7 @@ export async function deployCustomRun(
     if (stdout) console.log("[CustomDeploy] run stdout:", stdout);
     if (stderr && !isNoise(stderr)) console.error("[CustomDeploy] run stderr:", stderr);
 
-    await recordInstalledApp(appName, finalContainer);
+    await recordInstalledApp(appName, finalContainer, iconUrl);
     await triggerAppsUpdate();
     return { success: true };
   } catch (error: any) {
@@ -141,24 +142,26 @@ function getContainerName(appId: string) {
 async function recordInstalledApp(
   appId: string,
   containerName: string,
+  iconOverride?: string,
 ): Promise<void> {
   const appMeta = await prisma.app.findFirst({
     where: { appId },
     orderBy: { createdAt: "desc" },
   });
+  const icon = iconOverride?.trim() || appMeta?.icon || DEFAULT_APP_ICON;
 
   await prisma.installedApp.upsert({
     where: { containerName },
     update: {
       appId,
       name: appMeta?.title || appMeta?.name || appId,
-      icon: appMeta?.icon || DEFAULT_APP_ICON,
+      icon,
     },
     create: {
       appId,
       containerName,
       name: appMeta?.title || appMeta?.name || appId,
-      icon: appMeta?.icon || DEFAULT_APP_ICON,
+      icon,
     },
   });
 }
