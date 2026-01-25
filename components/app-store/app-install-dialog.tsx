@@ -306,7 +306,9 @@ export function getDefaultInstallConfig(app: App): InstallConfig {
   const defaultVolumes =
     app.container?.volumes?.map((vol: any) => ({
       container: vol.container || vol.target || '',
-      source: vol.source || `/DATA/AppData/${app.id}`,
+      source: (vol.source || `/DATA/AppData/${app.id}`)
+        .replace(/\$\{?AppID\}?/g, app.id)
+        .replace(/\$\{?APP_ID\}?/g, app.id),
     })) || [];
 
   const defaultEnv = [

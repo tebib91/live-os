@@ -239,6 +239,12 @@ export async function installApp(
     // Build environment variables
     console.log("[Docker] installApp: Building environment variables...");
     const envVars: NodeJS.ProcessEnv = { ...env };
+    if (!envVars.AppID) {
+      envVars.AppID = appId;
+    }
+    if (!envVars.APP_ID) {
+      envVars.APP_ID = appId;
+    }
     if (!envVars.APP_DATA_DIR) {
       envVars.APP_DATA_DIR = path.join("/DATA/AppData", appId);
     }
@@ -676,6 +682,17 @@ export async function uninstallApp(appId: string): Promise<boolean> {
       `[Docker] uninstallApp: Removing container "${containerName}"...`
     );
     await execAsync(`docker rm -f ${containerName}`);
+
+    const appDataPath = path.join("/DATA/AppData", appId);
+    try {
+      await fs.rm(appDataPath, { recursive: true, force: true });
+      console.log(`[Docker] uninstallApp: Removed data dir ${appDataPath}`);
+    } catch (cleanupError) {
+      console.warn(
+        `[Docker] uninstallApp: Failed to remove data dir ${appDataPath}:`,
+        cleanupError
+      );
+    }
 
     await prisma.installedApp
       .delete({ where: { containerName } })

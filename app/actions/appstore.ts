@@ -27,6 +27,8 @@ import { listFiles } from "./store/utils";
 const execAsync = promisify(exec);
 
 const STORE_ROOT = path.join(process.cwd(), "external-apps");
+const CASAOS_RECOMMEND_LIST_URL =
+  "https://raw.githubusercontent.com/tebib91/live-os/refs/heads/main/recommanded-list.json";
 
 type StoreFormat = "casaos" | "umbrel";
 
@@ -118,6 +120,32 @@ export async function getAppStoreApps(): Promise<App[]> {
  */
 export async function getInstalledApps(): Promise<App[]> {
   return withActionLogging("appstore:getInstalledApps", async () => []);
+}
+
+export async function getCasaOsRecommendList(): Promise<string[]> {
+  return withActionLogging("appstore:casaos:recommendations", async () => {
+    try {
+      const response = await fetch(CASAOS_RECOMMEND_LIST_URL, {
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        return [];
+      }
+
+      const parsed = (await response.json()) as Array<
+        { appid?: string } | string
+      >;
+      const ids = parsed
+        .map((item) => (typeof item === "string" ? item : item?.appid))
+        .filter(Boolean)
+        .map((id) => String(id).toLowerCase());
+
+      return Array.from(new Set(ids));
+    } catch (error) {
+      console.warn("[appstore] Failed to read CasaOS recommend list:", error);
+      return [];
+    }
+  });
 }
 
 /**

@@ -1,6 +1,6 @@
 "use client";
 
-import { getAppStoreApps } from "@/app/actions/appstore";
+import { getAppStoreApps, getCasaOsRecommendList } from "@/app/actions/appstore";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("discover");
+  const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
   const [customDeployOpen, setCustomDeployOpen] = useState(false);
   const [communityStoreOpen, setCommunityStoreOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -49,8 +50,12 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
     try {
       setLoading(true);
       setError(null);
-      const loadedApps = await getAppStoreApps();
+      const [loadedApps, recommended] = await Promise.all([
+        getAppStoreApps(),
+        getCasaOsRecommendList(),
+      ]);
       setApps(loadedApps);
+      setRecommendedIds(recommended);
     } catch {
       setError("Unable to load applications. Please try again.");
     } finally {
@@ -84,21 +89,32 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
     });
   }, [apps, searchQuery, selectedCategory]);
 
+  const discoverApps = useMemo(() => {
+    if (recommendedIds.length === 0) return apps;
+
+    const byId = new Map(apps.map((app) => [app.id.toLowerCase(), app]));
+    const ordered = recommendedIds
+      .map((id) => byId.get(id))
+      .filter(Boolean) as App[];
+
+    return ordered.length > 0 ? ordered : apps;
+  }, [apps, recommendedIds]);
+
   // Get featured apps (first 6 apps with screenshots or random)
   const featuredApps = useMemo(() => {
-    const withScreenshots = apps.filter(
+    const withScreenshots = discoverApps.filter(
       (app) => app.screenshots && app.screenshots.length > 0,
     );
     return withScreenshots.length > 0
       ? withScreenshots.slice(0, 6)
-      : apps.slice(0, 6);
-  }, [apps]);
+      : discoverApps.slice(0, 6);
+  }, [discoverApps]);
 
   // Get popular apps (first 9)
-  const popularApps = useMemo(() => apps.slice(0, 9), [apps]);
+  const popularApps = useMemo(() => discoverApps.slice(0, 9), [discoverApps]);
 
   // Get new apps (last 9 added)
-  const newApps = useMemo(() => apps.slice(-9).reverse(), [apps]);
+  const newApps = useMemo(() => discoverApps.slice(-9).reverse(), [discoverApps]);
 
   const getInstalledApp = useCallback((app: App) => {
     return (

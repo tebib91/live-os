@@ -4,6 +4,7 @@ import path from 'path';
 
 // Block sensitive paths
 const BLOCKED_PATHS = ['/etc', '/sys', '/proc', '/dev', '/boot', '/root'];
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 function isPathBlocked(targetPath: string): boolean {
   const normalized = path.normalize(targetPath);
@@ -36,6 +37,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'No files provided' },
         { status: 400 }
+      );
+    }
+
+    const totalBytes = files.reduce((sum, file) => sum + (file?.size ?? 0), 0);
+    if (totalBytes > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { success: false, error: 'Upload exceeds 100MB limit' },
+        { status: 413 }
       );
     }
 
@@ -117,10 +126,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Limit upload size (100MB per request)
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
