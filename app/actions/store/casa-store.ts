@@ -1,10 +1,12 @@
-import type { App } from "@/components/app-store/types";
+import type {
+  App,
+  AppTips,
+  EnvConfig,
+  PortConfig,
+  VolumeConfig,
+} from "@/components/app-store/types";
 import type { CommunityStore } from "./types";
-import {
-  DEFAULT_APP_ICON,
-  listFiles,
-  resolveAsset,
-} from "./utils";
+import { DEFAULT_APP_ICON, listFiles, resolveAsset } from "./utils";
 import fs from "fs/promises";
 import path from "path";
 import YAML from "yaml";
@@ -12,6 +14,9 @@ import YAML from "yaml";
 export const CASAOS_OFFICIAL_ZIP =
   "https://github.com/IceWhaleTech/CasaOS-AppStore/archive/refs/heads/main.zip";
 
+/**
+ * Parse a CasaOS app store directory into App objects
+ */
 export async function parseCasaOSStore(
   storeDir: string,
   storeId: string,
@@ -40,6 +45,7 @@ export async function parseCasaOSStore(
       const rawId = manifest?.name || path.basename(appDir);
       const appId = String(rawId).toLowerCase();
 
+      // Basic metadata
       const title =
         getLocalizedValue(xCasa.title) ??
         getLocalizedValue(xCasa.name) ??
@@ -58,6 +64,7 @@ export async function parseCasaOSStore(
       const icon =
         resolveAsset(xCasa.icon, storeId, appDir) ?? DEFAULT_APP_ICON;
 
+      // Screenshots (support both screenshot_link and screenshots)
       const screenshots = await resolveScreenshots(xCasa, storeId, appDir);
       const version =
         typeof xCasa.version === "string" ? xCasa.version : undefined;
@@ -67,6 +74,12 @@ export async function parseCasaOSStore(
       const website = xCasa.homepage ?? xCasa.website ?? undefined;
       const repo = xCasa.repo ?? xCasa.project_url ?? undefined;
 
+      // CasaOS-specific fields
+      const architectures = normalizeArchitectures(xCasa.architectures);
+      const tips = parseTips(xCasa.tips);
+      const thumbnail = resolveAsset(xCasa.thumbnail, storeId, appDir);
+
+      // Container metadata with service-level x-casaos descriptions
       const container = buildContainerMetadata(manifest, xCasa);
 
       apps.push({
@@ -85,6 +98,9 @@ export async function parseCasaOSStore(
         website,
         repo,
         composePath: path.relative(process.cwd(), composePath),
+        architectures,
+        tips,
+        thumbnail,
         container: container ?? undefined,
       });
     } catch (error) {
@@ -127,6 +143,10 @@ export function isLikelyCasaStore(files: string[]): boolean {
   );
 }
 
+// ============================================================================
+// Helper functions
+// ============================================================================
+
 function getLocalizedValue(value: unknown): string | undefined {
   if (!value) return undefined;
   if (typeof value === "string") return value;
@@ -137,6 +157,7 @@ function getLocalizedValue(value: unknown): string | undefined {
       record.en_us ||
       record.en ||
       record["en-US"] ||
+      record.en_GB ||
       Object.values(record)[0]
     );
   }
@@ -154,13 +175,51 @@ function normalizeCategory(category: unknown): string[] {
   return [];
 }
 
+function normalizeArchitectures(archs: unknown): string[] | undefined {
+  if (!archs) return undefined;
+  if (Array.isArray(archs)) {
+    const normalized = archs
+      .map((a) => (typeof a === "string" ? a.toLowerCase() : String(a).toLowerCase()))
+      .filter(Boolean);
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  if (typeof archs === "string") return [archs.toLowerCase()];
+  return undefined;
+}
+
+/**
+ * Parse tips from x-casaos.tips
+ */
+function parseTips(tips: unknown): AppTips | undefined {
+  if (!tips || typeof tips !== "object") return undefined;
+
+  const tipsObj = tips as CasaTips;
+  const beforeInstall = getLocalizedValue(tipsObj.before_install);
+
+  if (!beforeInstall) return undefined;
+
+  return { beforeInstall };
+}
+
+/**
+ * Resolve screenshots from multiple possible fields:
+ * - screenshot_link (CasaOS official format)
+ * - screenshot
+ * - screenshots
+ * - gallery
+ */
 async function resolveScreenshots(
   xCasa: CasaMeta,
   storeId: string,
   appDir: string,
 ): Promise<string[]> {
+  // CasaOS uses screenshot_link as the primary field
   const rawScreens =
-    xCasa.screenshot ?? xCasa.screenshots ?? xCasa.gallery ?? [];
+    xCasa.screenshot_link ??
+    xCasa.screenshot ??
+    xCasa.screenshots ??
+    xCasa.gallery ??
+    [];
   const list = Array.isArray(rawScreens)
     ? rawScreens
     : [rawScreens].filter(Boolean);
@@ -179,17 +238,40 @@ function parsePortMap(value: unknown): number | undefined {
   return undefined;
 }
 
-function buildContainerMetadata(manifest: CasaManifest, xCasa: CasaMeta) {
+/**
+ * Build container metadata with service-level x-casaos descriptions
+ */
+function buildContainerMetadata(
+  manifest: CasaManifest,
+  xCasa: CasaMeta,
+): {
+  image: string;
+  ports: PortConfig[];
+  volumes: VolumeConfig[];
+  environment: EnvConfig[];
+} | null {
   const services = manifest?.services ?? {};
   const mainServiceName = xCasa?.main || Object.keys(services)[0] || undefined;
-  if (!mainServiceName) return undefined;
+  if (!mainServiceName) return null;
 
   const service = services[mainServiceName];
-  if (!service) return undefined;
+  if (!service) return null;
 
-  const ports = normalizePorts(service.ports || []);
-  const volumes = normalizeVolumes(service.volumes || []);
-  const environment = normalizeEnvironment(service.environment || []);
+  // Get service-level x-casaos for descriptions
+  const serviceXCasa = service["x-casaos"] as ServiceXCasaos | undefined;
+
+  const ports = normalizePortsWithDescriptions(
+    service.ports || [],
+    serviceXCasa?.ports,
+  );
+  const volumes = normalizeVolumesWithDescriptions(
+    service.volumes || [],
+    serviceXCasa?.volumes,
+  );
+  const environment = normalizeEnvWithDescriptions(
+    service.environment || [],
+    serviceXCasa?.envs,
+  );
 
   return {
     image: service.image || "",
@@ -199,103 +281,179 @@ function buildContainerMetadata(manifest: CasaManifest, xCasa: CasaMeta) {
   };
 }
 
-function normalizePorts(rawPorts: Array<string | PortObject>): {
-  container: string;
-  published: string;
-  protocol: string;
-}[] {
-  return (rawPorts || [])
-    .map((port) => {
-      if (typeof port === "string") {
-        const [hostPart, containerPartRaw] = port.split(":");
-        const [containerPart, protocolPart] = (
-          containerPartRaw || hostPart
-        ).split("/");
-        return {
-          container: containerPart?.toString() || "",
-          published: hostPart?.toString() || containerPart?.toString() || "",
+/**
+ * Normalize ports with descriptions from service-level x-casaos
+ */
+function normalizePortsWithDescriptions(
+  rawPorts: Array<string | PortObject>,
+  descriptions?: PortDescription[],
+): PortConfig[] {
+  const descMap = new Map<string, string>();
+  if (descriptions) {
+    for (const desc of descriptions) {
+      const container = desc.container?.toString() || "";
+      const text = getLocalizedValue(desc.description);
+      if (container && text) {
+        descMap.set(container, text);
+      }
+    }
+  }
+
+  const results: PortConfig[] = [];
+
+  for (const port of rawPorts || []) {
+    if (typeof port === "string") {
+      const [hostPart, containerPartRaw] = port.split(":");
+      const [containerPart, protocolPart] = (containerPartRaw || hostPart).split("/");
+      const container = containerPart?.toString() || "";
+      if (container) {
+        const desc = descMap.get(container);
+        results.push({
+          container,
+          published: hostPart?.toString() || container,
           protocol: (protocolPart || "tcp").toString(),
-        };
+          ...(desc && { description: desc }),
+        });
       }
-      if (typeof port === "object" && port !== null) {
-        const container = port.target ?? port.container ?? port.port ?? "";
-        const published =
-          port.published ?? port.host ?? port.host_port ?? container;
-        const protocol = port.protocol ?? "tcp";
-        return {
-          container: container?.toString() || "",
-          published: published?.toString() || "",
-          protocol: protocol?.toString() || "tcp",
-        };
+    } else if (typeof port === "object" && port !== null) {
+      const container = (port.target ?? port.container ?? port.port ?? "").toString();
+      const published = (port.published ?? port.host ?? port.host_port ?? container).toString();
+      const protocol = (port.protocol ?? "tcp").toString();
+      if (container) {
+        const desc = descMap.get(container);
+        results.push({
+          container,
+          published,
+          protocol,
+          ...(desc && { description: desc }),
+        });
       }
-      return null;
-    })
-    .filter(
-      (p): p is { container: string; published: string; protocol: string } =>
-        Boolean(p && p.container),
-    );
+    }
+  }
+
+  return results;
 }
 
-function normalizeVolumes(
+/**
+ * Normalize volumes with descriptions from service-level x-casaos
+ */
+function normalizeVolumesWithDescriptions(
   rawVolumes: Array<string | VolumeObject>,
-): { container: string; source: string }[] {
-  return (rawVolumes || [])
-    .map((vol) => {
-      if (typeof vol === "string") {
-        const parts = vol.split(":");
-        const source = parts[0] || "";
-        const container = parts[1] || source;
-        return { container, source };
+  descriptions?: VolumeDescription[],
+): VolumeConfig[] {
+  const descMap = new Map<string, string>();
+  if (descriptions) {
+    for (const desc of descriptions) {
+      const container = desc.container?.toString() || "";
+      const text = getLocalizedValue(desc.description);
+      if (container && text) {
+        descMap.set(container, text);
       }
-      if (typeof vol === "object" && vol !== null) {
-        const container = vol.target ?? vol.container ?? "";
-        const source =
-          vol.source ??
-          vol.from ??
-          (vol.type === "volume" ? vol.name : undefined) ??
-          "";
-        return {
-          container: container?.toString() || "",
-          source: source?.toString() || "",
-        };
+    }
+  }
+
+  const results: VolumeConfig[] = [];
+
+  for (const vol of rawVolumes || []) {
+    if (typeof vol === "string") {
+      const parts = vol.split(":");
+      const source = parts[0] || "";
+      const container = parts[1] || source;
+      if (container) {
+        const desc = descMap.get(container);
+        results.push({
+          container,
+          source,
+          ...(desc && { description: desc }),
+        });
       }
-      return null;
-    })
-    .filter(
-      (v): v is { container: string; source: string } =>
-        Boolean(v && v.container),
-    );
+    } else if (typeof vol === "object" && vol !== null) {
+      const container = (vol.target ?? vol.container ?? "").toString();
+      const source = (
+        vol.source ??
+        vol.from ??
+        (vol.type === "volume" ? vol.name : undefined) ??
+        ""
+      ).toString();
+      if (container) {
+        const desc = descMap.get(container);
+        results.push({
+          container,
+          source,
+          ...(desc && { description: desc }),
+        });
+      }
+    }
+  }
+
+  return results;
 }
 
-function normalizeEnvironment(
-  rawEnv:
-    | Array<string | EnvObject>
-    | Record<string, string | number>
-    | undefined,
-): { key: string; value: string }[] {
-  const envArray: { key: string; value: string }[] = [];
+/**
+ * Normalize environment variables with descriptions from service-level x-casaos
+ */
+function normalizeEnvWithDescriptions(
+  rawEnv: Array<string | EnvObject> | Record<string, string | number> | undefined,
+  descriptions?: EnvDescription[],
+): EnvConfig[] {
+  const descMap = new Map<string, string>();
+  if (descriptions) {
+    for (const desc of descriptions) {
+      const key = desc.container?.toString() || "";
+      const text = getLocalizedValue(desc.description);
+      if (key && text) {
+        descMap.set(key, text);
+      }
+    }
+  }
+
+  const envArray: EnvConfig[] = [];
 
   if (Array.isArray(rawEnv)) {
-    rawEnv.forEach((item) => {
+    for (const item of rawEnv) {
       if (typeof item === "string" && item.includes("=")) {
         const [key, ...rest] = item.split("=");
-        envArray.push({ key, value: rest.join("=") });
+        const desc = descMap.get(key);
+        envArray.push({
+          key,
+          value: rest.join("="),
+          ...(desc && { description: desc }),
+        });
       } else if (typeof item === "object" && item) {
-        const key = item.key ?? item.name;
-        if (key)
-          envArray.push({ key: String(key), value: String(item.value ?? "") });
+        const key = (item.key ?? item.name ?? "").toString();
+        if (key) {
+          const desc = descMap.get(key);
+          envArray.push({
+            key,
+            value: String(item.value ?? ""),
+            ...(desc && { description: desc }),
+          });
+        }
       }
-    });
+    }
   } else if (rawEnv && typeof rawEnv === "object") {
-    Object.entries(rawEnv).forEach(([key, value]) => {
-      envArray.push({ key, value: String(value ?? "") });
-    });
+    for (const [key, value] of Object.entries(rawEnv)) {
+      const desc = descMap.get(key);
+      envArray.push({
+        key,
+        value: String(value ?? ""),
+        ...(desc && { description: desc }),
+      });
+    }
   }
 
   return envArray;
 }
 
+// ============================================================================
+// Type definitions
+// ============================================================================
+
 type LocalizedString = string | Record<string, string>;
+
+type CasaTips = {
+  before_install?: LocalizedString;
+};
 
 type CasaMeta = {
   title?: LocalizedString;
@@ -315,9 +473,36 @@ type CasaMeta = {
   repo?: string;
   project_url?: string;
   main?: string;
+  // Screenshots - multiple possible field names
   screenshot?: string | string[];
   screenshots?: string | string[];
+  screenshot_link?: string | string[]; // CasaOS official format
   gallery?: string | string[];
+  // CasaOS-specific fields
+  architectures?: string[];
+  tips?: CasaTips;
+  thumbnail?: string;
+};
+
+type PortDescription = {
+  container?: string | number;
+  description?: LocalizedString;
+};
+
+type VolumeDescription = {
+  container?: string;
+  description?: LocalizedString;
+};
+
+type EnvDescription = {
+  container?: string; // CasaOS uses 'container' for env key
+  description?: LocalizedString;
+};
+
+type ServiceXCasaos = {
+  envs?: EnvDescription[];
+  ports?: PortDescription[];
+  volumes?: VolumeDescription[];
 };
 
 type CasaService = {
@@ -325,6 +510,7 @@ type CasaService = {
   ports?: Array<string | PortObject>;
   volumes?: Array<string | VolumeObject>;
   environment?: Array<string | EnvObject> | Record<string, string | number>;
+  "x-casaos"?: ServiceXCasaos;
 };
 
 type PortObject = {

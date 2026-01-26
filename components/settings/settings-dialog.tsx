@@ -160,15 +160,16 @@ export function SettingsDialog({
   }, []);
 
   // Fetch static data once when dialog opens
+  // NOTE: LAN scan is slow (up to 80s), so only fetch on demand via "View devices" button
   useEffect(() => {
     if (open) {
       fetchSystemInfo();
       fetchWallpapers();
       fetchUptime();
       fetchFirewallStatus();
-      fetchLanDevices();
+      // fetchLanDevices() removed - too slow for auto-fetch
     }
-  }, [open, fetchSystemInfo, fetchWallpapers, fetchUptime, fetchFirewallStatus, fetchLanDevices]);
+  }, [open, fetchSystemInfo, fetchWallpapers, fetchUptime, fetchFirewallStatus]);
 
   const handleWallpaperSelect = useCallback(async (path: string) => {
     onWallpaperChange?.(path);

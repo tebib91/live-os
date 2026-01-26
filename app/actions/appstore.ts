@@ -266,7 +266,7 @@ export async function importAppStore(
           website: app.website,
           repo: app.repo,
           composePath: app.composePath || "",
-          container: app.container ?? undefined,
+          container: (app.container ?? undefined) as never,
         },
         create: {
           storeId: store.id,
@@ -287,7 +287,7 @@ export async function importAppStore(
           website: app.website,
           repo: app.repo,
           composePath: app.composePath || "",
-          container: app.container ?? undefined,
+          container: (app.container ?? undefined) as never,
         },
       });
     }

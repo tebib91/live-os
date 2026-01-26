@@ -74,6 +74,7 @@ export async function updateSettings(
   input: Partial<SettingsData>
 ): Promise<SettingsData> {
   try {
+    console.info('updateSettings called with:', input);
     // Build update data object
     const data: Record<string, unknown> = {};
     if (input.currentWallpaper !== undefined) {
@@ -103,6 +104,8 @@ export async function updateSettings(
       },
       update: data,
     });
+
+    console.info('updateSettings persisted:', data);
 
     return {
       currentWallpaper: settings.currentWallpaper ?? null,
