@@ -1,0 +1,181 @@
+'use client';
+
+import { type DefaultDirectory } from '@/app/actions/filesystem';
+import { FolderIcon } from '@/components/icons/files';
+import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Clock, Grid3x3, Home, Plus, Star, Trash2 } from 'lucide-react';
+
+interface FilesSidebarProps {
+  homePath: string;
+  shortcuts: DefaultDirectory[];
+  favorites: string[];
+  trashPath: string;
+  trashItemCount: number;
+  currentPath: string;
+  onNavigate: (path: string) => void;
+  getShortcutPath: (name: string) => string;
+  onOpenNetwork: () => void;
+  onEmptyTrash: () => void;
+}
+
+export function FilesSidebar({
+  homePath,
+  shortcuts,
+  favorites,
+  trashPath,
+  trashItemCount,
+  currentPath,
+  onNavigate,
+  getShortcutPath,
+  onOpenNetwork,
+  onEmptyTrash,
+}: FilesSidebarProps) {
+  const isInTrash = currentPath === trashPath;
+  const homeLabel = homePath.split('/').filter(Boolean).pop() || 'Home';
+
+  // Get folder name from path
+  const getFolderName = (path: string) => {
+    const parts = path.split('/').filter(Boolean);
+    return parts[parts.length - 1] || path;
+  };
+
+  return (
+    <div className="w-60 bg-black/30 backdrop-blur-xl border-r border-white/10 flex flex-col">
+      <div className="p-6">
+        <div className="flex items-center gap-3">
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white/70">
+            System
+          </span>
+          <DialogTitle className="text-3xl font-semibold text-white drop-shadow">
+            Files
+          </DialogTitle>
+        </div>
+        <DialogDescription id="files-description" className="sr-only">
+          File manager for browsing and managing your files
+        </DialogDescription>
+      </div>
+
+      <ScrollArea className="flex-1 px-3">
+        <div className="space-y-1">
+          <button
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-white/10 text-white/90 hover:bg-white/15 transition-colors border border-white/10 shadow-sm"
+            onClick={() => onNavigate(homePath)}
+          >
+            <Home className="h-4 w-4 text-white/80" />
+            <span className="text-sm -tracking-[0.01em]">{homeLabel}</span>
+          </button>
+
+          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10">
+            <Clock className="h-4 w-4 text-white/70" />
+            <span className="text-sm -tracking-[0.01em]">Recents</span>
+          </button>
+
+          <button
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10"
+            onClick={() => onNavigate(getShortcutPath('apps'))}
+          >
+            <Grid3x3 className="h-4 w-4 text-white/70" />
+            <span className="text-sm -tracking-[0.01em]">Apps</span>
+          </button>
+
+          <div className="pt-4 pb-2">
+            <div className="text-xs text-white/50 px-3 -tracking-[0.01em]">
+              Locations
+            </div>
+          </div>
+
+          {shortcuts.map((shortcut) => (
+            <button
+              key={shortcut.path}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10"
+              onClick={() => onNavigate(shortcut.path)}
+            >
+              <div className="w-5 h-4 flex-shrink-0">
+                <FolderIcon className="w-full h-full" />
+              </div>
+              <span className="text-sm -tracking-[0.01em]">
+                {shortcut.name.charAt(0).toUpperCase() + shortcut.name.slice(1)}
+              </span>
+            </button>
+          ))}
+
+          {favorites.length > 0 && (
+            <>
+              <div className="pt-4 pb-2">
+                <div className="text-xs text-white/50 px-3 -tracking-[0.01em] flex items-center gap-1.5">
+                  <Star className="h-3 w-3" />
+                  Favorites
+                </div>
+              </div>
+
+              {favorites.map((favPath) => (
+                <button
+                  key={favPath}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10"
+                  onClick={() => onNavigate(favPath)}
+                  title={favPath}
+                >
+                  <div className="w-5 h-4 flex-shrink-0">
+                    <FolderIcon className="w-full h-full" />
+                  </div>
+                  <span className="text-sm -tracking-[0.01em] truncate">
+                    {getFolderName(favPath)}
+                  </span>
+                </button>
+              ))}
+            </>
+          )}
+
+          <div className="pt-4 pb-2">
+            <div className="text-xs text-white/50 px-3 -tracking-[0.01em]">
+              Network
+            </div>
+          </div>
+
+          <button
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10"
+            onClick={onOpenNetwork}
+          >
+            <div className="relative w-4 h-4 flex-shrink-0">
+              <div className="w-full h-full rounded-sm bg-gradient-to-br from-cyan-400 via-cyan-500 to-cyan-600 shadow-sm">
+                <div className="absolute inset-0 rounded-sm bg-gradient-to-b from-white/30 to-transparent"></div>
+                <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-2 h-0.5 bg-cyan-700 rounded-full"></div>
+              </div>
+            </div>
+            <span className="text-sm -tracking-[0.01em]">Devices</span>
+            <Plus className="h-3 w-3 ml-auto text-white/40" />
+          </button>
+        </div>
+      </ScrollArea>
+
+      <div className="p-3 border-t border-white/10 space-y-1">
+        <button
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors border ${
+            isInTrash
+              ? 'bg-white/10 text-white/90 border-white/10'
+              : 'text-white/60 hover:bg-white/5 hover:text-white border-transparent hover:border-white/10'
+          }`}
+          onClick={() => onNavigate(trashPath)}
+        >
+          <Trash2 className="w-4 h-4 text-white/50" />
+          <span className="text-sm -tracking-[0.01em]">Trash</span>
+          {trashItemCount > 0 && (
+            <span className="ml-auto text-xs text-white/40 bg-white/10 px-1.5 py-0.5 rounded-full">
+              {trashItemCount}
+            </span>
+          )}
+        </button>
+        {isInTrash && trashItemCount > 0 && (
+          <button
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors border border-red-500/20 text-sm"
+            onClick={onEmptyTrash}
+          >
+            <Trash2 className="w-4 h-4" />
+            Empty Trash
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

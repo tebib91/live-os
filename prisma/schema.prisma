@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String    @id @default(cuid())
+  username  String    @unique
+  pin       String
+  role      Role      @default(ADMIN)
+  sessions  Session[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+enum Role {
+  ADMIN
+  USER
+  GUEST
+}
+
+model Settings {
+  id               Int      @id
+  currentWallpaper String?
+  selectedWidgets  Json?
+  userLatitude     Float?
+  userLongitude    Float?
+  userCity         String?
+  userCountry      String?
+  updatedAt        DateTime @updatedAt
+}
+
+model Store {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  url         String
+  name        String
+  description String?
+  localPath   String
+  manifestHash String?
+  apps        App[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model App {
+  id          String   @id @default(cuid())
+  storeId     String
+  appId       String
+  title       String
+  name        String
+  icon        String
+  tagline     String?
+  overview    String?
+  category    Json?
+  developer   String?
+  screenshots Json?
+  version     String?
+  port        Int?
+  path        String?
+  website     String?
+  repo        String?
+  composePath String
+  container   Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, appId])
+  @@index([appId])
+  @@index([title])
+}
+
+model InstalledApp {
+  id             String   @id @default(cuid())
+  appId          String
+  name           String
+  icon           String
+  containerName  String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

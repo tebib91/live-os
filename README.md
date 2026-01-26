@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LiveOS
 
-## Getting Started
+A self-hosted operating system for managing your infrastructure, built with Next.js.
 
-First, run the development server:
+## Installation
+
+Install LiveOS with a single command:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The script will:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Install Node.js 20.x and git (if not already installed)
+- Clone the repository
+- Install dependencies and build the project
+- Create and start a systemd service
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Installation Options
 
-## Learn More
+```bash
+# Dry run (preview changes without installing)
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --dry-run
 
-To learn more about Next.js, take a look at the following resources:
+# Skip dependency installation (Node.js/git)
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --no-dep
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Install specific branch
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --branch main
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Custom Port & Domain
 
-## Deploy on Vercel
+By default, LiveOS runs on port 3000. To customize:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# Custom port
+export LIVEOS_HTTP_PORT=8080
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Custom domain (like umbrel.local)
+export LIVEOS_DOMAIN=home.local
+
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo -E bash
+```
+
+Or enter them when prompted during installation.
+
+**🌐 Custom Domain with mDNS (Like Umbrel!):**
+
+During installation, you can set a hostname (e.g., "home") and LiveOS will:
+- Install **Avahi** (mDNS daemon)
+- Set system hostname
+- Make it accessible as `home.local` across your entire network
+- **No hosts file editing needed!**
+
+Works automatically on:
+- ✅ Mac, iPhone, iPad
+- ✅ Linux (with Avahi)
+- ✅ Windows 10+
+- ✅ Android
+
+## Quick Start
+
+After installation, access LiveOS at:
+
+- `http://localhost:3000` (or your custom port)
+- `http://your-server-ip:3000`
+- `http://home.local:3000` (if you set a custom domain)
+
+## Managing the Service
+
+```bash
+# Start/stop/restart
+sudo systemctl [start|stop|restart] liveos
+
+# View status
+sudo systemctl status liveos
+
+# View logs
+sudo journalctl -u liveos -f
+```
+
+## Updating LiveOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/update.sh | sudo bash
+```
+
+## Uninstalling LiveOS
+
+To completely remove LiveOS from your system:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/uninstall.sh | sudo bash
+```
+
+Or if you have the repository cloned locally:
+
+```bash
+cd /opt/live-os
+sudo bash uninstall.sh
+```
+
+This will stop the service, remove the systemd service file, and delete the installation directory.
+
+## License
+
+Apache License 2.0
