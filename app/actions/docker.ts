@@ -18,11 +18,11 @@ export const installApp = _installApp;
 
 // Lifecycle
 import {
+  restartApp as _restartApp,
   startApp as _startApp,
   stopApp as _stopApp,
-  restartApp as _restartApp,
-  updateApp as _updateApp,
   uninstallApp as _uninstallApp,
+  updateApp as _updateApp,
 } from "./docker/lifecycle";
 export const startApp = _startApp;
 export const stopApp = _stopApp;
@@ -32,11 +32,11 @@ export const uninstallApp = _uninstallApp;
 
 // Queries
 import {
-  getInstalledApps as _getInstalledApps,
   getAppById as _getAppById,
+  getAppLogs as _getAppLogs,
   getAppStatus as _getAppStatus,
   getAppWebUI as _getAppWebUI,
-  getAppLogs as _getAppLogs,
+  getInstalledApps as _getInstalledApps,
 } from "./docker/query";
 export const getInstalledApps = _getInstalledApps;
 export const getAppById = _getAppById;
@@ -46,16 +46,16 @@ export const getAppLogs = _getAppLogs;
 
 // Utilities
 import {
-  validateAppId as _validateAppId,
-  validatePort as _validatePort,
-  validatePath as _validatePath,
+  findComposeForApp as _findComposeForApp,
   getContainerName as _getContainerName,
   getContainerNameFromCompose as _getContainerNameFromCompose,
-  resolveContainerName as _resolveContainerName,
-  getSystemDefaults as _getSystemDefaults,
   getHostArchitecture as _getHostArchitecture,
-  findComposeForApp as _findComposeForApp,
+  getSystemDefaults as _getSystemDefaults,
+  resolveContainerName as _resolveContainerName,
   sanitizeComposeFile as _sanitizeComposeFile,
+  validateAppId as _validateAppId,
+  validatePath as _validatePath,
+  validatePort as _validatePort,
 } from "./docker/utils";
 export const validateAppId = _validateAppId;
 export const validatePort = _validatePort;
@@ -71,8 +71,8 @@ export const sanitizeComposeFile = _sanitizeComposeFile;
 // Database operations
 import {
   getAppMeta as _getAppMeta,
-  recordInstalledApp as _recordInstalledApp,
   getRecordedContainerName as _getRecordedContainerName,
+  recordInstalledApp as _recordInstalledApp,
 } from "./docker/db";
 export const getAppMeta = _getAppMeta;
 export const recordInstalledApp = _recordInstalledApp;

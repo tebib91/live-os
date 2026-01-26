@@ -555,3 +555,57 @@ export async function getAppComposeContent(
     };
   }
 }
+
+/**
+ * Fetch docker-compose content for an installed app by its appId.
+ * Looks up the app in the store DB to resolve composePath and returns content + metadata.
+ */
+export async function getComposeForApp(
+  appId: string,
+): Promise<{
+  success: boolean;
+  content?: string;
+  appTitle?: string;
+  appIcon?: string;
+  error?: string;
+}> {
+  try {
+    if (!appId) {
+      return { success: false, error: "Missing appId" };
+    }
+
+    const app = await prisma.app.findFirst({
+      where: { appId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!app) {
+      return { success: false, error: "App metadata not found" };
+    }
+
+    if (!app.composePath) {
+      return { success: false, error: "No compose file recorded for this app" };
+    }
+
+    const composeResult = await getAppComposeContent(app.composePath);
+    if (!composeResult.success || !composeResult.content) {
+      return {
+        success: false,
+        error: composeResult.error || "Unable to read compose file",
+      };
+    }
+
+    return {
+      success: true,
+      content: composeResult.content,
+      appTitle: app.title || app.name || app.appId,
+      appIcon: app.icon || undefined,
+    };
+  } catch (error) {
+    console.error("Failed to load compose for app:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to load compose",
+    };
+  }
+}
