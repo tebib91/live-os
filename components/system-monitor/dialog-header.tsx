@@ -1,8 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { badge, button, dialog, text } from "@/components/ui/design-tokens";
 import { X } from "lucide-react";
-import { dialog, badge, text, button } from "@/components/ui/design-tokens";
 import { ConnectionStatus } from "./connection-status";
 
 interface DialogHeaderProps {
@@ -15,7 +15,7 @@ export function DialogHeader({ connected, onClose }: DialogHeaderProps) {
     <div className={`flex items-center justify-between px-8 py-6 ${dialog.header}`}>
       <div className="flex items-center gap-4">
         <span className={badge.base}>Monitor</span>
-        <div>
+        <div className="sr-only">
           <p className={text.muted}>Live Monitor</p>
           <h2 className={text.headingXL}>System Pulse</h2>
         </div>

@@ -257,9 +257,9 @@ export function SettingsDialog({
         <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-gradient-to-r from-white/10 via-white/5 to-transparent backdrop-blur">
           <div className="flex items-center gap-4">
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white/70">
-              System
+              Settings
             </span>
-            <DialogTitle className="text-4xl font-semibold text-white drop-shadow">
+            <DialogTitle className=" sr-only text-4xl font-semibold text-white drop-shadow">
               Settings
             </DialogTitle>
             <DialogDescription id="settings-description" className="sr-only">

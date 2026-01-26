@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSystemStatus } from '@/hooks/useSystemStatus';
-import { ChevronDown, Container, Maximize2, Minimize2, Server, X } from 'lucide-react';
+import { ChevronDown, Container, Server, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Terminal } from 'xterm';
 import type { FitAddon } from 'xterm-addon-fit';
@@ -220,19 +220,18 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className={`${
-          isMaximized
-            ? 'max-w-[98vw] max-h-[98vh]'
-            : 'max-w-[95vw] sm:max-w-[1200px] max-h-[90vh]'
-        } bg-white/5 border border-white/10 backdrop-blur-3xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden ring-1 ring-white/5 transition-all`}
+        className={`${isMaximized
+          ? 'max-w-[98vw] max-h-[98vh]'
+          : 'max-w-[95vw] sm:max-w-[1200px] max-h-[90vh]'
+          } bg-white/5 border border-white/10 backdrop-blur-3xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden ring-1 ring-white/5 transition-all`}
         aria-describedby="terminal-description"
       >
         <div className="flex items-center justify-between px-8 py-5 border-b border-white/5 bg-gradient-to-r from-white/10 via-white/5 to-transparent backdrop-blur">
           <div className="flex items-center gap-4">
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white/70">
-              System
+              Terminal
             </span>
-            <DialogTitle className="text-3xl font-semibold text-white drop-shadow">
+            <DialogTitle className="sr-only text-3xl font-semibold text-white drop-shadow">
               Terminal
             </DialogTitle>
             <DialogDescription id="terminal-description" className="sr-only">
@@ -299,7 +298,7 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
                   ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
+            {/* <Button
               variant="ghost"
               size="icon"
               onClick={toggleMaximize}
@@ -310,7 +309,7 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
               ) : (
                 <Maximize2 className="h-4 w-4" />
               )}
-            </Button>
+            </Button> */}
             <Button
               variant="ghost"
               size="icon"
@@ -325,9 +324,8 @@ export function TerminalDialog({ open, onOpenChange }: TerminalDialogProps) {
         {/* Terminal Container */}
         <div
           ref={terminalRef}
-          className={`${
-            isMaximized ? 'h-[calc(98vh-64px)]' : 'h-[calc(90vh-64px)]'
-          } w-full bg-black/70 p-4 backdrop-blur-xl`}
+          className={`${isMaximized ? 'h-[calc(98vh-64px)]' : 'h-[calc(90vh-64px)]'
+            } w-full bg-black/70 p-4 backdrop-blur-xl`}
           style={{ overflow: 'hidden' }}
         />
         {statusMessage && (
