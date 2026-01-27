@@ -18,6 +18,8 @@ export const installApp = _installApp;
 
 // Lifecycle
 import {
+  emptyTrash as _emptyTrash,
+  listTrashedApps as _listTrashedApps,
   restartApp as _restartApp,
   startApp as _startApp,
   stopApp as _stopApp,
@@ -29,6 +31,8 @@ export const stopApp = _stopApp;
 export const restartApp = _restartApp;
 export const updateApp = _updateApp;
 export const uninstallApp = _uninstallApp;
+export const listTrashedApps = _listTrashedApps;
+export const emptyTrash = _emptyTrash;
 
 // Queries
 import {

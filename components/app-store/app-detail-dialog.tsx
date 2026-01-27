@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { getAppComposeContent } from "@/app/actions/appstore";
+import { getAppComposeContent, getAppMedia } from "@/app/actions/appstore";
 import { getAppWebUI, installApp } from "@/app/actions/docker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,13 +16,14 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ExternalLink, Loader2, Settings2 } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getDefaultInstallConfig } from "./app-install-dialog";
 import {
   CustomDeployDialog,
   type CustomDeployInitialData,
 } from "./custom-deploy-dialog";
+import { AppScreenshots } from "./app-screenshots";
 import type { App, InstalledApp } from "./types";
 import type { InstallProgress } from "@/hooks/system-status-types";
 
@@ -48,6 +49,11 @@ export function AppDetailDialog({
   const [customDeployOpen, setCustomDeployOpen] = useState(false);
   const [customDeployData, setCustomDeployData] =
     useState<CustomDeployInitialData | null>(null);
+  const [mediaScreens, setMediaScreens] = useState<string[]>(
+    app.screenshots ?? [],
+  );
+  const [mediaThumb, setMediaThumb] = useState<string | undefined>(undefined);
+  const [loadingMedia, setLoadingMedia] = useState(false);
   const isInstalled = Boolean(installedApp);
   const activeProgress =
     installProgress && installProgress.appId === app.id
@@ -153,6 +159,31 @@ export function AppDetailDialog({
     }
   };
 
+  useEffect(() => {
+    const baseScreens = app.screenshots ?? [];
+    setMediaScreens(baseScreens);
+    setMediaThumb(undefined);
+
+    // If we already have screenshots, no need to refetch unless dialog is opened
+    if (!open) return;
+    if (baseScreens.length > 0) return;
+
+    setLoadingMedia(true);
+    getAppMedia(app.id)
+      .then((result) => {
+        if (result.success) {
+          setMediaScreens(result.screenshots ?? baseScreens);
+          if (result.thumbnail) setMediaThumb(result.thumbnail);
+        }
+      })
+      .catch(() => {
+        // non-blocking, keep silent
+      })
+      .finally(() => setLoadingMedia(false));
+  }, [app, open]);
+
+  const screenshots = mediaScreens;
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -219,33 +250,7 @@ export function AppDetailDialog({
                 </div>
               )}
 
-              {/* Screenshots */}
-              {app.screenshots && app.screenshots.length > 0 && (
-                <div>
-                  <h3 className="text-base sm:text-lg font-semibold mb-2">
-                    Screenshots
-                  </h3>
-                  <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2">
-                    {app.screenshots.map((screenshot, index) => (
-                      <div
-                        key={index}
-                        className="relative w-32 h-20 sm:w-48 sm:h-32 flex-shrink-0 rounded-lg overflow-hidden bg-white/10"
-                      >
-                        <Image
-                          src={screenshot}
-                          alt={`Screenshot ${index + 1}`}
-                          fill
-                          className="object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = "none";
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <AppScreenshots images={screenshots} loading={loadingMedia} />
 
               {/* Container Info (if available) */}
               {app.container && (

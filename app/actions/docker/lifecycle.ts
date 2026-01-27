@@ -1,17 +1,26 @@
 "use server";
 
+import {
+  sendInstallProgress,
+  type InstallProgressPayload,
+} from "@/app/api/system/stream/route";
 import { triggerAppsUpdate } from "@/lib/system-status/websocket-server";
 import fs from "fs/promises";
 import path from "path";
 import { logAction } from "../logger";
-import { removeInstalledAppRecord } from "./db";
+import { backupComposeFile, cleanupBackup, restoreComposeFile } from "./backup";
+import { getAppMeta, removeInstalledAppRecord } from "./db";
+import { waitForContainerRunning } from "./health";
 import {
+  DEFAULT_APP_ICON,
   execAsync,
   findComposeForApp,
   getContainerName,
   sanitizeComposeFile,
   validateAppId,
 } from "./utils";
+
+const TRASH_ROOT = "/DATA/AppTrash";
 
 /**
  * Stop an app
@@ -55,6 +64,11 @@ export async function startApp(appId: string): Promise<boolean> {
     console.log(`[Docker] startApp: Executing: docker start ${containerName}`);
 
     await execAsync(`docker start ${containerName}`);
+    const healthy = await waitForContainerRunning(containerName, 5, 2000);
+    if (!healthy) {
+      console.warn(`[Docker] startApp: Container "${containerName}" not running after start`);
+      return false;
+    }
     console.log(`[Docker] startApp: Successfully started "${appId}"`);
     return true;
   } catch (error) {
@@ -82,6 +96,11 @@ export async function restartApp(appId: string): Promise<boolean> {
     );
 
     await execAsync(`docker restart ${containerName}`);
+    const healthy = await waitForContainerRunning(containerName, 5, 2000);
+    if (!healthy) {
+      console.warn(`[Docker] restartApp: Container "${containerName}" not running after restart`);
+      return false;
+    }
     console.log(`[Docker] restartApp: Successfully restarted "${appId}"`);
     return true;
   } catch (error) {
@@ -98,11 +117,39 @@ export async function restartApp(appId: string): Promise<boolean> {
  */
 export async function updateApp(appId: string): Promise<boolean> {
   if (!validateAppId(appId)) return false;
+
+  let meta = { name: appId, icon: DEFAULT_APP_ICON };
+  try {
+    meta = await getAppMeta(appId);
+  } catch {
+    // Use fallback meta
+  }
+
+  const emitProgress = (
+    progress: number,
+    message: string,
+    status: InstallProgressPayload["status"] = "running",
+  ) =>
+    sendInstallProgress({
+      type: "install-progress",
+      appId,
+      name: meta.name,
+      icon: meta.icon,
+      progress,
+      status,
+      message,
+    });
+
+  emitProgress(0.05, "Starting update", "starting");
+
   const resolved = await findComposeForApp(appId);
   if (!resolved) {
     console.warn(`[Docker] updateApp: compose not found for ${appId}`);
+    emitProgress(1, "Compose file not found", "error");
     return false;
   }
+
+  const backupPath = await backupComposeFile(resolved.composePath, appId);
 
   try {
     const sanitized = await sanitizeComposeFile(resolved.composePath);
@@ -111,23 +158,67 @@ export async function updateApp(appId: string): Promise<boolean> {
       ...process.env,
       CONTAINER_NAME: containerName,
     };
+
+    emitProgress(0.2, "Pulling latest images");
     await execAsync(
       `cd "${resolved.appDir}" && docker compose -f "${sanitized}" pull`,
       { env: envVars },
     );
+
+    emitProgress(0.6, "Recreating containers");
     await execAsync(
       `cd "${resolved.appDir}" && docker compose -f "${sanitized}" up -d`,
       { env: envVars },
     );
+
+    emitProgress(0.85, "Verifying container health");
+    const healthy = await waitForContainerRunning(containerName, 5, 2000);
+    if (!healthy) {
+      console.warn(`[Docker] updateApp: container not healthy after update for ${appId}`);
+
+      // Attempt rollback
+      if (backupPath) {
+        emitProgress(0.9, "Rolling back to previous version");
+        await restoreComposeFile(backupPath, resolved.composePath);
+        const rollbackSanitized = await sanitizeComposeFile(resolved.composePath);
+        await execAsync(
+          `cd "${resolved.appDir}" && docker compose -f "${rollbackSanitized}" up -d`,
+          { env: envVars },
+        ).catch(() => null);
+      }
+
+      await cleanupBackup(appId);
+      emitProgress(1, "Rolled back after failed update", "error");
+      await logAction("update:error", { appId, error: "Container not healthy, rolled back" });
+      return false;
+    }
+
+    await cleanupBackup(appId);
     await triggerAppsUpdate();
     await logAction("update:success", { appId, containerName });
+    emitProgress(1, "Update complete", "completed");
     return true;
   } catch (error) {
     console.error(`[Docker] updateApp: failed for ${appId}:`, error);
-    await logAction("update:error", {
-      appId,
-      error: (error as Error)?.message ?? "unknown",
-    });
+
+    // Attempt rollback on exception
+    if (backupPath) {
+      await restoreComposeFile(backupPath, resolved.composePath).catch(() => null);
+      const envVars: NodeJS.ProcessEnv = {
+        ...process.env,
+        CONTAINER_NAME: getContainerName(appId),
+      };
+      const rollbackSanitized = await sanitizeComposeFile(resolved.composePath).catch(() => resolved.composePath);
+      await execAsync(
+        `cd "${resolved.appDir}" && docker compose -f "${rollbackSanitized}" up -d`,
+        { env: envVars },
+      ).catch(() => null);
+    }
+    await cleanupBackup(appId);
+
+    const errorMsg = (error as Error)?.message ?? "unknown";
+    await logAction("update:error", { appId, error: errorMsg });
+    emitProgress(1, "Update failed, rolled back", "error");
     return false;
   }
 }
@@ -152,13 +243,21 @@ export async function uninstallApp(appId: string): Promise<boolean> {
 
     const appDataPath = path.join("/DATA/AppData", appId);
     try {
-      await fs.rm(appDataPath, { recursive: true, force: true });
-      console.log(`[Docker] uninstallApp: Removed data dir ${appDataPath}`);
-    } catch (cleanupError) {
-      console.warn(
-        `[Docker] uninstallApp: Failed to remove data dir ${appDataPath}:`,
-        cleanupError
-      );
+      const trashDir = path.join(TRASH_ROOT, `${appId}_${Date.now()}`);
+      await fs.mkdir(TRASH_ROOT, { recursive: true });
+      await fs.rename(appDataPath, trashDir);
+      console.log(`[Docker] uninstallApp: Moved data to trash ${trashDir}`);
+    } catch {
+      // rename may fail cross-device; fall back to permanent delete
+      try {
+        await fs.rm(appDataPath, { recursive: true, force: true });
+        console.log(`[Docker] uninstallApp: Removed data dir ${appDataPath}`);
+      } catch (cleanupError) {
+        console.warn(
+          `[Docker] uninstallApp: Failed to remove data dir ${appDataPath}:`,
+          cleanupError,
+        );
+      }
     }
 
     await removeInstalledAppRecord(containerName);
@@ -173,6 +272,52 @@ export async function uninstallApp(appId: string): Promise<boolean> {
       `[Docker] uninstallApp: Error uninstalling "${appId}":`,
       error
     );
+    return false;
+  }
+}
+
+/**
+ * List apps in the trash directory.
+ */
+export async function listTrashedApps(): Promise<
+  { appId: string; trashedAt: number; path: string }[]
+> {
+  try {
+    const entries = await fs.readdir(TRASH_ROOT, { withFileTypes: true });
+    return entries
+      .filter((e) => e.isDirectory())
+      .map((e) => {
+        const parts = e.name.split("_");
+        const timestamp = parseInt(parts[parts.length - 1], 10);
+        const appId = parts.slice(0, -1).join("_");
+        return {
+          appId,
+          trashedAt: Number.isFinite(timestamp) ? timestamp : 0,
+          path: path.join(TRASH_ROOT, e.name),
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Permanently delete a specific trashed app or the entire trash.
+ */
+export async function emptyTrash(appId?: string): Promise<boolean> {
+  try {
+    if (appId) {
+      const entries = await fs.readdir(TRASH_ROOT).catch(() => [] as string[]);
+      for (const entry of entries) {
+        if (entry.startsWith(`${appId}_`)) {
+          await fs.rm(path.join(TRASH_ROOT, entry), { recursive: true, force: true });
+        }
+      }
+    } else {
+      await fs.rm(TRASH_ROOT, { recursive: true, force: true });
+    }
+    return true;
+  } catch {
     return false;
   }
 }

@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@/app/generated/prisma/client";
 import { DEFAULT_APP_ICON, FALLBACK_APP_NAME } from "./utils";
 
 /**
@@ -30,15 +31,49 @@ export async function getAppMeta(
 export async function recordInstalledApp(
   appId: string,
   containerName: string,
-  override?: { name?: string; icon?: string }
+  override?: { name?: string; icon?: string },
+  installConfig?: Record<string, unknown>,
 ): Promise<void> {
   const meta = await getAppMeta(appId, override);
 
   await prisma.installedApp.upsert({
     where: { containerName },
-    update: { appId, name: meta.name, icon: meta.icon },
-    create: { appId, name: meta.name, icon: meta.icon, containerName },
+    update: {
+      appId,
+      name: meta.name,
+      icon: meta.icon,
+      ...(installConfig !== undefined && {
+        installConfig: installConfig as Prisma.InputJsonValue,
+      }),
+    },
+    create: {
+      appId,
+      name: meta.name,
+      icon: meta.icon,
+      containerName,
+      ...(installConfig !== undefined && {
+        installConfig: installConfig as Prisma.InputJsonValue,
+      }),
+    },
   });
+}
+
+/**
+ * Get the install configuration for an app
+ */
+export async function getInstallConfig(
+  appId: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const record = await prisma.installedApp.findFirst({
+      where: { appId },
+      orderBy: { updatedAt: "desc" },
+      select: { installConfig: true },
+    });
+    return (record?.installConfig as Record<string, unknown>) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

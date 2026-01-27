@@ -62,6 +62,7 @@ CREATE TABLE "App" (
     "website" TEXT,
     "repo" TEXT,
     "composePath" TEXT NOT NULL,
+    "container" JSONB,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "App_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -74,6 +75,7 @@ CREATE TABLE "InstalledApp" (
     "name" TEXT NOT NULL,
     "icon" TEXT NOT NULL,
     "containerName" TEXT NOT NULL,
+    "installConfig" JSONB,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
 );

@@ -1,28 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSettings, updateSettings } from "@/app/actions/settings";
-import { useSystemStatus } from "./useSystemStatus";
-import { useUserLocation } from "./useUserLocation";
-import type {
-  AvailableWidget,
-  WidgetData,
-  WidgetType,
-  TextWithProgressData,
-  ThreeStatsData,
-  FourStatsData,
-  TwoStatsGaugeData,
-  FilesListData,
-  FilesGridData,
-  WeatherWidgetData,
-  ThermalsWidgetData,
-} from "@/components/widgets/types";
 import {
   AVAILABLE_WIDGETS,
   DEFAULT_WIDGET_IDS,
   MAX_WIDGETS,
   WIDGET_COLORS,
 } from "@/components/widgets/constants";
+import type {
+  AvailableWidget,
+  FilesGridData,
+  FilesListData,
+  FourStatsData,
+  TextWithProgressData,
+  ThermalsWidgetData,
+  ThreeStatsData,
+  TwoStatsGaugeData,
+  WeatherWidgetData,
+  WidgetData,
+  WidgetType,
+} from "@/components/widgets/types";
+import { formatBytes } from "@/lib/utils";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSystemStatus } from "./useSystemStatus";
+import { useUserLocation } from "./useUserLocation";
 
 const STORAGE_KEY = "liveos-selected-widgets";
 const THERMALS_MAX_KEY = "liveos-thermals-max";
@@ -50,7 +51,10 @@ function loadThermalsMax(): ThermalsRecord {
   return null;
 }
 
-function nextThermalsMax(prev: ThermalsRecord, reading: number | null | undefined): ThermalsRecord {
+function nextThermalsMax(
+  prev: ThermalsRecord,
+  reading: number | null | undefined,
+): ThermalsRecord {
   if (typeof reading !== "number" || Number.isNaN(reading)) return prev;
   const now = Date.now();
   const expired = !prev || now - prev.ts > THERMALS_MAX_WINDOW_MS;
@@ -93,14 +97,6 @@ interface UseWidgetsReturn {
   isLoading: boolean;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-}
-
 // Load initial selection from localStorage
 async function getInitialSelectedIds(): Promise<string[]> {
   // Server-side fallback
@@ -113,7 +109,10 @@ async function getInitialSelectedIds(): Promise<string[]> {
       return settings.selectedWidgets.slice(0, MAX_WIDGETS);
     }
   } catch (err) {
-    console.warn("[Widgets] Failed to load settings, falling back to localStorage", err);
+    console.warn(
+      "[Widgets] Failed to load settings, falling back to localStorage",
+      err,
+    );
   }
 
   // Fallback to localStorage
@@ -136,7 +135,7 @@ export function useWidgets(): UseWidgetsReturn {
   const [shakeTrigger, setShakeTrigger] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [thermalsMaxRecord, setThermalsMaxRecord] = useState<ThermalsRecord>(
-    () => loadThermalsMax()
+    () => loadThermalsMax(),
   );
   const initializedRef = useRef(false);
 
@@ -163,7 +162,7 @@ export function useWidgets(): UseWidgetsReturn {
   useEffect(() => {
     if (!initializedRef.current) return;
     void updateSettings({ selectedWidgets: selectedIds }).catch((err) =>
-      console.error("[Widgets] Failed to persist selection:", err)
+      console.error("[Widgets] Failed to persist selection:", err),
     );
   }, [selectedIds]);
 
@@ -186,36 +185,36 @@ export function useWidgets(): UseWidgetsReturn {
       }
       return next;
     });
-  }, [systemStats?.hardware?.thermals?.max, systemStats?.hardware?.cpuTemperature]);
+  }, [
+    systemStats?.hardware?.thermals?.max,
+    systemStats?.hardware?.cpuTemperature,
+  ]);
 
   // Toggle widget selection
-  const toggleWidget = useCallback(
-    (id: string) => {
-      setSelectedIds((prev) => {
-        const isCurrentlySelected = prev.includes(id);
+  const toggleWidget = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const isCurrentlySelected = prev.includes(id);
 
-        if (isCurrentlySelected) {
-          // Remove from selection
-          return prev.filter((wid) => wid !== id);
-        }
+      if (isCurrentlySelected) {
+        // Remove from selection
+        return prev.filter((wid) => wid !== id);
+      }
 
-        // Check if at max capacity
-        if (prev.length >= MAX_WIDGETS) {
-          // Trigger shake animation
-          setShakeTrigger((t) => t + 1);
-          return prev;
-        }
+      // Check if at max capacity
+      if (prev.length >= MAX_WIDGETS) {
+        // Trigger shake animation
+        setShakeTrigger((t) => t + 1);
+        return prev;
+      }
 
-        // Add to selection
-        return [...prev, id];
-      });
-    },
-    []
-  );
+      // Add to selection
+      return [...prev, id];
+    });
+  }, []);
 
   const isSelected = useCallback(
     (id: string) => selectedIds.includes(id),
-    [selectedIds]
+    [selectedIds],
   );
 
   const canSelectMore = selectedIds.length < MAX_WIDGETS;
@@ -227,37 +226,55 @@ export function useWidgets(): UseWidgetsReturn {
 
     // Safely extract values with defaults
     const cpu = systemStats?.cpu ?? { usage: 0, temperature: 0 };
-    const memory = systemStats?.memory ?? { usage: 0, total: 0, used: 0, free: 0 };
-    const storage = storageStats ?? { total: 0, used: 0, usagePercent: 0, health: "—" };
+    const memory = systemStats?.memory ?? {
+      usage: 0,
+      total: 0,
+      used: 0,
+      free: 0,
+    };
+    const storage = storageStats ?? {
+      total: 0,
+      used: 0,
+      usagePercent: 0,
+      health: "—",
+    };
     const thermals = systemStats?.hardware?.thermals;
 
     // Storage widget
     const storageData: TextWithProgressData = {
       title: "Storage",
-      value: storage.total > 0
-        ? `${formatBytes(storage.used)} / ${formatBytes(storage.total)}`
-        : "Loading...",
-      subtext: storage.total > 0
-        ? `${formatBytes(storage.total - storage.used)} available`
-        : undefined,
+      value:
+        storage.total > 0
+          ? `${formatBytes(storage.used)} / ${formatBytes(storage.total)}`
+          : "Loading...",
+      subtext:
+        storage.total > 0
+          ? `${formatBytes(storage.total - storage.used)} available`
+          : undefined,
       progress: storage.usagePercent,
       color: WIDGET_COLORS.storage,
     };
-    dataMap.set("liveos:storage", { type: "text-with-progress", data: storageData });
+    dataMap.set("liveos:storage", {
+      type: "text-with-progress",
+      data: storageData,
+    });
 
     // Memory widget
     const memoryData: TextWithProgressData = {
       title: "Memory",
-      value: memory.total > 0
-        ? `${formatBytes(memory.used)} / ${formatBytes(memory.total)}`
-        : "Loading...",
-      subtext: memory.total > 0
-        ? `${formatBytes(memory.free)} free`
-        : undefined,
+      value:
+        memory.total > 0
+          ? `${formatBytes(memory.used)} / ${formatBytes(memory.total)}`
+          : "Loading...",
+      subtext:
+        memory.total > 0 ? `${formatBytes(memory.free)} free` : undefined,
       progress: memory.usage,
       color: WIDGET_COLORS.memory,
     };
-    dataMap.set("liveos:memory", { type: "text-with-progress", data: memoryData });
+    dataMap.set("liveos:memory", {
+      type: "text-with-progress",
+      data: memoryData,
+    });
 
     // System stats (three stats)
     const threeStatsData: ThreeStatsData = {
@@ -279,7 +296,10 @@ export function useWidgets(): UseWidgetsReturn {
         },
       ],
     };
-    dataMap.set("liveos:system-stats", { type: "three-stats", data: threeStatsData });
+    dataMap.set("liveos:system-stats", {
+      type: "three-stats",
+      data: threeStatsData,
+    });
 
     // CPU & Memory gauges
     const gaugeData: TwoStatsGaugeData = {
@@ -298,7 +318,10 @@ export function useWidgets(): UseWidgetsReturn {
         },
       ],
     };
-    dataMap.set("liveos:cpu-memory", { type: "two-stats-gauge", data: gaugeData });
+    dataMap.set("liveos:cpu-memory", {
+      type: "two-stats-gauge",
+      data: gaugeData,
+    });
 
     // Four stats grid
     const fourStatsData: FourStatsData = {
@@ -328,7 +351,10 @@ export function useWidgets(): UseWidgetsReturn {
         },
       ],
     };
-    dataMap.set("liveos:four-stats", { type: "four-stats", data: fourStatsData });
+    dataMap.set("liveos:four-stats", {
+      type: "four-stats",
+      data: fourStatsData,
+    });
 
     // Thermals widget
     const thermalsData: ThermalsWidgetData = {
@@ -355,13 +381,19 @@ export function useWidgets(): UseWidgetsReturn {
       files: [],
       title: "Recent Files",
     };
-    dataMap.set("liveos:files-recents", { type: "files-list", data: filesListData });
+    dataMap.set("liveos:files-recents", {
+      type: "files-list",
+      data: filesListData,
+    });
 
     const filesGridData: FilesGridData = {
       folders: [],
       title: "Favorites",
     };
-    dataMap.set("liveos:files-favorites", { type: "files-grid", data: filesGridData });
+    dataMap.set("liveos:files-favorites", {
+      type: "files-grid",
+      data: filesGridData,
+    });
 
     return dataMap;
   }, [systemStats, storageStats, userLocation, thermalsMaxRecord]);

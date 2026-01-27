@@ -1,7 +1,8 @@
 "use client";
 
-import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { Card } from "@/components/ui/card";
+import { useSystemStatus } from "@/hooks/useSystemStatus";
+import { formatBytes } from "@/lib/utils";
 import { ChevronRight, HardDrive, Settings } from "lucide-react";
 import { CircularProgress } from "./circular-progress";
 
@@ -21,9 +22,7 @@ export function SystemStatusCard() {
     health: "Healthy",
   };
 
-  const formatBytes = (bytes: number) => {
-    return (bytes / 1024 / 1024 / 1024).toFixed(1) + " GB";
-  };
+
 
   return (
     <Card className="fixed top-8 left-8 z-10 w-80 bg-zinc-950/60 backdrop-blur-3xl ">

@@ -16,6 +16,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { VERSION } from "@/lib/config";
+import { formatBytes, formatUptime } from "@/lib/utils";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -31,6 +32,7 @@ import {
   FirewallSection,
   LanguageSection,
   NetworkDevicesSection,
+  StorageSection,
   SystemDetailsCard,
   TroubleshootSection,
   UpdateSection,
@@ -39,19 +41,12 @@ import {
   WifiSection,
 } from "./sections";
 import { SettingsSidebar } from "./settings-sidebar";
+import { StorageDialog } from "./storage-dialog";
 import { SystemDetailsDialog } from "./system-details-dialog";
 import { LiveOsTailDialog } from "./troubleshoot/liveos-tail-dialog";
 import { WifiDialog } from "./wifi-dialog";
 
-// Pure utility functions - defined outside component to avoid recreation
-const formatBytes = (bytes: number, decimals = 1) => {
-  if (bytes === 0) return "0 GB";
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
-};
+
 
 const getMetricColor = (
   percentage: number,
@@ -59,15 +54,6 @@ const getMetricColor = (
   if (percentage < 80) return "cyan";
   if (percentage < 90) return "yellow";
   return "red";
-};
-
-const formatUptime = (seconds: number) => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
 };
 
 interface SettingsDialogProps {
@@ -96,6 +82,7 @@ export function SettingsDialog({
     undefined,
   );
   const [systemDetailsOpen, setSystemDetailsOpen] = useState(false);
+  const [storageDialogOpen, setStorageDialogOpen] = useState(false);
   const [networkDevicesOpen, setNetworkDevicesOpen] = useState(false);
   const [uptimeSeconds, setUptimeSeconds] = useState<number>(0);
   const [lanDevices, setLanDevices] = useState<LanDevice[]>([]);
@@ -237,6 +224,7 @@ export function SettingsDialog({
   const handleOpenLogsDialog = useCallback(() => setLogsDialogOpen(true), []);
   const handleOpenAdvancedDialog = useCallback(() => setAdvancedDialogOpen(true), []);
   const handleOpenSystemDetails = useCallback(() => setSystemDetailsOpen(true), []);
+  const handleOpenStorageDialog = useCallback(() => setStorageDialogOpen(true), []);
 
   const handleFirewallDialogChange = useCallback((open: boolean) => {
     setFirewallDialogOpen(open);
@@ -327,6 +315,7 @@ export function SettingsDialog({
                 checking={checkingUpdate}
               />
               <TroubleshootSection onOpenDialog={handleOpenLogsDialog} />
+              <StorageSection onOpenDialog={handleOpenStorageDialog} />
               <LanguageSection />
               <AdvancedSettingsSection
                 onOpenDialog={handleOpenAdvancedDialog}
@@ -377,6 +366,7 @@ export function SettingsDialog({
           open={advancedDialogOpen}
           onOpenChange={setAdvancedDialogOpen}
         />
+        <StorageDialog open={storageDialogOpen} onOpenChange={setStorageDialogOpen} />
       </DialogContent>
     </Dialog>
   );

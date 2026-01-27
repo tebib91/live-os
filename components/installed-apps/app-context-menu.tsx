@@ -1,9 +1,9 @@
 'use client';
 
-import { getAppWebUI, restartApp, startApp, stopApp, uninstallApp } from '@/app/actions/docker';
 import { getComposeForApp } from '@/app/actions/appstore';
-import type { InstalledApp } from '@/components/app-store/types';
+import { getAppWebUI, restartApp, startApp, stopApp, uninstallApp } from '@/app/actions/docker';
 import { CustomDeployDialog, type CustomDeployInitialData } from '@/components/app-store/custom-deploy-dialog';
+import type { InstalledApp } from '@/components/app-store/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -32,6 +32,28 @@ import {
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { LogsDialog } from './logs-dialog';
+
+type ComposePort = {
+  published?: number | string;
+  host?: number | string;
+  container?: number | string;
+  target?: number | string;
+};
+
+type ComposeVolume = {
+  source?: string;
+  container?: string;
+  target?: string;
+};
+
+type ComposeEnv = string | { key?: string; value?: string };
+
+type ComposeContainer = {
+  image?: string;
+  ports?: ComposePort[];
+  volumes?: ComposeVolume[];
+  environment?: ComposeEnv[];
+};
 
 interface AppContextMenuProps {
   app: InstalledApp;
@@ -117,21 +139,42 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
     setCustomLoading(true);
     try {
       const result = await getComposeForApp(app.appId);
-      if (!result.success || !result.content) {
-        toast.error(result.error || 'Compose file not found for this app');
+      if (!result.success) {
+        toast.error(result.error || 'App config not found');
         return;
       }
 
+      const container = result.container as ComposeContainer | undefined;
       setCustomData({
         appName: app.appId,
         dockerCompose: result.content,
+        dockerRun: container
+          ? {
+            image: container.image || '',
+            containerName: app.appId,
+            ports: (container.ports || [])
+              .map((p) =>
+                [p.published ?? p.host, p.container ?? p.target].filter(Boolean).join(':'),
+              )
+              .filter(Boolean)
+              .join(','),
+            volumes: (container.volumes || [])
+              .map((v) => [v.source, v.container || v.target].filter(Boolean).join(':'))
+              .filter(Boolean)
+              .join(','),
+            env: (container.environment || [])
+              .map((e) => (typeof e === 'string' ? e : `${e.key}=${e.value}`))
+              .filter(Boolean)
+              .join(','),
+          }
+          : undefined,
         appIcon: result.appIcon,
         appTitle: result.appTitle,
       });
       setShowCustomDeploy(true);
     } catch (error) {
-      console.error('Failed to load compose for edit:', error);
-      toast.error('Failed to load compose file');
+      console.error('Failed to load app config for edit:', error);
+      toast.error('Failed to load app config');
     } finally {
       setCustomLoading(false);
     }
@@ -253,7 +296,7 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
           <DialogHeader>
             <DialogTitle>Uninstall {app.name}?</DialogTitle>
             <DialogDescription>
-              This will remove the app and all its data. This action cannot be undone.
+              This will remove the app. Data will be moved to trash and can be recovered later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

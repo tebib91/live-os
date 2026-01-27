@@ -10,6 +10,7 @@ import path from "path";
 import { env } from "process";
 import { logAction } from "../logger";
 import { getAppMeta, recordInstalledApp } from "./db";
+import { checkDependencies } from "./dependencies";
 import {
   DEFAULT_APP_ICON,
   detectComposeContainerName,
@@ -78,6 +79,15 @@ export async function installApp(
     console.log(
       `[Docker] installApp: All ${config.ports.length} ports validated`,
     );
+
+    // Check dependencies
+    const depCheck = await checkDependencies(appId);
+    if (!depCheck.satisfied) {
+      const missingList = depCheck.missing.join(", ");
+      console.warn(`[Docker] installApp: Missing dependencies: ${missingList}`);
+      emitProgress(1, `Missing dependencies: ${missingList}`, "error");
+      return { success: false, error: `Missing dependencies: ${missingList}` };
+    }
 
     // Validate paths
     console.log("[Docker] installApp: Validating volume paths...");
@@ -185,7 +195,14 @@ export async function installApp(
       (await detectComposeContainerName(appDir, sanitizedComposePath)) ||
       containerName;
 
-    await recordInstalledApp(appId, detectedContainer, metaOverride);
+    const persistedConfig: Record<string, unknown> = {
+      ports: config.ports,
+      volumes: config.volumes,
+      environment: config.environment,
+      composePath: sanitizedComposePath,
+      deployMethod: "compose",
+    };
+    await recordInstalledApp(appId, detectedContainer, metaOverride, persistedConfig);
     await triggerAppsUpdate();
     await logAction("install:success", {
       appId,

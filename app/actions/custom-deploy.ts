@@ -2,6 +2,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import type { Prisma } from "@/app/generated/prisma/client";
 import prisma from "@/lib/prisma";
 import { triggerAppsUpdate } from "@/lib/system-status/websocket-server";
 import { exec } from "child_process";
@@ -35,9 +36,15 @@ export async function deployCustomCompose(
     await fs.mkdir(CUSTOM_APPS_ROOT, { recursive: true });
     const appPath = path.join(CUSTOM_APPS_ROOT, appName);
 
-    // Avoid overwriting an existing custom app
-    if (await exists(appPath)) {
-      return { success: false, error: "An app with this name already exists" };
+    const isUpdate = await exists(appPath);
+    if (isUpdate) {
+      // Tear down old containers before redeploying
+      try {
+        await execAsync(`cd "${appPath}" && docker compose down`);
+      } catch {
+        // Fallback: force remove the container directly
+        await execAsync(`docker rm -f "${getContainerName(appName)}"`).catch(() => null);
+      }
     }
 
     await fs.mkdir(appPath, { recursive: true });
@@ -54,7 +61,10 @@ export async function deployCustomCompose(
       console.error("[CustomDeploy] compose stderr:", stderr);
     }
 
-    await recordInstalledApp(appName, containerName);
+    await recordInstalledApp(appName, containerName, undefined, {
+      composePath: composePath,
+      deployMethod: "compose",
+    });
     await triggerAppsUpdate();
     return { success: true };
   } catch (error: any) {
@@ -87,6 +97,10 @@ export async function deployCustomRun(
 
   try {
     const finalContainer = containerName?.trim() || getContainerName(appName);
+
+    // Remove existing container if present (update case)
+    await execAsync(`docker rm -f "${finalContainer}"`).catch(() => null);
+
     let command = `docker run -d --name "${finalContainer}" --restart unless-stopped`;
 
     // Ports
@@ -119,17 +133,17 @@ export async function deployCustomRun(
     if (stdout) console.log("[CustomDeploy] run stdout:", stdout);
     if (stderr && !isNoise(stderr)) console.error("[CustomDeploy] run stderr:", stderr);
 
-    await recordInstalledApp(appName, finalContainer, iconUrl);
+    await recordInstalledApp(appName, finalContainer, iconUrl, {
+      image: imageName,
+      ports: ports || "",
+      volumes: volumes || "",
+      env: envVars || "",
+      deployMethod: "run",
+    });
     await triggerAppsUpdate();
     return { success: true };
   } catch (error: any) {
     console.error("[CustomDeploy] deployCustomRun error:", error);
-    if (error?.message?.includes("already in use")) {
-      return {
-        success: false,
-        error: "A container with this name already exists. Choose another name.",
-      };
-    }
     return { success: false, error: error?.message || "Deploy failed" };
   }
 }
@@ -143,6 +157,7 @@ async function recordInstalledApp(
   appId: string,
   containerName: string,
   iconOverride?: string,
+  installConfig?: Record<string, unknown>,
 ): Promise<void> {
   const appMeta = await prisma.app.findFirst({
     where: { appId },
@@ -156,12 +171,18 @@ async function recordInstalledApp(
       appId,
       name: appMeta?.title || appMeta?.name || appId,
       icon,
+      ...(installConfig !== undefined && {
+        installConfig: installConfig as Prisma.InputJsonValue,
+      }),
     },
     create: {
       appId,
       containerName,
       name: appMeta?.title || appMeta?.name || appId,
       icon,
+      ...(installConfig !== undefined && {
+        installConfig: installConfig as Prisma.InputJsonValue,
+      }),
     },
   });
 }

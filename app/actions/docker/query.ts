@@ -2,6 +2,7 @@
 
 import type { InstalledApp } from "@/components/app-store/types";
 import prisma from "@/lib/prisma";
+import { logAction } from "../logger";
 import {
   CONTAINER_PREFIX,
   DEFAULT_APP_ICON,
@@ -155,8 +156,14 @@ export async function getAppStatus(
 export async function getAppWebUI(appId: string): Promise<string | null> {
   try {
     if (!validateAppId(appId)) {
+      await logAction("app:webui:resolve:error", {
+        appId,
+        reason: "invalid-app-id",
+      }, "warn");
       return null;
     }
+
+    await logAction("app:webui:resolve:start", { appId });
 
     const recordedContainer = await getRecordedContainerName(appId);
     const containerCandidates = [
@@ -170,6 +177,9 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
       process.env.HOSTNAME ||
       "localhost";
     const protocol = process.env.LIVEOS_HTTPS === "true" ? "https" : "http";
+
+    let resolvedUrl: string | null = null;
+    let resolutionMethod: "host-port" | "metadata-port" | "path-only" | "unresolved" = "unresolved";
 
     // 1) Prefer published host port from Docker (works for bridge mode)
     let hostPort: string | null = null;
@@ -191,21 +201,42 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
         : "";
 
     if (hostPort) {
-      return `${protocol}://${host}:${hostPort}${pathSuffix}`;
+      resolvedUrl = `${protocol}://${host}:${hostPort}${pathSuffix}`;
+      resolutionMethod = "host-port";
+    } else if (appMeta?.port && validatePort(appMeta.port)) {
+      // 3) Fallback to metadata port (host network or compose without publish)
+      resolvedUrl = `${protocol}://${host}:${appMeta.port}${pathSuffix}`;
+      resolutionMethod = "metadata-port";
+    } else if (pathSuffix) {
+      // 4) Last resort: if we at least have a path, try it on default port 80/443
+      resolvedUrl = `${protocol}://${host}${pathSuffix}`;
+      resolutionMethod = "path-only";
     }
 
-    // 3) Fallback to metadata port (host network or compose without publish)
-    if (appMeta?.port && validatePort(appMeta.port)) {
-      return `${protocol}://${host}:${appMeta.port}${pathSuffix}`;
+    if (resolvedUrl) {
+      await logAction("app:webui:resolve:success", {
+        appId,
+        url: resolvedUrl,
+        method: resolutionMethod,
+      });
+      return resolvedUrl;
     }
 
-    // 4) Last resort: if we at least have a path, try it on default port 80/443
-    if (pathSuffix) {
-      return `${protocol}://${host}${pathSuffix}`;
-    }
-
+    await logAction("app:webui:resolve:error", {
+      appId,
+      reason: "unresolved",
+    }, "warn");
     return null;
   } catch (error) {
+    await logAction(
+      "app:webui:resolve:error",
+      {
+        appId,
+        reason: "exception",
+        message: (error as Error)?.message,
+      },
+      "error",
+    );
     console.error(`[Docker] getAppWebUI: failed to resolve URL for ${appId}:`, error);
     return null;
   }

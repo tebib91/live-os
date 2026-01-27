@@ -1,38 +1,33 @@
 "use client";
-
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   getCasaCommunityStores,
+  getImportedStoreDetails,
   importAppStore,
-  listImportedStores,
-  removeImportedStore,
+  removeImportedStore
 } from "@/app/actions/appstore";
 import type { CommunityStore } from "@/app/actions/store/types";
-import { ExternalLink, Loader2, Clipboard, Check, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Clipboard, Loader2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
-
 interface CommunityStoreDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImported?: () => void;
 }
-
 export function CommunityStoreDialog({
   open,
   onOpenChange,
   onImported,
 }: CommunityStoreDialogProps) {
+  interface ImportedStore {
+    slug: string;
+    name: string;
+  }
+  const normalizeImported = (stores: { slug: string; name: string | null }[]) =>
+    stores.map((store) => ({ slug: store.slug, name: store.name || store.slug }));
   const [stores, setStores] = useState<CommunityStore[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +35,7 @@ export function CommunityStoreDialog({
   const [customUrl, setCustomUrl] = useState("");
   const [importingUrl, setImportingUrl] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
-  const [importedStores, setImportedStores] = useState<string[]>([]);
+  const [importedStores, setImportedStores] = useState<ImportedStore[]>([]);
   const [removingStore, setRemovingStore] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,10 +44,12 @@ export function CommunityStoreDialog({
       try {
         setLoading(true);
         setError(null);
-        const data = await getCasaCommunityStores();
+        const [data, imported] = await Promise.all([
+          getCasaCommunityStores(),
+          getImportedStoreDetails(),
+        ]);
         setStores(data);
-        const imported = await listImportedStores();
-        setImportedStores(imported);
+        setImportedStores(normalizeImported(imported));
       } catch (err) {
         // Error handled by toast
         setError("Unable to load CasaOS community stores right now.");
@@ -60,10 +57,8 @@ export function CommunityStoreDialog({
         setLoading(false);
       }
     };
-
     loadStores();
   }, [open]);
-
   const handleCopy = async (url: string) => {
     if (typeof navigator === "undefined") return;
     try {
@@ -75,7 +70,6 @@ export function CommunityStoreDialog({
       setError("Copy failed. Please copy manually.");
     }
   };
-
   const handleImport = async (
     url: string,
     meta?: { name?: string; description?: string }
@@ -94,17 +88,16 @@ export function CommunityStoreDialog({
       return;
     }
     setImportSuccess(`Imported ${result.apps ?? 0} apps from ${url}`);
-    const imported = await listImportedStores();
-    setImportedStores(imported);
+    const imported = await getImportedStoreDetails();
+    setImportedStores(normalizeImported(imported));
     onImported?.();
   };
-
   const handleRemoveStore = async (slug: string) => {
     setRemovingStore(slug);
     try {
       await removeImportedStore(slug);
-      const imported = await listImportedStores();
-      setImportedStores(imported);
+      const imported = await getImportedStoreDetails();
+      setImportedStores(normalizeImported(imported));
       onImported?.();
     } catch (err) {
       // Error handled by toast
@@ -114,97 +107,16 @@ export function CommunityStoreDialog({
     }
   };
 
-  const renderStore = (store: CommunityStore) => {
-    return (
-      <div
-        key={store.id}
-        className="rounded-xl border border-white/10 bg-white/5 p-4 sm:p-5 shadow-inner shadow-black/20 space-y-3"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="space-y-1">
-            <h3 className="text-lg font-semibold text-white">{store.name}</h3>
-            {store.description && (
-              <p className="text-sm text-zinc-300 leading-relaxed">
-                {store.description}
-              </p>
-            )}
-            {store.repoUrl && (
-              <a
-                href={store.repoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center text-xs text-blue-200 hover:text-blue-100 gap-1"
-              >
-                <ExternalLink className="h-4 w-4" />
-                View repo
-              </a>
-            )}
-          </div>
-          {store.sourceUrls[0] && (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-                onClick={() =>
-                  handleImport(store.sourceUrls[0], {
-                    name: store.name,
-                    description: store.description,
-                  })
-                }
-                disabled={importingUrl === store.sourceUrls[0]}
-              >
-                {importingUrl === store.sourceUrls[0] ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4 mr-2" />
-                )}
-                Add
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-white border-white/20 bg-white/5 hover:bg-white/10"
-                onClick={() => handleCopy(store.sourceUrls[0])}
-              >
-                {copiedUrl === store.sourceUrls[0] ? (
-                  <Check className="h-4 w-4 mr-2" />
-                ) : (
-                  <Clipboard className="h-4 w-4 mr-2" />
-                )}
-                Copy
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {store.sourceUrls.length > 1 && (
-          <div className="flex flex-wrap gap-2">
-            {store.sourceUrls.map((url) => (
-              <Badge
-                key={url}
-                variant="secondary"
-                className="bg-white/10 border-white/10 text-xs text-white"
-              >
-                {formatHost(url)}
-              </Badge>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] bg-zinc-900/80 text-white border border-white/10 backdrop-blur-md">
-          <DialogHeader>
+      <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[50vh] bg-zinc-900/80 text-white border border-white/10 backdrop-blur-md">
+        <DialogHeader>
           <DialogTitle>Import Community App Store</DialogTitle>
           <DialogDescription className="text-zinc-300">
             Browse CasaOS community app stores or add a custom store URL.
             Stores use CasaOS docker-compose files with x-casaos metadata.
           </DialogDescription>
         </DialogHeader>
-
         <div className="space-y-3">
           <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
             <p className="text-sm text-zinc-200">Paste a custom store source URL (ZIP) to import.</p>
@@ -218,9 +130,9 @@ export function CommunityStoreDialog({
               <div className="flex gap-2">
                 <Button
                   className="bg-blue-500 hover:bg-blue-600 text-white"
-                onClick={() => handleImport(customUrl)}
-                disabled={!customUrl || importingUrl === customUrl}
-              >
+                  onClick={() => handleImport(customUrl)}
+                  disabled={!customUrl || importingUrl === customUrl}
+                >
                   {importingUrl === customUrl ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
@@ -241,30 +153,28 @@ export function CommunityStoreDialog({
             </div>
           </div>
         </div>
-
         {importSuccess && (
           <div className="text-green-200 text-sm">{importSuccess}</div>
         )}
-
         {/* Imported stores */}
         {importedStores.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-sm font-semibold text-white/80">Imported stores</h4>
             <div className="space-y-2">
-              {importedStores.map((slug) => (
+              {importedStores.map((store) => (
                 <div
-                  key={slug}
+                  key={store.slug}
                   className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
                 >
-                  <span className="text-white/80 truncate">{slug}</span>
+                  <span className="text-white/80 truncate">{store.name}</span>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-white/70 hover:text-white"
-                    disabled={removingStore === slug}
-                    onClick={() => handleRemoveStore(slug)}
+                    disabled={removingStore === store.slug}
+                    onClick={() => handleRemoveStore(store.slug)}
                   >
-                    {removingStore === slug ? (
+                    {removingStore === store.slug ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Trash2 className="h-4 w-4" />
@@ -275,7 +185,6 @@ export function CommunityStoreDialog({
             </div>
           </div>
         )}
-
         <ScrollArea className="h-[50vh] pr-2 space-y-3">
           {loading && (
             <div className="flex items-center justify-center py-10 gap-2 text-sm text-zinc-300">
@@ -294,9 +203,6 @@ export function CommunityStoreDialog({
             </div>
           )}
 
-          {!loading && !error && stores.length > 0 && (
-            <div className="space-y-3">{stores.map(renderStore)}</div>
-          )}
         </ScrollArea>
       </DialogContent>
     </Dialog>

@@ -1,6 +1,9 @@
 "use client";
 
-import { getAppStoreApps, getCasaOsRecommendList } from "@/app/actions/appstore";
+import {
+  getAppStoreApps,
+  getCasaOsRecommendList,
+} from "@/app/actions/appstore";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -39,12 +42,6 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   const [selectedApp, setSelectedApp] = useState<App | null>(null);
   const { installedApps, installProgress } = useSystemStatus({ fast: true });
 
-  useEffect(() => {
-    if (open) {
-      loadApps();
-    }
-  }, [open]);
-
   const loadApps = useCallback(async () => {
     try {
       setLoading(true);
@@ -55,12 +52,20 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
       ]);
       setApps(loadedApps);
       setRecommendedIds(recommended);
-    } catch {
+
+    } catch (error) {
       setError("Unable to load applications. Please try again.");
+
     } finally {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (open) {
+      loadApps();
+    }
+  }, [open, loadApps]);
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -124,10 +129,6 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   }, [installedApps]);
 
   // Memoized callbacks for list items
-  const handleSelectApp = useCallback((app: App) => {
-    setSelectedApp(app);
-  }, []);
-
   const handleCloseDialog = useCallback(() => onOpenChange(false), [onOpenChange]);
   const handleOpenSettings = useCallback(() => setSettingsOpen(true), []);
   const handleClearSearch = useCallback(() => setSearchQuery(""), []);
@@ -248,11 +249,17 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                   Curated highlights, popular picks, and the freshest arrivals.
                 </p>
               ) : (
-                searchQuery && (
-                  <p className="text-sm text-white/60">
-                    {filteredApps.length} results for &quot;{searchQuery}&quot;
-                  </p>
-                )
+                <>
+                  {searchQuery ? (
+                    <p className="text-sm text-white/60">
+                      {filteredApps.length} results for &quot;{searchQuery}&quot;
+                    </p>
+                  ) : selectedCategory === "all" ? (
+                    <p className="text-sm text-white/60">
+                      {apps.length} total apps available
+                    </p>
+                  ) : null}
+                </>
               )}
             </div>
           )}

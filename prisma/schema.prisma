@@ -94,6 +94,7 @@ model InstalledApp {
   name           String
   icon           String
   containerName  String   @unique
+  installConfig  Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

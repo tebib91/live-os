@@ -1,13 +1,14 @@
-'use server';
+"use server";
 
-import { promises as fs } from 'fs';
-import path from 'path';
+import { promises as fs } from "fs";
+import path from "path";
 
-import { prisma } from '@/lib/prisma';
+import { prisma } from "@/lib/prisma";
+import { withActionLogging } from "./logger";
 
-const WALLPAPER_DIR = path.join(process.cwd(), 'public', 'wallpapers');
-const WALLPAPER_ROUTE = '/wallpapers';
-const WALLPAPER_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const WALLPAPER_DIR = path.join(process.cwd(), "public", "wallpapers");
+const WALLPAPER_ROUTE = "/wallpapers";
+const WALLPAPER_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
 export type WallpaperOption = {
   id: string;
@@ -27,8 +28,8 @@ export type SettingsData = {
 function formatWallpaperName(filename: string): string {
   const base = path.parse(filename).name;
   return base
-    .replace(/[-_]+/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
@@ -39,7 +40,9 @@ export async function getWallpapers(): Promise<WallpaperOption[]> {
     const files = entries
       .filter((entry) => entry.isFile())
       .map((entry) => entry.name)
-      .filter((name) => WALLPAPER_EXTENSIONS.has(path.extname(name).toLowerCase()))
+      .filter((name) =>
+        WALLPAPER_EXTENSIONS.has(path.extname(name).toLowerCase()),
+      )
       .sort((a, b) => a.localeCompare(b));
 
     return files.map((filename) => ({
@@ -48,7 +51,7 @@ export async function getWallpapers(): Promise<WallpaperOption[]> {
       path: `${WALLPAPER_ROUTE}/${filename}`,
     }));
   } catch (error) {
-    console.error('Failed to load wallpapers:', error);
+    console.error("Failed to load wallpapers:", error);
     return [];
   }
 }
@@ -65,16 +68,15 @@ export async function getSettings(): Promise<SettingsData> {
       userCountry: settings?.userCountry ?? null,
     };
   } catch (error) {
-    console.error('Failed to load settings:', error);
+    console.error("Failed to load settings:", error);
     return { currentWallpaper: null, selectedWidgets: null };
   }
 }
 
 export async function updateSettings(
-  input: Partial<SettingsData>
+  input: Partial<SettingsData>,
 ): Promise<SettingsData> {
-  try {
-    console.info('updateSettings called with:', input);
+  return withActionLogging("settings:update", async () => {
     // Build update data object
     const data: Record<string, unknown> = {};
     if (input.currentWallpaper !== undefined) {
@@ -105,8 +107,6 @@ export async function updateSettings(
       update: data,
     });
 
-    console.info('updateSettings persisted:', data);
-
     return {
       currentWallpaper: settings.currentWallpaper ?? null,
       selectedWidgets: (settings.selectedWidgets as string[] | null) ?? null,
@@ -115,8 +115,5 @@ export async function updateSettings(
       userCity: settings.userCity ?? null,
       userCountry: settings.userCountry ?? null,
     };
-  } catch (error) {
-    console.error('Failed to update settings:', error);
-    throw error;
-  }
+  });
 }

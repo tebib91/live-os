@@ -17,6 +17,8 @@ export {
   restartApp,
   updateApp,
   uninstallApp,
+  listTrashedApps,
+  emptyTrash,
 } from "./lifecycle";
 export {
   getInstalledApps,
@@ -40,9 +42,24 @@ export {
   sanitizeComposeFile,
 } from "./utils";
 
+// Export dependency resolution
+export { checkDependencies } from "./dependencies";
+
+// Export backup utilities
+export {
+  backupComposeFile,
+  restoreComposeFile,
+  backupContainerConfig,
+  cleanupBackup,
+} from "./backup";
+
+// Export health check utilities
+export { waitForContainerRunning, getContainerExitCode } from "./health";
+
 // Export DB operations
 export {
   getAppMeta,
   recordInstalledApp,
   getRecordedContainerName,
+  getInstallConfig,
 } from "./db";
