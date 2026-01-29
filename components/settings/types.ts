@@ -4,6 +4,7 @@ export type SystemInfo = {
   username: string;
   hostname: string;
   platform: string;
+  ip: string;
   arch: string;
 };
 

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, WifiOff } from "lucide-react";
 import { useRebootTracker } from "@/hooks/useRebootTracker";
 import { Button } from "@/components/ui/button";
+import { OrbitLoader } from "@/components/auth/orbit-loader";
 
 export function RebootOverlay() {
   const { phase, elapsedSeconds, dismissFailure } = useRebootTracker();
@@ -32,37 +33,67 @@ export function RebootOverlay() {
 
   const subLabel =
     phase === "waiting" || phase === "initiating"
-      ? `This may take ~60–90 seconds • ${elapsedSeconds}s`
+      ? `Rebooting services • ${elapsedSeconds}s elapsed`
       : phase === "failed"
-        ? "Please try again or check server access."
+        ? "We couldn't reconnect. Please check the host and retry."
         : "Reloading…";
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/85 backdrop-blur-xl">
-      <div className="relative w-[360px] max-w-[90vw] overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl shadow-black/40">
-        <div className="absolute -top-24 -left-10 h-48 w-48 rounded-full bg-cyan-500/20 blur-3xl" />
-        <div className="absolute -bottom-28 -right-12 h-60 w-60 rounded-full bg-indigo-500/15 blur-3xl" />
+  const pillTone =
+    phase === "failed"
+      ? "border-amber-400/40 bg-amber-500/10 text-amber-100"
+      : phase === "online"
+        ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-100"
+        : "border-cyan-400/30 bg-cyan-500/10 text-cyan-100";
 
-        <div className="relative flex flex-col items-center gap-4 text-center text-white">
-          <CircleStatus phase={phase} />
-          <div className="space-y-1">
-            <div className="text-lg font-semibold drop-shadow-sm">{statusLabel}</div>
-            <div className="text-sm text-white/70">{subLabel}</div>
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/75 backdrop-blur-2xl">
+      <div className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-3xl shadow-2xl shadow-black/50 px-8 py-10">
+        <div className="absolute -top-24 -left-16 h-52 w-52 rounded-full bg-cyan-400/15 blur-3xl" />
+        <div className="absolute -bottom-28 -right-20 h-64 w-64 rounded-full bg-indigo-500/15 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-60" />
+
+        <div className="relative flex flex-col gap-6 text-white">
+          <div className="flex items-center justify-between gap-4">
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white/70">
+              System
+            </span>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${pillTone}`}
+            >
+              {phase === "waiting" || phase === "initiating"
+                ? "Rebooting"
+                : phase === "online"
+                  ? "Back online"
+                  : "Failed"}
+            </span>
+          </div>
+
+          <div className="flex flex-col items-center gap-4 text-center">
+            <StatusVisual phase={phase} />
+            <div className="space-y-2">
+              <p className="text-2xl font-semibold drop-shadow-sm">
+                {statusLabel}
+              </p>
+              <p className="text-sm text-white/70">{subLabel}</p>
+            </div>
+            {(phase === "waiting" || phase === "initiating") && (
+              <p className="text-xs text-white/60">
+                We&apos;ll keep trying to reconnect automatically, even if you refresh.
+              </p>
+            )}
           </div>
 
           {phase === "failed" && (
-            <div className="mt-2 flex flex-col gap-3">
-              <div className="text-sm text-amber-200/90">
-                Verify the server is reachable, then retry.
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-amber-50">
+              <div className="flex items-center gap-2 text-sm">
+                <WifiOff className="h-4 w-4" />
+                <span>Check host reachability and try again.</span>
               </div>
               <div className="flex gap-3">
                 <Button variant="secondary" onClick={dismissFailure}>
                   Dismiss
                 </Button>
-                <Button
-                  variant="default"
-                  onClick={() => window.location.reload()}
-                >
+                <Button variant="default" onClick={() => window.location.reload()}>
                   Reload page
                 </Button>
               </div>
@@ -74,41 +105,26 @@ export function RebootOverlay() {
   );
 }
 
-function CircleStatus({ phase }: { phase: string }) {
-  const base = "absolute inset-0 rounded-full";
+function StatusVisual({ phase }: { phase: string }) {
   if (phase === "failed") {
     return (
-      <div className="relative h-24 w-24">
-        <div className={`${base} border border-amber-500/50`} />
-        <div className="absolute inset-0 flex items-center justify-center text-amber-300">
-          <AlertTriangle className="h-10 w-10" />
-        </div>
+      <div className="flex h-24 w-24 items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/10 text-amber-100 shadow-inner shadow-amber-500/30">
+        <AlertTriangle className="h-10 w-10" />
       </div>
     );
   }
 
   if (phase === "online") {
     return (
-      <div className="relative h-24 w-24">
-        <div className={`${base} border border-emerald-400/50`} />
-        <div className="absolute inset-0 flex items-center justify-center text-emerald-300">
-          <CheckCircle2 className="h-11 w-11" />
-        </div>
+      <div className="flex h-24 w-24 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-500/10 text-emerald-100 shadow-inner shadow-emerald-500/30">
+        <CheckCircle2 className="h-11 w-11" />
       </div>
     );
   }
 
   return (
-    <div className="relative h-24 w-24">
-      <div className={`${base} border border-white/10`} />
-      <div
-        className={`${base} border-4 border-white/30 border-t-transparent animate-spin`}
-        style={{ animationDuration: "1.2s" }}
-      />
-      <div className="absolute inset-2 rounded-full border border-white/10" />
-      <div className="absolute inset-0 flex items-center justify-center text-white/80">
-        <Loader2 className="h-10 w-10 animate-spin" />
-      </div>
+    <div className="flex items-center justify-center">
+      <OrbitLoader />
     </div>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import type { TailscaleIntent, TailscaleStatus } from "@/types/setup";
 import { CheckCircle2, Loader2, MapPin, Wifi } from "lucide-react";
 import type { ReactNode } from "react";
-import type { TailscaleIntent, TailscaleStatus } from "@/types/setup";
 
 type PostSetupProps = {
   locationStatus: string;
@@ -95,7 +95,7 @@ export function PostSetup({
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-white/60">
+      <div className="flex items-center justify-between text-sm text-white/60 mt-4">
         <span>Version {version}</span>
         <Button
           onClick={onFinish}

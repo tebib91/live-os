@@ -3,6 +3,7 @@ import { VERSION } from "@/lib/config";
 import {
   DownloadCloud,
   Globe,
+  HardDrive,
   Key,
   LogOut,
   Network,
@@ -11,7 +12,6 @@ import {
   RotateCw,
   Settings,
   Shield,
-  HardDrive,
   User,
   Wifi,
   Wrench,
@@ -94,7 +94,7 @@ export function DeviceInfoSection({
         </div>
         <div className="flex">
           <span className="w-32 text-white/60">Local IP</span>
-          <span className="text-white">192.168.1.12</span>
+          <span className="text-white">{systemInfo?.ip ?? "Detecting..."}</span>
         </div>
         <div className="flex">
           <span className="w-32 text-white/60">Uptime</span>
