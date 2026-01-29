@@ -10,6 +10,7 @@ import { getWallpapers, updateSettings } from "@/app/actions/settings";
 import { getSystemInfo, getUptime } from "@/app/actions/system";
 import { checkForUpdates, type UpdateStatus } from "@/app/actions/update";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
+import { useRebootTracker } from "@/hooks/useRebootTracker";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -36,6 +37,7 @@ export function useSettingsDialogData({
 }: UseSettingsDialogDataParams) {
   const router = useRouter();
   const { systemStats, storageStats } = useSystemStatus({ enabled: open });
+  const { requestReboot } = useRebootTracker();
 
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [wallpapers, setWallpapers] = useState<WallpaperOption[]>([]);
@@ -157,11 +159,11 @@ export function useSettingsDialogData({
   };
 
   const handleRestart = async () => {
-    const res = await fetch("/api/system/restart", { method: "POST" });
-    if (res.ok) {
+    const result = await requestReboot();
+    if (result.ok) {
       toast.success("Restarting system...");
     } else {
-      toast.error("Restart failed");
+      toast.error(result.error ?? "Restart failed");
     }
   };
 

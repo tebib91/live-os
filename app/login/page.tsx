@@ -1,14 +1,11 @@
 "use client";
 
 import { hasUsers, login } from "@/app/actions/auth";
-import { WallpaperLayout } from "@/components/layout/wallpaper-layout";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { OrbitLoader } from "@/components/auth/orbit-loader";
+import { PinInput } from "@/components/auth/pin-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
 import { PIN_LENGTH } from "@/lib/config";
 import { Loader2, LogIn, ShieldCheck, User } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -58,149 +55,88 @@ export default function LoginPage() {
 
   if (checkingUsers) {
     return (
-      <WallpaperLayout>
-        <div className="min-h-screen flex items-center justify-center bg-zinc-950/60 backdrop-blur-3xl">
-          <Loader2 className="h-8 w-8 animate-spin text-white" />
+      <AuthShell
+        badge="Login"
+        title="LiveOS"
+        subtitle="Preparing sign-in…"
+        icon={<LogIn className="h-5 w-5 text-white/80" />}
+      >
+        <div className="flex justify-center py-12">
+          <OrbitLoader />
         </div>
-      </WallpaperLayout>
+      </AuthShell>
     );
   }
 
   return (
-    <WallpaperLayout>
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950/60 backdrop-blur-3xl px-4">
-        <div className="w-full max-w-lg space-y-8 rounded-3xl border border-white/10 bg-white/5 p-10 shadow-2xl shadow-black/40">
-          {/* Header with Icon */}
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-white/10">
-              <LogIn className="h-6 w-6 text-white" />
+    <AuthShell
+      badge="Login"
+      title="Welcome back"
+      subtitle="Sign in to LiveOS"
+      icon={<LogIn className="h-5 w-5 text-white/80" />}
+      widthClass="max-w-xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-inner shadow-black/25">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10">
+              <User className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-zinc-300">
-                Welcome Back
-              </p>
-              <p className="text-2xl font-semibold text-white leading-tight">
-                LiveOS
-              </p>
-              <p className="text-sm text-zinc-400">
-                Sign in to access your dashboard
-              </p>
+              <p className="text-sm text-white/80">Username</p>
+              <p className="text-xs text-white/50">Your LiveOS account id</p>
             </div>
           </div>
-
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Username Card */}
-            <div className="rounded-2xl border border-white/10 bg-black/30 p-6 shadow-inner shadow-black/30">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10">
-                  <User className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm text-zinc-300">Enter your username</p>
-                  <p className="text-xs text-zinc-500">
-                    Your LiveOS account identifier
-                  </p>
-                </div>
-              </div>
-
-              <Input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="username"
-                required
-                autoComplete="username"
-                autoFocus
-                className="bg-white/5 border-white/20 text-white placeholder:text-zinc-500 focus-visible:ring-white/30 backdrop-blur"
-                disabled={loading}
-              />
-            </div>
-
-            {/* PIN Card */}
-            <div className="rounded-2xl border border-white/10 bg-black/30 p-6 shadow-inner shadow-black/30">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10">
-                  <ShieldCheck className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm text-zinc-300">
-                    Enter your {PIN_LENGTH}-digit PIN
-                  </p>
-                  <p className="text-xs text-zinc-500">
-                    Secure authentication code
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center gap-4">
-                <InputOTP
-                  maxLength={PIN_LENGTH}
-                  value={pin}
-                  onChange={setPin}
-                  disabled={loading}
-                  containerClassName="justify-center"
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot
-                      mask
-                      index={0}
-                      className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
-                    />
-                    <InputOTPSlot
-                      mask
-                      index={1}
-                      className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
-                    />
-                    <InputOTPSlot
-                      mask
-                      index={2}
-                      className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
-                    />
-                    <InputOTPSlot
-                      mask
-                      index={3}
-                      className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
-                    />
-                    <InputOTPSlot
-                      mask
-                      index={4}
-                      className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
-                    />
-                    <InputOTPSlot
-                      mask
-                      index={5}
-                      className="bg-white/5 text-white border-white/20 h-12 w-12 text-xl backdrop-blur"
-                    />
-                  </InputOTPGroup>
-                </InputOTP>
-
-                {error && <p className="text-sm text-red-300">{error}</p>}
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              disabled={loading || !username || pin.length !== PIN_LENGTH}
-              className="w-full bg-white/10 text-white hover:bg-white/20 border border-white/20"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="mr-2 h-4 w-4" />
-                  Sign In
-                </>
-              )}
-            </Button>
-          </form>
+          <Input
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="username"
+            required
+            autoComplete="username"
+            autoFocus
+            className="bg-white/5 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-white/40"
+            disabled={loading}
+          />
         </div>
-      </div>
-    </WallpaperLayout>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-inner shadow-black/25">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10">
+              <ShieldCheck className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <p className="text-sm text-white/80">
+                Enter your {PIN_LENGTH}-digit PIN
+              </p>
+              <p className="text-xs text-white/50">Secure authentication code</p>
+            </div>
+          </div>
+          <div className="flex flex-col items-center gap-4">
+            <PinInput value={pin} onChange={setPin} disabled={loading} center />
+            {error && <p className="text-sm text-red-300">{error}</p>}
+          </div>
+        </div>
+
+        <Button
+          type="submit"
+          disabled={loading || !username || pin.length !== PIN_LENGTH}
+          className="w-full border border-white/20 bg-white/10 text-white hover:bg-white/20"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Signing in...
+            </>
+          ) : (
+            <>
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              Sign In
+            </>
+          )}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

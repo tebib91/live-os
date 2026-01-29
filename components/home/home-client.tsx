@@ -20,6 +20,7 @@ import { useWidgets } from "@/hooks/useWidgets";
 import { VERSION } from "@/lib/config";
 import { LayoutGrid } from "lucide-react";
 import { useEffect, useState } from "react";
+import { RebootOverlay } from "@/components/system/reboot-overlay";
 
 const DEFAULT_WALLPAPER = "/wallpapers/pexels-philippedonn.jpg";
 
@@ -367,6 +368,7 @@ export function HomeClient({ initialWallpaper }: HomeClientProps) {
       <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end space-y-1">
         <div className="text-xs text-white/50">LiveOS - v{VERSION}</div>
       </div>
+      <RebootOverlay />
     </WallpaperLayout>
   );
 }

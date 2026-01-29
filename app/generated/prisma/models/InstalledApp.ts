@@ -50,6 +50,7 @@ export type InstalledAppCountAggregateOutputType = {
   name: number
   icon: number
   containerName: number
+  installConfig: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -82,6 +83,7 @@ export type InstalledAppCountAggregateInputType = {
   name?: true
   icon?: true
   containerName?: true
+  installConfig?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -165,6 +167,7 @@ export type InstalledAppGroupByOutputType = {
   name: string
   icon: string
   containerName: string
+  installConfig: runtime.JsonValue | null
   createdAt: Date
   updatedAt: Date
   _count: InstalledAppCountAggregateOutputType | null
@@ -196,6 +199,7 @@ export type InstalledAppWhereInput = {
   name?: Prisma.StringFilter<"InstalledApp"> | string
   icon?: Prisma.StringFilter<"InstalledApp"> | string
   containerName?: Prisma.StringFilter<"InstalledApp"> | string
+  installConfig?: Prisma.JsonNullableFilter<"InstalledApp">
   createdAt?: Prisma.DateTimeFilter<"InstalledApp"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"InstalledApp"> | Date | string
 }
@@ -206,6 +210,7 @@ export type InstalledAppOrderByWithRelationInput = {
   name?: Prisma.SortOrder
   icon?: Prisma.SortOrder
   containerName?: Prisma.SortOrder
+  installConfig?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -219,6 +224,7 @@ export type InstalledAppWhereUniqueInput = Prisma.AtLeast<{
   appId?: Prisma.StringFilter<"InstalledApp"> | string
   name?: Prisma.StringFilter<"InstalledApp"> | string
   icon?: Prisma.StringFilter<"InstalledApp"> | string
+  installConfig?: Prisma.JsonNullableFilter<"InstalledApp">
   createdAt?: Prisma.DateTimeFilter<"InstalledApp"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"InstalledApp"> | Date | string
 }, "id" | "containerName">
@@ -229,6 +235,7 @@ export type InstalledAppOrderByWithAggregationInput = {
   name?: Prisma.SortOrder
   icon?: Prisma.SortOrder
   containerName?: Prisma.SortOrder
+  installConfig?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.InstalledAppCountOrderByAggregateInput
@@ -245,6 +252,7 @@ export type InstalledAppScalarWhereWithAggregatesInput = {
   name?: Prisma.StringWithAggregatesFilter<"InstalledApp"> | string
   icon?: Prisma.StringWithAggregatesFilter<"InstalledApp"> | string
   containerName?: Prisma.StringWithAggregatesFilter<"InstalledApp"> | string
+  installConfig?: Prisma.JsonNullableWithAggregatesFilter<"InstalledApp">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"InstalledApp"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"InstalledApp"> | Date | string
 }
@@ -255,6 +263,7 @@ export type InstalledAppCreateInput = {
   name: string
   icon: string
   containerName: string
+  installConfig?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -265,6 +274,7 @@ export type InstalledAppUncheckedCreateInput = {
   name: string
   icon: string
   containerName: string
+  installConfig?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -275,6 +285,7 @@ export type InstalledAppUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.StringFieldUpdateOperationsInput | string
   containerName?: Prisma.StringFieldUpdateOperationsInput | string
+  installConfig?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -285,6 +296,7 @@ export type InstalledAppUncheckedUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.StringFieldUpdateOperationsInput | string
   containerName?: Prisma.StringFieldUpdateOperationsInput | string
+  installConfig?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -295,6 +307,7 @@ export type InstalledAppCreateManyInput = {
   name: string
   icon: string
   containerName: string
+  installConfig?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -305,6 +318,7 @@ export type InstalledAppUpdateManyMutationInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.StringFieldUpdateOperationsInput | string
   containerName?: Prisma.StringFieldUpdateOperationsInput | string
+  installConfig?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -315,6 +329,7 @@ export type InstalledAppUncheckedUpdateManyInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.StringFieldUpdateOperationsInput | string
   containerName?: Prisma.StringFieldUpdateOperationsInput | string
+  installConfig?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -325,6 +340,7 @@ export type InstalledAppCountOrderByAggregateInput = {
   name?: Prisma.SortOrder
   icon?: Prisma.SortOrder
   containerName?: Prisma.SortOrder
+  installConfig?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -357,6 +373,7 @@ export type InstalledAppSelect<ExtArgs extends runtime.Types.Extensions.Internal
   name?: boolean
   icon?: boolean
   containerName?: boolean
+  installConfig?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["installedApp"]>
@@ -367,6 +384,7 @@ export type InstalledAppSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   name?: boolean
   icon?: boolean
   containerName?: boolean
+  installConfig?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["installedApp"]>
@@ -377,6 +395,7 @@ export type InstalledAppSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   name?: boolean
   icon?: boolean
   containerName?: boolean
+  installConfig?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["installedApp"]>
@@ -387,11 +406,12 @@ export type InstalledAppSelectScalar = {
   name?: boolean
   icon?: boolean
   containerName?: boolean
+  installConfig?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type InstalledAppOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "name" | "icon" | "containerName" | "createdAt" | "updatedAt", ExtArgs["result"]["installedApp"]>
+export type InstalledAppOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "appId" | "name" | "icon" | "containerName" | "installConfig" | "createdAt" | "updatedAt", ExtArgs["result"]["installedApp"]>
 
 export type $InstalledAppPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "InstalledApp"
@@ -402,6 +422,7 @@ export type $InstalledAppPayload<ExtArgs extends runtime.Types.Extensions.Intern
     name: string
     icon: string
     containerName: string
+    installConfig: runtime.JsonValue | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["installedApp"]>
@@ -832,6 +853,7 @@ export interface InstalledAppFieldRefs {
   readonly name: Prisma.FieldRef<"InstalledApp", 'String'>
   readonly icon: Prisma.FieldRef<"InstalledApp", 'String'>
   readonly containerName: Prisma.FieldRef<"InstalledApp", 'String'>
+  readonly installConfig: Prisma.FieldRef<"InstalledApp", 'Json'>
   readonly createdAt: Prisma.FieldRef<"InstalledApp", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"InstalledApp", 'DateTime'>
 }

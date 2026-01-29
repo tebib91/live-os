@@ -7,12 +7,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { useEffect, useRef, useState } from "react";
 
+import { formatBytes } from "@/lib/utils";
 import { AppList } from "./app-list";
 import { DialogHeader } from "./dialog-header";
 import { MetricChartCard } from "./metric-chart-card";
 import { NetworkChart } from "./network-chart";
 import type { ChartDataPoint, SelectedMetric } from "./types";
-import { formatBytes, getMetricColor } from "./utils";
+import { getMetricColor } from "./utils";
 
 interface SystemMonitorDialogProps {
   open: boolean;

@@ -1,6 +1,8 @@
 'use client';
 
+import { getComposeForApp } from '@/app/actions/appstore';
 import { getAppWebUI, restartApp, startApp, stopApp, uninstallApp } from '@/app/actions/docker';
+import { CustomDeployDialog, type CustomDeployInitialData } from '@/components/app-store/custom-deploy-dialog';
 import type { InstalledApp } from '@/components/app-store/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +33,28 @@ import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { LogsDialog } from './logs-dialog';
 
+type ComposePort = {
+  published?: number | string;
+  host?: number | string;
+  container?: number | string;
+  target?: number | string;
+};
+
+type ComposeVolume = {
+  source?: string;
+  container?: string;
+  target?: string;
+};
+
+type ComposeEnv = string | { key?: string; value?: string };
+
+type ComposeContainer = {
+  image?: string;
+  ports?: ComposePort[];
+  volumes?: ComposeVolume[];
+  environment?: ComposeEnv[];
+};
+
 interface AppContextMenuProps {
   app: InstalledApp;
   onAction?: () => void;
@@ -41,6 +65,9 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
   const [loading, setLoading] = useState(false);
   const [showUninstallConfirm, setShowUninstallConfirm] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [showCustomDeploy, setShowCustomDeploy] = useState(false);
+  const [customData, setCustomData] = useState<CustomDeployInitialData | null>(null);
+  const [customLoading, setCustomLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const lastOpenedViaContext = useRef(false);
 
@@ -105,6 +132,51 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
       toast.error('Failed to restart app');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditDeploy = async () => {
+    setCustomLoading(true);
+    try {
+      const result = await getComposeForApp(app.appId);
+      if (!result.success) {
+        toast.error(result.error || 'App config not found');
+        return;
+      }
+
+      const container = result.container as ComposeContainer | undefined;
+      setCustomData({
+        appName: app.appId,
+        dockerCompose: result.content,
+        dockerRun: container
+          ? {
+            image: container.image || '',
+            containerName: app.appId,
+            ports: (container.ports || [])
+              .map((p) =>
+                [p.published ?? p.host, p.container ?? p.target].filter(Boolean).join(':'),
+              )
+              .filter(Boolean)
+              .join(','),
+            volumes: (container.volumes || [])
+              .map((v) => [v.source, v.container || v.target].filter(Boolean).join(':'))
+              .filter(Boolean)
+              .join(','),
+            env: (container.environment || [])
+              .map((e) => (typeof e === 'string' ? e : `${e.key}=${e.value}`))
+              .filter(Boolean)
+              .join(','),
+          }
+          : undefined,
+        appIcon: result.appIcon,
+        appTitle: result.appTitle,
+      });
+      setShowCustomDeploy(true);
+    } catch (error) {
+      console.error('Failed to load app config for edit:', error);
+      toast.error('Failed to load app config');
+    } finally {
+      setCustomLoading(false);
     }
   };
 
@@ -196,6 +268,15 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
             View Logs
           </DropdownMenuItem>
 
+          <DropdownMenuItem onClick={handleEditDeploy} disabled={loading || customLoading}>
+            {customLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="mr-2 h-4 w-4" />
+            )}
+            Edit / Redeploy
+          </DropdownMenuItem>
+
           <DropdownMenuSeparator />
 
           <DropdownMenuItem
@@ -215,7 +296,7 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
           <DialogHeader>
             <DialogTitle>Uninstall {app.name}?</DialogTitle>
             <DialogDescription>
-              This will remove the app and all its data. This action cannot be undone.
+              This will remove the app. Data will be moved to trash and can be recovered later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -243,6 +324,16 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
         open={showLogs}
         onOpenChange={setShowLogs}
         app={app}
+      />
+
+      <CustomDeployDialog
+        open={showCustomDeploy}
+        onOpenChange={setShowCustomDeploy}
+        initialData={customData || undefined}
+        onDeploySuccess={() => {
+          setShowCustomDeploy(false);
+          onAction?.();
+        }}
       />
     </>
   );

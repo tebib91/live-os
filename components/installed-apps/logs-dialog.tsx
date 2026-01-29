@@ -11,9 +11,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Copy, RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Copy, Radio, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useLogStream } from './use-log-stream';
 
 interface LogsDialogProps {
   open: boolean;
@@ -22,31 +23,46 @@ interface LogsDialogProps {
 }
 
 export function LogsDialog({ open, onOpenChange, app }: LogsDialogProps) {
-  const [logs, setLogs] = useState<string>('');
+  const [staticLogs, setStaticLogs] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [live, setLive] = useState(true);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const loadLogs = useCallback(async () => {
+  const { lines, streaming, clear } = useLogStream(
+    app.containerName,
+    open && live,
+  );
+
+  const loadStaticLogs = useCallback(async () => {
     setLoading(true);
     try {
       const logContent = await getAppLogs(app.appId, 100);
-      setLogs(logContent);
-    } catch (error) {
-      // Error handled by UI
-      setLogs('Error loading logs');
+      setStaticLogs(logContent);
+    } catch {
+      setStaticLogs('Error loading logs');
     } finally {
       setLoading(false);
     }
   }, [app.appId]);
 
   useEffect(() => {
-    if (open) {
-      loadLogs();
+    if (open && !live) {
+      loadStaticLogs();
     }
-  }, [open, loadLogs]);
+  }, [open, live, loadStaticLogs]);
+
+  // Auto-scroll to bottom when live lines update
+  useEffect(() => {
+    if (live && bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [lines, live]);
+
+  const displayText = live ? lines.join('\n') : staticLogs;
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(logs);
+      await navigator.clipboard.writeText(displayText);
       toast.success('Logs copied to clipboard');
     } catch {
       toast.error('Failed to copy logs');
@@ -61,7 +77,11 @@ export function LogsDialog({ open, onOpenChange, app }: LogsDialogProps) {
             {app.name} - Logs
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            Last 100 lines
+            {live
+              ? streaming
+                ? 'Live streaming'
+                : 'Connecting...'
+              : 'Last 100 lines'}
           </DialogDescription>
         </DialogHeader>
 
@@ -69,13 +89,29 @@ export function LogsDialog({ open, onOpenChange, app }: LogsDialogProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadLogs}
-            disabled={loading}
-            className="bg-white/10 border-white/20 hover:bg-white/20"
+            onClick={() => {
+              setLive((v) => !v);
+              if (!live) clear();
+            }}
+            className={`bg-white/10 border-white/20 hover:bg-white/20 ${
+              live ? 'text-green-400' : ''
+            }`}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <Radio className="h-4 w-4 mr-2" />
+            {live ? 'Live' : 'Static'}
           </Button>
+          {!live && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadStaticLogs}
+              disabled={loading}
+              className="bg-white/10 border-white/20 hover:bg-white/20"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -89,8 +125,9 @@ export function LogsDialog({ open, onOpenChange, app }: LogsDialogProps) {
 
         <ScrollArea className="h-[50vh] w-full rounded border border-white/20 bg-black/20 p-4">
           <pre className="text-xs font-mono whitespace-pre-wrap break-words">
-            {logs || 'No logs available'}
+            {displayText || 'No logs available'}
           </pre>
+          <div ref={bottomRef} />
         </ScrollArea>
       </DialogContent>
     </Dialog>

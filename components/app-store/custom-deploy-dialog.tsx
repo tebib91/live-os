@@ -55,7 +55,7 @@ export function CustomDeployDialog({
   const hasCompose = Boolean(initialData?.dockerCompose);
   const hasRun = Boolean(initialData?.dockerRun);
   const [deployMethod, setDeployMethod] = useState<"compose" | "run">(
-    hasCompose ? "compose" : hasRun ? "run" : "compose",
+    hasRun ? "run" : hasCompose ? "compose" : "compose",
   );
 
   const dockerRunForm = useDockerRunForm({
@@ -67,12 +67,12 @@ export function CustomDeployDialog({
     if (!open) return;
     setAppName(initialData?.appName ?? "");
     setDockerCompose(initialData?.dockerCompose ?? "");
-    if (initialData?.dockerCompose) {
-      setDeployMethod("compose");
-      return;
-    }
     if (initialData?.dockerRun) {
       setDeployMethod("run");
+      return;
+    }
+    if (initialData?.dockerCompose) {
+      setDeployMethod("compose");
     }
   }, [open, initialData]);
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {

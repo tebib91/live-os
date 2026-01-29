@@ -1,10 +1,12 @@
 "use client";
 
-import { getAppStoreApps, getCasaOsRecommendList } from "@/app/actions/appstore";
+import {
+  getAppStoreApps,
+  getCasaOsRecommendList,
+} from "@/app/actions/appstore";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { motion } from "framer-motion";
 import { Loader2, MoreHorizontal, Search, X } from "lucide-react";
@@ -40,12 +42,6 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   const [selectedApp, setSelectedApp] = useState<App | null>(null);
   const { installedApps, installProgress } = useSystemStatus({ fast: true });
 
-  useEffect(() => {
-    if (open) {
-      loadApps();
-    }
-  }, [open]);
-
   const loadApps = useCallback(async () => {
     try {
       setLoading(true);
@@ -56,12 +52,20 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
       ]);
       setApps(loadedApps);
       setRecommendedIds(recommended);
-    } catch {
+
+    } catch (error) {
       setError("Unable to load applications. Please try again.");
+
     } finally {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (open) {
+      loadApps();
+    }
+  }, [open, loadApps]);
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -125,10 +129,6 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   }, [installedApps]);
 
   // Memoized callbacks for list items
-  const handleSelectApp = useCallback((app: App) => {
-    setSelectedApp(app);
-  }, []);
-
   const handleCloseDialog = useCallback(() => onOpenChange(false), [onOpenChange]);
   const handleOpenSettings = useCallback(() => setSettingsOpen(true), []);
   const handleClearSearch = useCallback(() => setSearchQuery(""), []);
@@ -139,57 +139,54 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[95vw] sm:max-w-6xl max-h-[95vh] backdrop-blur-md p-0 gap-0 overflow-hidden"
-        style={{
-          background: "rgba(24, 24, 27, 0.92)",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-        }}
+        className="max-w-[95vw] sm:max-w-6xl max-h-[95vh] bg-white/5 border border-white/10 backdrop-blur-3xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden ring-1 ring-white/5"
       >
         {/* Header */}
-        <div
-          className="relative px-6 py-5 border-b"
-          style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
-        >
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-bold text-white">App Store</h2>
-
-            <div className="flex items-center gap-3">
-              {/* Search */}
-              <div className="relative w-64  sm:block">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                <Input
-                  placeholder="Search apps"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-9 text-white placeholder:text-zinc-500 bg-white/5 border-white/10 focus-visible:ring-white/20"
-                />
-              </div>
-
-              {/* Settings Menu */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleOpenSettings}
-                className="h-9 w-9 rounded-full text-white/70 hover:text-white hover:bg-white/10"
-              >
-                <MoreHorizontal className="h-5 w-5" />
-              </Button>
-
-              {/* Close */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleCloseDialog}
-                className="h-9 w-9 rounded-full text-white/70 hover:text-white hover:bg-white/10"
-              >
-                <X className="h-5 w-5" />
-              </Button>
+        <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-gradient-to-r from-white/10 via-white/5 to-transparent backdrop-blur">
+          <div className="flex items-center gap-4">
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white/70">
+              App Store
+            </span>
+            <div className="sr-only space-y-1">
+              <h2 className="text-2xl font-bold text-white">App Store</h2>
+              <p className="text-sm text-white/60 hidden sm:block">
+                Discover, install, and manage apps
+              </p>
             </div>
           </div>
 
-          {/* Header Actions */}
-          <div className="mt-4 flex flex-wrap gap-3 justify-end" />
+          <div className="flex items-center gap-3">
+            {/* Search */}
+            <div className="relative hidden sm:block w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Input
+                placeholder="Search apps"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 text-white placeholder:text-zinc-500 bg-white/5 border-white/10 focus-visible:ring-white/20"
+              />
+            </div>
+
+            {/* Settings Menu */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleOpenSettings}
+              className="h-10 w-10 rounded-full border border-white/15 bg-white/10 text-white/70 hover:text-white hover:bg-white/20 transition-colors"
+            >
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
+
+            {/* Close */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleCloseDialog}
+              className="h-10 w-10 rounded-full border border-white/15 bg-white/10 text-white/70 hover:text-white hover:bg-white/20 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Category Pills */}
@@ -207,11 +204,10 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                     setSearchQuery("");
                   }
                 }}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                  selectedCategory === category
-                    ? "bg-white text-zinc-900"
-                    : "bg-white/10 text-white hover:bg-white/15"
-                }`}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${selectedCategory === category
+                  ? "bg-white text-zinc-900"
+                  : "bg-white/10 text-white hover:bg-white/15"
+                  }`}
               >
                 {category.charAt(0).toUpperCase() + category.slice(1)}
               </button>
@@ -236,159 +232,163 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
         </div>
 
         {/* Content Area */}
-        <ScrollArea className="h-[calc(95vh-180px)]">
-          <div className="px-6 py-6 space-y-8">
-            {/* Section Title (shared) */}
-            {!loading && !error && (
-              <div className="space-y-1 px-1">
-                <h2 className="text-2xl font-bold text-white">
-                  {isDiscoverView
-                    ? "Discover"
-                    : selectedCategory === "all"
-                      ? "All apps"
-                      : selectedCategory.charAt(0).toUpperCase() +
-                        selectedCategory.slice(1)}
-                </h2>
-                {isDiscoverView ? (
-                  <p className="text-sm text-white/60">
-                    Curated highlights, popular picks, and the freshest arrivals.
-                  </p>
-                ) : (
-                  searchQuery && (
+        <div className="overflow-y-auto scrollbar-hide  px-6 py-6 space-y-8 min-w-0 h-[60vh] sm:h-[70vh]">
+          {/* Section Title (shared) */}
+          {!loading && !error && (
+            <div className="space-y-1 px-1">
+              <h2 className="text-2xl font-bold text-white">
+                {isDiscoverView
+                  ? "Discover"
+                  : selectedCategory === "all"
+                    ? "All apps"
+                    : selectedCategory.charAt(0).toUpperCase() +
+                    selectedCategory.slice(1)}
+              </h2>
+              {isDiscoverView ? (
+                <p className="text-sm text-white/60">
+                  Curated highlights, popular picks, and the freshest arrivals.
+                </p>
+              ) : (
+                <>
+                  {searchQuery ? (
                     <p className="text-sm text-white/60">
                       {filteredApps.length} results for &quot;{searchQuery}&quot;
                     </p>
-                  )
-                )}
-              </div>
-            )}
+                  ) : selectedCategory === "all" ? (
+                    <p className="text-sm text-white/60">
+                      {apps.length} total apps available
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
+          )}
 
-            {/* Loading State */}
-            {loading && (
-              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-white/60" />
-                <span className="text-sm text-zinc-400">Loading apps...</span>
-              </div>
-            )}
+          {/* Loading State */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-white/60" />
+              <span className="text-sm text-zinc-400">Loading apps...</span>
+            </div>
+          )}
 
-            {/* Error State */}
-            {error && (
-              <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <p className="text-red-400">{error}</p>
-                <Button
-                  variant="outline"
-                  onClick={loadApps}
-                  className="text-white border-white/20 bg-white/5"
+          {/* Error State */}
+          {error && (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <p className="text-red-400">{error}</p>
+              <Button
+                variant="outline"
+                onClick={loadApps}
+                className="text-white border-white/20 bg-white/5"
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
+
+          {/* Discover View */}
+          {!loading && !error && isDiscoverView && (
+            <>
+              {/* Featured Apps Row */}
+              {featuredApps.length > 0 && (
+                <FeaturedCardsRow>
+                  {featuredApps.map((app, index) => (
+                    <FeaturedAppCard
+                      key={app.id}
+                      app={app}
+                      index={index}
+                      onClick={() => setSelectedApp(app)}
+                    />
+                  ))}
+                </FeaturedCardsRow>
+              )}
+
+              {/* Popular Apps Section */}
+              {popularApps.length > 0 && (
+                <DiscoverSection
+                  label="MOST INSTALLS"
+                  title="In popular demand"
                 >
-                  Try Again
-                </Button>
-              </div>
-            )}
-
-            {/* Discover View */}
-            {!loading && !error && isDiscoverView && (
-              <>
-                {/* Featured Apps Row */}
-                {featuredApps.length > 0 && (
-                  <FeaturedCardsRow>
-                    {featuredApps.map((app, index) => (
-                      <FeaturedAppCard
+                  <AppListGrid>
+                    {popularApps.map((app, index) => (
+                      <AppListItem
                         key={app.id}
                         app={app}
+                        installedApp={getInstalledApp(app)}
                         index={index}
                         onClick={() => setSelectedApp(app)}
                       />
                     ))}
-                  </FeaturedCardsRow>
-                )}
+                  </AppListGrid>
+                </DiscoverSection>
+              )}
 
-                {/* Popular Apps Section */}
-                {popularApps.length > 0 && (
-                  <DiscoverSection
-                    label="MOST INSTALLS"
-                    title="In popular demand"
-                  >
-                    <AppListGrid>
-                      {popularApps.map((app, index) => (
-                        <AppListItem
-                          key={app.id}
-                          app={app}
-                          installedApp={getInstalledApp(app)}
-                          index={index}
-                          onClick={() => setSelectedApp(app)}
-                        />
-                      ))}
-                    </AppListGrid>
-                  </DiscoverSection>
-                )}
+              {/* New Apps Section */}
+              {newApps.length > 0 && (
+                <DiscoverSection label="NEW APPS" title="Fresh from the oven">
+                  <AppListGrid>
+                    {newApps.map((app, index) => (
+                      <AppListItem
+                        key={app.id}
+                        app={app}
+                        installedApp={getInstalledApp(app)}
+                        index={index}
+                        onClick={() => setSelectedApp(app)}
+                      />
+                    ))}
+                  </AppListGrid>
+                </DiscoverSection>
+              )}
+            </>
+          )}
 
-                {/* New Apps Section */}
-                {newApps.length > 0 && (
-                  <DiscoverSection label="NEW APPS" title="Fresh from the oven">
-                    <AppListGrid>
-                      {newApps.map((app, index) => (
-                        <AppListItem
-                          key={app.id}
-                          app={app}
-                          installedApp={getInstalledApp(app)}
-                          index={index}
-                          onClick={() => setSelectedApp(app)}
-                        />
-                      ))}
-                    </AppListGrid>
-                  </DiscoverSection>
-                )}
-              </>
-            )}
+          {/* All Apps / Category View */}
+          {!loading && !error && !isDiscoverView && (
+            <>
+              {/* Empty State */}
+              {filteredApps.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <p className="text-zinc-400">No applications found</p>
+                  {searchQuery && (
+                    <button
+                      onClick={handleClearSearch}
+                      className="text-sm text-blue-400 hover:text-blue-300"
+                    >
+                      Clear search
+                    </button>
+                  )}
+                </div>
+              )}
 
-            {/* All Apps / Category View */}
-            {!loading && !error && !isDiscoverView && (
-              <>
-                {/* Empty State */}
-                {filteredApps.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <p className="text-zinc-400">No applications found</p>
-                    {searchQuery && (
-                      <button
-                        onClick={handleClearSearch}
-                        className="text-sm text-blue-400 hover:text-blue-300"
-                      >
-                        Clear search
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Apps Grid */}
-                {filteredApps.length > 0 && (
-                  <motion.div
-                    variants={{
-                      hidden: { opacity: 0 },
-                      show: {
-                        opacity: 1,
-                        transition: { staggerChildren: 0.03 },
-                      },
-                    }}
-                    initial="hidden"
-                    animate="show"
-                  >
-                    <AppListGrid>
-                      {filteredApps.map((app, index) => (
-                        <AppListItem
-                          key={app.id}
-                          app={app}
-                          installedApp={getInstalledApp(app)}
-                          index={index}
-                          onClick={() => setSelectedApp(app)}
-                        />
-                      ))}
-                    </AppListGrid>
-                  </motion.div>
-                )}
-              </>
-            )}
-          </div>
-        </ScrollArea>
+              {/* Apps Grid */}
+              {filteredApps.length > 0 && (
+                <motion.div
+                  variants={{
+                    hidden: { opacity: 0 },
+                    show: {
+                      opacity: 1,
+                      transition: { staggerChildren: 0.03 },
+                    },
+                  }}
+                  initial="hidden"
+                  animate="show"
+                >
+                  <AppListGrid>
+                    {filteredApps.map((app, index) => (
+                      <AppListItem
+                        key={app.id}
+                        app={app}
+                        installedApp={getInstalledApp(app)}
+                        index={index}
+                        onClick={() => setSelectedApp(app)}
+                      />
+                    ))}
+                  </AppListGrid>
+                </motion.div>
+              )}
+            </>
+          )}
+        </div>
 
         {/* Dialogs */}
         <CustomDeployDialog

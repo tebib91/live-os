@@ -1,9 +1,9 @@
 "use client";
 
 import { card, text } from "@/components/ui/design-tokens";
-import type { RunningApp } from "./types";
+import { formatBytes } from "@/lib/utils";
 import { AppListItem } from "./app-list-item";
-import { formatMemorySize } from "./utils";
+import type { RunningApp } from "./types";
 
 interface AppListProps {
   apps: RunningApp[];
@@ -30,10 +30,10 @@ export function AppList({ apps, connected }: AppListProps) {
             key={app.id}
             app={app}
             cpuLabel={`${app.cpuUsage.toFixed(1)}%`}
-            memLabel={`${formatMemorySize(app.memoryUsage)}`}
+            memLabel={`${formatBytes(app.memoryUsage)}`}
             netLabel={
               app.netRx !== undefined && app.netTx !== undefined
-                ? `${formatMemorySize(app.netRx)} / ${formatMemorySize(app.netTx)}`
+                ? `${formatBytes(app.netRx)} / ${formatBytes(app.netTx)}`
                 : undefined
             }
           />

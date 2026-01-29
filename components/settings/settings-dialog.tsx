@@ -16,6 +16,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { VERSION } from "@/lib/config";
+import { formatBytes, formatUptime } from "@/lib/utils";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -31,6 +32,7 @@ import {
   FirewallSection,
   LanguageSection,
   NetworkDevicesSection,
+  StorageSection,
   SystemDetailsCard,
   TroubleshootSection,
   UpdateSection,
@@ -39,19 +41,13 @@ import {
   WifiSection,
 } from "./sections";
 import { SettingsSidebar } from "./settings-sidebar";
+import { StorageDialog } from "./storage-dialog";
 import { SystemDetailsDialog } from "./system-details-dialog";
 import { LiveOsTailDialog } from "./troubleshoot/liveos-tail-dialog";
 import { WifiDialog } from "./wifi-dialog";
+import { useRebootTracker } from "@/hooks/useRebootTracker";
 
-// Pure utility functions - defined outside component to avoid recreation
-const formatBytes = (bytes: number, decimals = 1) => {
-  if (bytes === 0) return "0 GB";
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
-};
+
 
 const getMetricColor = (
   percentage: number,
@@ -59,15 +55,6 @@ const getMetricColor = (
   if (percentage < 80) return "cyan";
   if (percentage < 90) return "yellow";
   return "red";
-};
-
-const formatUptime = (seconds: number) => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
 };
 
 interface SettingsDialogProps {
@@ -96,6 +83,7 @@ export function SettingsDialog({
     undefined,
   );
   const [systemDetailsOpen, setSystemDetailsOpen] = useState(false);
+  const [storageDialogOpen, setStorageDialogOpen] = useState(false);
   const [networkDevicesOpen, setNetworkDevicesOpen] = useState(false);
   const [uptimeSeconds, setUptimeSeconds] = useState<number>(0);
   const [lanDevices, setLanDevices] = useState<LanDevice[]>([]);
@@ -107,6 +95,7 @@ export function SettingsDialog({
   const [advancedDialogOpen, setAdvancedDialogOpen] = useState(false);
   const [savingWallpaper, setSavingWallpaper] = useState(false);
   const router = useRouter();
+  const { requestReboot } = useRebootTracker();
 
   // Memoized fetch functions
   const fetchSystemInfo = useCallback(async () => {
@@ -160,15 +149,16 @@ export function SettingsDialog({
   }, []);
 
   // Fetch static data once when dialog opens
+  // NOTE: LAN scan is slow (up to 80s), so only fetch on demand via "View devices" button
   useEffect(() => {
     if (open) {
       fetchSystemInfo();
       fetchWallpapers();
       fetchUptime();
       fetchFirewallStatus();
-      fetchLanDevices();
+      // fetchLanDevices() removed - too slow for auto-fetch
     }
-  }, [open, fetchSystemInfo, fetchWallpapers, fetchUptime, fetchFirewallStatus, fetchLanDevices]);
+  }, [open, fetchSystemInfo, fetchWallpapers, fetchUptime, fetchFirewallStatus]);
 
   const handleWallpaperSelect = useCallback(async (path: string) => {
     onWallpaperChange?.(path);
@@ -198,13 +188,13 @@ export function SettingsDialog({
   }, [router]);
 
   const handleRestart = useCallback(async () => {
-    const res = await fetch("/api/system/restart", { method: "POST" });
-    if (res.ok) {
+    const result = await requestReboot();
+    if (result.ok) {
       toast.success("Restarting system...");
     } else {
-      toast.error("Restart failed");
+      toast.error(result.error ?? "Restart failed");
     }
-  }, []);
+  }, [requestReboot]);
 
   const handleShutdown = useCallback(async () => {
     const res = await fetch("/api/system/shutdown", { method: "POST" });
@@ -236,6 +226,7 @@ export function SettingsDialog({
   const handleOpenLogsDialog = useCallback(() => setLogsDialogOpen(true), []);
   const handleOpenAdvancedDialog = useCallback(() => setAdvancedDialogOpen(true), []);
   const handleOpenSystemDetails = useCallback(() => setSystemDetailsOpen(true), []);
+  const handleOpenStorageDialog = useCallback(() => setStorageDialogOpen(true), []);
 
   const handleFirewallDialogChange = useCallback((open: boolean) => {
     setFirewallDialogOpen(open);
@@ -257,9 +248,9 @@ export function SettingsDialog({
         <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-gradient-to-r from-white/10 via-white/5 to-transparent backdrop-blur">
           <div className="flex items-center gap-4">
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white/70">
-              System
+              Settings
             </span>
-            <DialogTitle className="text-4xl font-semibold text-white drop-shadow">
+            <DialogTitle className=" sr-only text-4xl font-semibold text-white drop-shadow">
               Settings
             </DialogTitle>
             <DialogDescription id="settings-description" className="sr-only">
@@ -326,6 +317,7 @@ export function SettingsDialog({
                 checking={checkingUpdate}
               />
               <TroubleshootSection onOpenDialog={handleOpenLogsDialog} />
+              <StorageSection onOpenDialog={handleOpenStorageDialog} />
               <LanguageSection />
               <AdvancedSettingsSection
                 onOpenDialog={handleOpenAdvancedDialog}
@@ -376,6 +368,7 @@ export function SettingsDialog({
           open={advancedDialogOpen}
           onOpenChange={setAdvancedDialogOpen}
         />
+        <StorageDialog open={storageDialogOpen} onOpenChange={setStorageDialogOpen} />
       </DialogContent>
     </Dialog>
   );

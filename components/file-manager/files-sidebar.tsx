@@ -45,9 +45,9 @@ export function FilesSidebar({
       <div className="p-6">
         <div className="flex items-center gap-3">
           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-white/70">
-            System
+            Files
           </span>
-          <DialogTitle className="text-3xl font-semibold text-white drop-shadow">
+          <DialogTitle className="sr-only text-3xl font-semibold text-white drop-shadow">
             Files
           </DialogTitle>
         </div>
@@ -151,11 +151,10 @@ export function FilesSidebar({
 
       <div className="p-3 border-t border-white/10 space-y-1">
         <button
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors border ${
-            isInTrash
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors border ${isInTrash
               ? 'bg-white/10 text-white/90 border-white/10'
               : 'text-white/60 hover:bg-white/5 hover:text-white border-transparent hover:border-white/10'
-          }`}
+            }`}
           onClick={() => onNavigate(trashPath)}
         >
           <Trash2 className="w-4 h-4 text-white/50" />

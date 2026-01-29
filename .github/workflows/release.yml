@@ -1,0 +1,151 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.7)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-latest
+
+    runs-on: ${{ matrix.runner }}
+    name: Build (${{ matrix.arch }})
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (arm64)
+        if: matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Determine version tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Build for ${{ matrix.arch }}
+        run: |
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            docker run --rm --platform linux/arm64 \
+              -v "${{ github.workspace }}:/workspace" \
+              -w /workspace \
+              node:20-bookworm bash -c '
+                set -e
+                apt-get update && apt-get install -y build-essential python3
+                npm ci --ignore-scripts
+                npm rebuild better-sqlite3 --build-from-source
+                npm rebuild node-pty --build-from-source || true
+                npx prisma generate --schema=prisma/schema.prisma
+                NODE_ENV=production npm run build
+                npm prune --omit=dev
+              '
+          else
+            npm ci --ignore-scripts
+            npm rebuild better-sqlite3 --build-from-source
+            npm rebuild node-pty --build-from-source || true
+            npx prisma generate --schema=prisma/schema.prisma
+            NODE_ENV=production npm run build
+            npm prune --omit=dev
+          fi
+
+      - name: Create tarball
+        run: |
+          VERSION="${{ steps.version.outputs.tag }}"
+          ARCH="${{ matrix.arch }}"
+          TARBALL="liveos-${VERSION}-linux-${ARCH}.tar.gz"
+
+          tar czf "${TARBALL}" \
+            --exclude='.next/cache' \
+            .next/ \
+            app/ \
+            components/ \
+            hooks/ \
+            lib/ \
+            constants/ \
+            node_modules/ \
+            prisma/ \
+            public/ \
+            internal-apps/ \
+            server.ts \
+            proxy.ts \
+            package.json \
+            next.config.ts \
+            tsconfig.json \
+            prisma.config.ts \
+            postcss.config.mjs \
+            components.json \
+            recommend-list.json \
+            install.sh \
+            update.sh
+
+          sha256sum "${TARBALL}" > "${TARBALL}.sha256"
+
+          echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
+          echo "checksum=${TARBALL}.sha256" >> "$GITHUB_OUTPUT"
+        id: tarball
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: liveos-${{ matrix.arch }}
+          path: |
+            ${{ steps.tarball.outputs.tarball }}
+            ${{ steps.tarball.outputs.checksum }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Publish Release
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Determine version tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: LiveOS ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            liveos-*.tar.gz
+            liveos-*.tar.gz.sha256

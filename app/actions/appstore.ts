@@ -10,6 +10,7 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { promisify } from "util";
+import YAML from "yaml";
 import { logAction, withActionLogging } from "./logger";
 import {
   CASAOS_OFFICIAL_ZIP,
@@ -22,13 +23,13 @@ import {
   isLikelyUmbrelStore,
   parseUmbrelStore,
 } from "./store/umbrel-store";
-import { listFiles } from "./store/utils";
+import { listFiles, resolveAsset } from "./store/utils";
 
 const execAsync = promisify(exec);
 
 const STORE_ROOT = path.join(process.cwd(), "external-apps");
 const CASAOS_RECOMMEND_LIST_URL =
-  "https://raw.githubusercontent.com/tebib91/live-os/refs/heads/main/recommanded-list.json";
+  "https://raw.githubusercontent.com/tebib91/live-os/refs/heads/main/recommend-list.json";
 
 type StoreFormat = "casaos" | "umbrel";
 
@@ -113,13 +114,6 @@ export async function getAppStoreApps(): Promise<App[]> {
       return [];
     }
   });
-}
-
-/**
- * Placeholder for installed apps; currently not implemented.
- */
-export async function getInstalledApps(): Promise<App[]> {
-  return withActionLogging("appstore:getInstalledApps", async () => []);
 }
 
 export async function getCasaOsRecommendList(): Promise<string[]> {
@@ -266,7 +260,7 @@ export async function importAppStore(
           website: app.website,
           repo: app.repo,
           composePath: app.composePath || "",
-          container: app.container ?? undefined,
+          container: (app.container ?? undefined) as never,
         },
         create: {
           storeId: store.id,
@@ -287,7 +281,7 @@ export async function importAppStore(
           website: app.website,
           repo: app.repo,
           composePath: app.composePath || "",
-          container: app.container ?? undefined,
+          container: (app.container ?? undefined) as never,
         },
       });
     }
@@ -552,6 +546,170 @@ export async function getAppComposeContent(
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to read compose file",
+    };
+  }
+}
+
+/**
+ * Fetch docker-compose content for an installed app by its appId.
+ * Looks up the app in the store DB to resolve composePath and returns content + metadata.
+ */
+export async function getComposeForApp(appId: string): Promise<{
+  success: boolean;
+  content?: string;
+  appTitle?: string;
+  appIcon?: string;
+  container?: {
+    image: string;
+    ports: { container: string; published: string }[];
+    volumes: { source: string; container: string }[];
+    environment: { key: string; value: string }[];
+  };
+  error?: string;
+}> {
+  try {
+    if (!appId) {
+      return { success: false, error: "Missing appId" };
+    }
+
+    const app = await prisma.app.findFirst({
+      where: { appId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!app) {
+      return { success: false, error: "App metadata not found" };
+    }
+
+    let content: string | undefined;
+    if (app.composePath) {
+      const composeResult = await getAppComposeContent(app.composePath);
+      if (composeResult.success && composeResult.content) {
+        content = composeResult.content;
+      }
+    }
+
+    const container = (app as any)?.container ?? undefined;
+
+    if (!content && !container) {
+      return {
+        success: false,
+        error: "No compose file or container config found for this app",
+      };
+    }
+
+    return {
+      success: true,
+      content,
+      appTitle: app.title || app.name || app.appId,
+      appIcon: app.icon || undefined,
+      container: container || undefined,
+    };
+  } catch (error) {
+    console.error("Failed to load compose for app:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to load compose",
+    };
+  }
+}
+
+/**
+ * Return media assets (screenshots/thumbnail/icon) for an app.
+ * Falls back to parsing the compose manifest when DB data is missing.
+ */
+export async function getAppMedia(appId: string): Promise<{
+  success: boolean;
+  screenshots: string[];
+  thumbnail?: string;
+  icon?: string;
+  error?: string;
+}> {
+  try {
+    if (!appId)
+      return { success: false, screenshots: [], error: "Missing appId" };
+
+    const app = await prisma.app.findFirst({
+      where: { appId },
+      include: { store: true },
+    });
+
+    if (!app) {
+      return {
+        success: false,
+        screenshots: [],
+        error: "App metadata not found",
+      };
+    }
+
+    const storeSlug = app.store?.slug || app.storeId;
+    const baseScreens =
+      Array.isArray(app.screenshots) && app.screenshots.length > 0
+        ? (app.screenshots as string[])
+        : [];
+
+    let screenshots = baseScreens;
+    let thumbnail: string | undefined;
+
+    if ((!screenshots.length || !thumbnail) && app.composePath) {
+      const compose = await getAppComposeContent(app.composePath);
+      if (compose.success && compose.content) {
+        try {
+          const doc = YAML.parse(compose.content) as {
+            ["x-casaos"]?: Record<string, unknown>;
+            x_casaos?: Record<string, unknown>;
+          };
+          const xCasa = (doc["x-casaos"] || doc.x_casaos || {}) as Record<
+            string,
+            unknown
+          >;
+          const rawScreens =
+            (xCasa.screenshot_link as unknown) ??
+            xCasa.screenshot ??
+            xCasa.screenshots ??
+            xCasa.gallery ??
+            [];
+          const list = Array.isArray(rawScreens)
+            ? rawScreens
+            : [rawScreens].filter(Boolean);
+          const appDir = path.dirname(
+            path.isAbsolute(app.composePath)
+              ? app.composePath
+              : path.join(process.cwd(), app.composePath),
+          );
+          screenshots = list
+            .map((item) =>
+              typeof item === "string"
+                ? resolveAsset(item, storeSlug, appDir)
+                : undefined,
+            )
+            .filter(Boolean) as string[];
+
+          const thumbRaw = xCasa.thumbnail as string | undefined;
+          if (thumbRaw) {
+            thumbnail = resolveAsset(thumbRaw, storeSlug, appDir);
+          }
+        } catch (parseError) {
+          console.warn(
+            "[appstore] Failed to parse compose for media:",
+            parseError,
+          );
+        }
+      }
+    }
+
+    return {
+      success: true,
+      screenshots,
+      thumbnail,
+      icon: app.icon,
+    };
+  } catch (error) {
+    console.error("[appstore] getAppMedia error:", error);
+    return {
+      success: false,
+      screenshots: [],
+      error: error instanceof Error ? error.message : "Failed to load media",
     };
   }
 }

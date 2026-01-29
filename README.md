@@ -1,109 +1,194 @@
 # LiveOS
 
-A self-hosted operating system for managing your infrastructure, built with Next.js.
+A self-hosted operating system dashboard for managing your home server infrastructure. Built with Next.js, LiveOS combines the best ideas from [UmbrelOS](https://github.com/getumbrel/umbrel) and [CasaOS](https://github.com/IceWhaleTech/CasaOS) while filling in the gaps they leave behind.
+
+![License](https://img.shields.io/github/license/tebib91/live-os)
+![GitHub release](https://img.shields.io/github/v/release/tebib91/live-os)
+
+## Why LiveOS?
+
+UmbrelOS and CasaOS are great starting points, but each has limitations. LiveOS was built to address the features they're missing:
+
+| Feature                               | UmbrelOS    | CasaOS      | LiveOS          |
+| ------------------------------------- | ----------- | ----------- | --------------- |
+| Firewall management (UFW)             | -           | -           | Yes             |
+| Web terminal (host + containers)      | -           | Host only   | Both            |
+| WiFi management UI                    | Yes         | -           | Yes             |
+| LAN device discovery                  | -           | -           | Yes             |
+| SMB file sharing (create shares)      | Yes         | -           | Yes             |
+| NFS/SMB network storage mounting      | Yes         | Yes         | Yes             |
+| System troubleshooting & diagnostics  | Yes         | -           | Yes             |
+| Live log streaming (journalctl)       | -           | -           | Yes             |
+| Custom docker-compose deploy          | -           | Yes         | Yes             |
+| Multi-store support (CasaOS + Umbrel) | Umbrel only | CasaOS only | Both            |
+| File manager with compression         | -           | Basic       | 8+ formats      |
+| Real-time system monitoring           | Basic       | Basic       | Detailed charts |
+| PIN-based authentication              | -           | -           | Yes             |
+| App backup before updates             | -           | -           | Yes             |
+
+## App Store
+
+LiveOS uses the **CasaOS app store** as its default source. You can also add **CasaOS community stores** for more apps.
+
+Support for **UmbrelOS app store** format is planned for a future release, making LiveOS the first dashboard to unify both ecosystems.
+
+### Adding community stores
+
+From the App Store dialog, you can import additional CasaOS-compatible stores by URL. Community-maintained stores provide hundreds of additional self-hosted apps.
 
 ## Installation
 
 Install LiveOS with a single command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/main/install.sh | sudo bash
 ```
 
-The script will:
+This downloads a **pre-built release** for your architecture (amd64 or arm64) - no compilation needed on your device.
 
-- Install Node.js 20.x and git (if not already installed)
-- Clone the repository
-- Install dependencies and build the project
-- Create and start a systemd service
+### Install from source
 
-### Installation Options
+If you prefer to build on the device (or no release is available yet):
 
 ```bash
-# Dry run (preview changes without installing)
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --dry-run
-
-# Skip dependency installation (Node.js/git)
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --no-dep
-
-# Install specific branch
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash -s -- --branch main
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/main/install.sh | sudo bash -s -- --from-source
 ```
 
-### Custom Port & Domain
+This clones the repo, installs dependencies, compiles native modules, and builds the project locally. Requires git, Node.js 20, and build tools (gcc, make, python3).
 
-By default, LiveOS runs on port 3000. To customize:
+### Installation options
 
 ```bash
-# Custom port
+# Dry run - preview what would happen
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/main/install.sh | sudo bash -s -- --dry-run
+
+# Install a specific version
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/main/install.sh | sudo bash -s -- --version v1.0.7
+
+# Skip dependency installation
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/main/install.sh | sudo bash -s -- --no-dep
+
+# Build from source using a specific branch
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/main/install.sh | sudo bash -s -- --from-source --branch develop
+```
+
+### Custom port & domain
+
+By default, LiveOS runs on port 80. To customize:
+
+```bash
 export LIVEOS_HTTP_PORT=8080
-
-# Custom domain (like umbrel.local)
 export LIVEOS_DOMAIN=home.local
-
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo -E bash
+curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/main/install.sh | sudo -E bash
 ```
 
 Or enter them when prompted during installation.
 
-**🌐 Custom Domain with mDNS (Like Umbrel!):**
-
-During installation, you can set a hostname (e.g., "home") and LiveOS will:
-- Install **Avahi** (mDNS daemon)
-- Set system hostname
-- Make it accessible as `home.local` across your entire network
-- **No hosts file editing needed!**
-
-Works automatically on:
-- ✅ Mac, iPhone, iPad
-- ✅ Linux (with Avahi)
-- ✅ Windows 10+
-- ✅ Android
+During installation you can set a hostname (e.g. "home") and LiveOS will install **Avahi** (mDNS), set the system hostname, and make it reachable as `home.local` across your entire network without editing hosts files.
 
 ## Quick Start
 
 After installation, access LiveOS at:
 
-- `http://localhost:3000` (or your custom port)
-- `http://your-server-ip:3000`
-- `http://home.local:3000` (if you set a custom domain)
+- `http://localhost` (or your custom port)
+- `http://your-server-ip`
+- `http://home.local` (if you set a custom domain)
+
+## Updating
+
+```bash
+cd /opt/live-os && sudo bash update.sh
+```
+
+This checks the latest GitHub release, downloads the new build, backs up your `.env`, database, and external apps, then restores everything after extraction.
+
+To update from source instead:
+
+```bash
+cd /opt/live-os && sudo bash update.sh --from-source
+```
+
+## Uninstalling
+
+```bash
+cd /opt/live-os && sudo bash uninstall.sh
+```
+
+This stops the service, removes the systemd unit, and deletes the installation directory. Optionally cleans up Docker resources and data.
 
 ## Managing the Service
 
 ```bash
-# Start/stop/restart
-sudo systemctl [start|stop|restart] liveos
-
-# View status
+sudo systemctl start liveos
+sudo systemctl stop liveos
+sudo systemctl restart liveos
 sudo systemctl status liveos
 
 # View logs
 sudo journalctl -u liveos -f
 ```
 
-## Updating LiveOS
+## Features
+
+### System Monitoring
+
+Real-time CPU, RAM, storage, and network charts with per-container resource breakdown for Docker workloads.
+
+### Web Terminal
+
+Access your host OS shell or exec into any running Docker container directly from the browser using xterm.js and WebSocket.
+
+### File Manager
+
+Browse, create, rename, move, copy, and delete files. Edit text files with Monaco editor (syntax highlighting). Compress to tar.gz and decompress 8+ archive formats. Keyboard shortcuts (Cmd+X/C/V).
+
+### Docker App Management
+
+Install apps from the store, manage container lifecycle (start/stop/restart), view logs, and edit docker-compose configurations. Deploy custom containers via docker-compose or single docker run commands.
+
+### Firewall Management
+
+Full UFW integration: enable/disable firewall, create/delete rules, set default policies, configure port/protocol/direction, with IPv6 support.
+
+### Network Management
+
+Scan and connect to WiFi networks. Discover devices on your LAN via mDNS/ARP. Mount NFS and SMB network shares. Create and manage SMB file shares via Samba.
+
+### Troubleshooting
+
+Run system diagnostics (disk, memory, Docker, network, DNS). Browse and stream system logs from journalctl. Check and restart services. Export diagnostic reports.
+
+### Settings
+
+Scan and connect to WiFi networks. Discover devices on your LAN via mDNS/ARP. Mount NFS and SMB network shares. Create and manage SMB file shares via Samba.
+
+### Troubleshooting
+
+Run system diagnostics (disk, memory, Docker, network, DNS). Browse and stream system logs from journalctl. Check and restart services. Export diagnostic reports.
+
+### Settings
+
+Detailed hardware info tabs: CPU, memory, battery, graphics, network interfaces, thermals. Storage and partition overview.
+
+## Architecture
+
+- **Frontend**: Next.js 16, React 19, Tailwind CSS 4, Framer Motion
+- **Backend**: Next.js Server Actions (no separate API server)
+- **Database**: SQLite via Prisma ORM
+- **Terminal**: xterm.js + node-pty over WebSocket
+- **Target**: Debian LTS on amd64/arm64 (optimized for Raspberry Pi 4)
+
+## Development
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/update.sh | sudo bash
+git clone https://github.com/tebib91/live-os.git
+cd live-os
+npm install
+npm run dev
 ```
 
-## Uninstalling LiveOS
-
-To completely remove LiveOS from your system:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/uninstall.sh | sudo bash
-```
-
-Or if you have the repository cloned locally:
-
-```bash
-cd /opt/live-os
-sudo bash uninstall.sh
-```
-
-This will stop the service, remove the systemd service file, and delete the installation directory.
+Runs on `http://localhost:3000`.
 
 ## License
 
-Apache License 2.0
+[Apache License 2.0](LICENSE)
