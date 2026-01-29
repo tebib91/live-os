@@ -21,7 +21,7 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
           - arch: arm64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04-arm
 
     runs-on: ${{ matrix.runner }}
     name: Build (${{ matrix.arch }})
@@ -29,12 +29,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up QEMU (arm64)
-        if: matrix.arch == 'arm64'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
 
       - name: Determine version tag
         id: version
@@ -51,30 +45,22 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Build for ${{ matrix.arch }}
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build native modules
         run: |
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            docker run --rm --platform linux/arm64 \
-              -v "${{ github.workspace }}:/workspace" \
-              -w /workspace \
-              node:20-bookworm bash -c '
-                set -e
-                apt-get update && apt-get install -y build-essential python3
-                npm ci --ignore-scripts
-                npm rebuild better-sqlite3 --build-from-source
-                npm rebuild node-pty --build-from-source || true
-                npx prisma generate --schema=prisma/schema.prisma
-                NODE_ENV=production npm run build
-                npm prune --omit=dev
-              '
-          else
-            npm ci --ignore-scripts
-            npm rebuild better-sqlite3 --build-from-source
-            npm rebuild node-pty --build-from-source || true
-            npx prisma generate --schema=prisma/schema.prisma
-            NODE_ENV=production npm run build
-            npm prune --omit=dev
-          fi
+          npm rebuild better-sqlite3 --build-from-source
+          npm rebuild node-pty --build-from-source || true
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=prisma/schema.prisma
+
+      - name: Build Next.js
+        run: NODE_ENV=production npm run build
+
+      - name: Prune devDependencies
+        run: npm prune --omit=dev
 
       - name: Create tarball
         run: |
