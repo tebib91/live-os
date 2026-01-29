@@ -45,6 +45,7 @@ import { StorageDialog } from "./storage-dialog";
 import { SystemDetailsDialog } from "./system-details-dialog";
 import { LiveOsTailDialog } from "./troubleshoot/liveos-tail-dialog";
 import { WifiDialog } from "./wifi-dialog";
+import { useRebootTracker } from "@/hooks/useRebootTracker";
 
 
 
@@ -94,6 +95,7 @@ export function SettingsDialog({
   const [advancedDialogOpen, setAdvancedDialogOpen] = useState(false);
   const [savingWallpaper, setSavingWallpaper] = useState(false);
   const router = useRouter();
+  const { requestReboot } = useRebootTracker();
 
   // Memoized fetch functions
   const fetchSystemInfo = useCallback(async () => {
@@ -186,13 +188,13 @@ export function SettingsDialog({
   }, [router]);
 
   const handleRestart = useCallback(async () => {
-    const res = await fetch("/api/system/restart", { method: "POST" });
-    if (res.ok) {
+    const result = await requestReboot();
+    if (result.ok) {
       toast.success("Restarting system...");
     } else {
-      toast.error("Restart failed");
+      toast.error(result.error ?? "Restart failed");
     }
-  }, []);
+  }, [requestReboot]);
 
   const handleShutdown = useCallback(async () => {
     const res = await fetch("/api/system/shutdown", { method: "POST" });
