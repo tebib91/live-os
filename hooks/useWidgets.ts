@@ -238,6 +238,13 @@ export function useWidgets(): UseWidgetsReturn {
       usagePercent: 0,
       health: "—",
     };
+    // storageStats values are in gigabytes; convert to bytes for formatting
+    const storageUsedBytes = storage.used * 1024 ** 3;
+    const storageTotalBytes = storage.total * 1024 ** 3;
+    const storageFreeBytes =
+      storageTotalBytes > 0
+        ? Math.max(0, storageTotalBytes - storageUsedBytes)
+        : 0;
     const thermals = systemStats?.hardware?.thermals;
 
     // Storage widget
@@ -245,12 +252,10 @@ export function useWidgets(): UseWidgetsReturn {
       title: "Storage",
       value:
         storage.total > 0
-          ? `${formatBytes(storage.used)} / ${formatBytes(storage.total)}`
+          ? `${formatBytes(storageUsedBytes)} / ${formatBytes(storageTotalBytes)}`
           : "Loading...",
       subtext:
-        storage.total > 0
-          ? `${formatBytes(storage.total - storage.used)} available`
-          : undefined,
+        storage.total > 0 ? `${formatBytes(storageFreeBytes)} available` : undefined,
       progress: storage.usagePercent,
       color: WIDGET_COLORS.storage,
     };
@@ -341,7 +346,8 @@ export function useWidgets(): UseWidgetsReturn {
         {
           label: "Storage",
           value: `${storage.usagePercent.toFixed(0)}%`,
-          subtext: storage.total > 0 ? formatBytes(storage.used) : "—",
+          subtext:
+            storage.total > 0 ? formatBytes(storageUsedBytes) : "—",
           color: WIDGET_COLORS.storage,
         },
         {

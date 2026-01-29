@@ -6,10 +6,10 @@ Complete guide for installing and configuring LiveOS on your server.
 
 ```bash
 # Download and run installer
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/live-doctor/live-os/develop/install.sh | sudo bash
 
 # Or clone and install
-git clone https://github.com/tebib91/live-os.git
+git clone https://github.com/live-doctor/live-os.git
 cd live-os
 sudo bash install.sh
 ```
@@ -29,6 +29,7 @@ Enter HTTP port (default: 3000):
 Choose the port where LiveOS will be accessible. Default is 3000.
 
 **Examples:**
+
 - `3000` - Default port
 - `8080` - Alternative port
 - `80` - Standard HTTP (requires root)
@@ -67,12 +68,14 @@ Enter hostname (leave empty for default):
 4. **All devices can access it** without any configuration!
 
 **✅ Works automatically on:**
+
 - ✅ **Mac, iPhone, iPad** (built-in Bonjour/mDNS)
 - ✅ **Linux** (with Avahi - installed automatically)
 - ✅ **Windows 10+** (usually built-in)
 - ✅ **Android** (with mDNS support)
 
 **🎯 Just type in browser:**
+
 ```
 http://home.local:3000
 ```
@@ -82,6 +85,7 @@ http://home.local:3000
 **📝 If it doesn't work on older Windows:**
 
 Some older Windows versions need Bonjour Print Services:
+
 - Download: [Bonjour Print Services](https://support.apple.com/kb/DL999)
 - Or manually add to `C:\Windows\System32\drivers\etc\hosts`:
   ```
@@ -186,6 +190,7 @@ sudo systemctl restart liveos
 ```
 
 **Example .env file:**
+
 ```bash
 # Server Configuration
 PORT=3000
@@ -256,6 +261,7 @@ sudo systemctl start avahi-daemon
 ```
 
 Now your server is accessible via:
+
 ```
 http://hostname.local:3000
 ```
@@ -295,6 +301,7 @@ sudo bash update.sh
 ```
 
 The update script:
+
 - ✅ Checks for new versions
 - ✅ **Preserves your .env configuration**
 - ✅ Pulls latest changes
@@ -437,6 +444,7 @@ sudo ufw allow 3000
 Use Nginx or Caddy for SSL/HTTPS:
 
 **Nginx example:**
+
 ```nginx
 server {
     listen 80;
@@ -454,6 +462,7 @@ server {
 ```
 
 **Caddy example:**
+
 ```
 home.local {
     reverse_proxy localhost:3000
@@ -465,15 +474,18 @@ home.local {
 ## Platform Compatibility
 
 ✅ **Supported Platforms:**
+
 - Debian 11+ (Primary target)
 - Ubuntu 20.04+
 - Debian-based distributions
 
 ⚠️ **Limited Support:**
+
 - Other Linux distributions (may require adaptations)
 - macOS (development only)
 
 ❌ **Not Supported:**
+
 - Windows (use WSL2 for development)
 
 ---
@@ -483,6 +495,7 @@ home.local {
 See [.env.example](./.env.example) for complete configuration options.
 
 **Common variables:**
+
 - `PORT` - HTTP port (default: 3000)
 - `NODE_ENV` - Environment mode (production/development)
 - `LIVEOS_DOMAIN` - Custom domain
@@ -496,7 +509,7 @@ See [.env.example](./.env.example) for complete configuration options.
 - **Documentation**: [README.md](./README.md)
 - **App Store**: [APP_STORE_GUIDE.md](./APP_STORE_GUIDE.md)
 - **Scripts**: [scripts/README.md](./scripts/README.md)
-- **Issues**: https://github.com/tebib91/live-os/issues
+- **Issues**: https://github.com/live-doctor/live-os/issues
 
 ---
 

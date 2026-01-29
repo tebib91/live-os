@@ -68,6 +68,7 @@ In the logs (`journalctl -u liveos`), you should see:
 If `npm rebuild node-pty` fails, the application will still work **without** the terminal feature.
 
 You'll see in logs:
+
 ```
 ⚠ Terminal feature not available
   The application will work without terminal functionality
@@ -104,7 +105,7 @@ sudo rm -rf /opt/live-os
 sudo rm /etc/systemd/system/liveos.service
 
 # Fresh install with updated script
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/live-doctor/live-os/develop/install.sh -o install.sh
 sudo bash install.sh
 
 # Restore .env if you had custom settings
@@ -137,6 +138,7 @@ You should see HTML response from LiveOS dashboard!
 ## Summary
 
 **Immediate fix:**
+
 ```bash
 sudo apt-get install -y build-essential python3
 cd /opt/live-os && sudo npm rebuild node-pty
@@ -144,6 +146,7 @@ sudo systemctl restart liveos
 ```
 
 **Check it worked:**
+
 ```bash
 sudo journalctl -u liveos -n 20
 ```

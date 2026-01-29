@@ -13,6 +13,7 @@ import { LockScreen } from "@/components/lock-screen";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { WifiDialog } from "@/components/settings/wifi-dialog";
 import { SystemMonitorDialog } from "@/components/system-monitor";
+import { RebootOverlay } from "@/components/system/reboot-overlay";
 import { TerminalDialog } from "@/components/terminal/terminal-dialog";
 import { WidgetGrid, WidgetSelector } from "@/components/widgets";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
@@ -20,9 +21,8 @@ import { useWidgets } from "@/hooks/useWidgets";
 import { VERSION } from "@/lib/config";
 import { LayoutGrid } from "lucide-react";
 import { useEffect, useState } from "react";
-import { RebootOverlay } from "@/components/system/reboot-overlay";
 
-const DEFAULT_WALLPAPER = "/wallpapers/pexels-philippedonn.jpg";
+const DEFAULT_WALLPAPER = "/wallpapers/14.jpg";
 
 type HomeClientProps = {
   initialWallpaper?: string | null;

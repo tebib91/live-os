@@ -7,7 +7,7 @@ set -e
 
 INSTALL_DIR="/opt/live-os"
 SERVICE_NAME="liveos"
-GITHUB_REPO="tebib91/live-os"
+GITHUB_REPO="live-doctor/live-os"
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'

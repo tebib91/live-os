@@ -1,7 +1,7 @@
 import { getSettings } from "@/app/actions/settings";
 import { HomeClient } from "@/components/home/home-client";
 
-const DEFAULT_WALLPAPER = "/wallpapers/pexels-philippedonn.jpg";
+const DEFAULT_WALLPAPER = "/wallpapers/14.jpg";
 
 export const dynamic = "force-dynamic";
 

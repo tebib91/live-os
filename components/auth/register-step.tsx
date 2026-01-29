@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PIN_LENGTH } from "@/lib/config";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 type RegisterStepProps = {
   username: string;
@@ -61,7 +61,12 @@ export function RegisterStep({
       <div className="space-y-2">
         <Label className="text-white/90">Create PIN</Label>
         <div className="flex justify-center">
-          <PinInput value={pin} onChange={onPinChange} disabled={loading} center />
+          <PinInput
+            value={pin}
+            onChange={onPinChange}
+            disabled={loading}
+            center
+          />
         </div>
       </div>
 
@@ -74,9 +79,9 @@ export function RegisterStep({
             disabled={loading}
             center
           />
-          {pinMatch && (
+          {/* {pinMatch && (
             <CheckCircle2 className="absolute -right-8 top-1/2 -translate-y-1/2 h-5 w-5 text-emerald-400" />
-          )}
+          )} */}
         </div>
         {confirmPin.length === PIN_LENGTH && !pinMatch && (
           <p className="text-xs text-red-400 text-center">PINs do not match</p>

@@ -54,8 +54,8 @@ DOMAIN=${LIVEOS_DOMAIN:-""}
 INSTALL_DIR="/opt/live-os"
 
 # GitHub repository
-REPO_URL="https://github.com/tebib91/live-os.git"
-GITHUB_REPO="tebib91/live-os"
+REPO_URL="https://github.com/live-doctor/live-os.git"
+GITHUB_REPO="live-doctor/live-os"
 
 # ─── Architecture detection ───────────────────────────────────────────────────
 

@@ -25,7 +25,7 @@ export function PinInput({ value, onChange, disabled, center }: PinInputProps) {
       containerClassName={center ? "justify-center" : undefined}
       pattern="[0-9]*"
     >
-      <InputOTPGroup>
+      <InputOTPGroup className="gap-3">
         {Array.from({ length: PIN_LENGTH }).map((_, index) => (
           <InputOTPSlot
             key={index}

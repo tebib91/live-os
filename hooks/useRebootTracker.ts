@@ -101,7 +101,19 @@ function stopPolling() {
 }
 
 async function pollOnce() {
-  const record = readPersisted();
+  let record = readPersisted();
+
+  // If storage was wiped (e.g., private mode / cross-tab clear) but we already
+  // started a reboot in this session, reconstruct the record so we keep showing
+  // the overlay instead of dropping to idle.
+  if (!record && sharedState.startedAt) {
+    record = {
+      bootTimeMs: sharedState.bootBefore ?? null,
+      startedAt: sharedState.startedAt,
+    };
+    persist(record);
+  }
+
   if (!record) {
     stopPolling();
     updateShared({
@@ -141,15 +153,6 @@ async function pollOnce() {
       bootBefore: record.bootTimeMs,
       error: null,
     });
-    setTimeout(() => {
-      updateShared({
-        phase: "idle",
-        startedAt: undefined,
-        bootBefore: undefined,
-        lastHealth: undefined,
-        error: null,
-      });
-    }, 1500);
     return;
   }
 
