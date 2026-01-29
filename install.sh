@@ -31,16 +31,12 @@ print_info() {
 # Parse command line arguments
 DRY_RUN=0
 NO_DEP=0
-FROM_SOURCE=0
 BRANCH="develop"
-INSTALL_VERSION=""
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -d|--dry-run) DRY_RUN=1 ;;
         -n|--no-dep) NO_DEP=1 ;;
         -b|--branch) BRANCH="$2"; shift ;;
-        --from-source) FROM_SOURCE=1 ;;
-        --version) INSTALL_VERSION="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -55,124 +51,6 @@ INSTALL_DIR="/opt/live-os"
 
 # GitHub repository
 REPO_URL="https://github.com/tebib91/live-os.git"
-GITHUB_REPO="tebib91/live-os"
-
-# ─── Architecture detection ───────────────────────────────────────────────────
-
-detect_architecture() {
-    local machine
-    machine="$(uname -m)"
-    case "$machine" in
-        x86_64|amd64)   echo "amd64" ;;
-        aarch64|arm64)   echo "arm64" ;;
-        *)
-            print_error "Unsupported architecture: $machine"
-            print_error "LiveOS supports amd64 and arm64 only."
-            exit 1
-            ;;
-    esac
-}
-
-# ─── GitHub Release helpers ───────────────────────────────────────────────────
-
-get_latest_version() {
-    local api_url="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
-    local tag
-
-    if command -v curl >/dev/null 2>&1; then
-        tag="$(curl -fsSL "$api_url" | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')"
-    elif command -v wget >/dev/null 2>&1; then
-        tag="$(wget -qO- "$api_url" | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')"
-    else
-        print_error "curl or wget is required to download releases."
-        exit 1
-    fi
-
-    if [ -z "$tag" ]; then
-        print_error "Could not determine the latest release version."
-        print_error "Check https://github.com/${GITHUB_REPO}/releases"
-        exit 1
-    fi
-
-    echo "$tag"
-}
-
-download_and_verify() {
-    local version="$1"
-    local arch="$2"
-    local tarball="liveos-${version}-linux-${arch}.tar.gz"
-    local base_url="https://github.com/${GITHUB_REPO}/releases/download/${version}"
-    local dest="/tmp/${tarball}"
-
-    print_status "Downloading ${tarball}..."
-    if command -v curl >/dev/null 2>&1; then
-        curl -fSL -o "$dest" "${base_url}/${tarball}"
-        curl -fSL -o "${dest}.sha256" "${base_url}/${tarball}.sha256"
-    elif command -v wget >/dev/null 2>&1; then
-        wget -q -O "$dest" "${base_url}/${tarball}"
-        wget -q -O "${dest}.sha256" "${base_url}/${tarball}.sha256"
-    fi
-
-    print_status "Verifying checksum..."
-    (cd /tmp && sha256sum -c "${tarball}.sha256")
-    if [ $? -ne 0 ]; then
-        print_error "Checksum verification failed! The download may be corrupted."
-        rm -f "$dest" "${dest}.sha256"
-        exit 1
-    fi
-    print_status "Checksum OK"
-}
-
-install_from_artifact() {
-    local version="$1"
-    local arch="$2"
-    local tarball="liveos-${version}-linux-${arch}.tar.gz"
-    local dest="/tmp/${tarball}"
-
-    if [ "$DRY_RUN" -eq 1 ]; then
-        print_dry "Download release ${tarball} from GitHub"
-        print_dry "Verify SHA256 checksum"
-        print_dry "Extract to ${INSTALL_DIR}"
-        print_dry "Create .env configuration file"
-        print_dry "Run prisma migrate deploy"
-        return
-    fi
-
-    # Download and verify
-    download_and_verify "$version" "$arch"
-
-    # Remove existing installation if present
-    if [ -d "$INSTALL_DIR" ]; then
-        print_status "Removing existing installation..."
-        rm -rf "$INSTALL_DIR"
-    fi
-
-    # Extract
-    print_status "Extracting to ${INSTALL_DIR}..."
-    mkdir -p "$INSTALL_DIR"
-    tar xzf "$dest" -C "$INSTALL_DIR"
-
-    # Cleanup download
-    rm -f "$dest" "${dest}.sha256"
-
-    cd "$INSTALL_DIR"
-
-    # Create .env
-    print_status "Creating environment configuration..."
-    create_env_file
-
-    # Run migrations
-    print_status "Running database migrations (Prisma)..."
-    if ! npx prisma migrate deploy --schema=prisma/schema.prisma; then
-        print_error "Prisma migrations failed. Check DATABASE_URL in .env and rerun:"
-        print_error "  npx prisma migrate deploy --schema=prisma/schema.prisma"
-        exit 1
-    fi
-
-    print_status "Installation from release artifact complete!"
-}
-
-# ─── Prompt helpers ───────────────────────────────────────────────────────────
 
 # Prompt for port
 prompt_port() {
@@ -338,9 +216,8 @@ prompt_domain() {
             echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
             echo ""
         else
-            print_status "Using default hostname: liveos"
-            DOMAIN="liveos.local"
-            set_hostname "liveos"
+            print_status "Using default hostname: $(hostname)"
+            DOMAIN="$(hostname).local"
         fi
     else
         DOMAIN=$LIVEOS_DOMAIN
@@ -355,7 +232,54 @@ prompt_domain() {
     fi
 }
 
-# ─── Dependency installers ────────────────────────────────────────────────────
+# Prompt user to connect to Wi-Fi
+# prompt_wifi() {
+#     if [ "$DRY_RUN" -eq 1 ]; then
+#         print_dry "Scan and connect to Wi-Fi"
+#         return
+#     fi
+
+#     # Check if nmcli is available
+#     if ! command -v nmcli >/dev/null 2>&1; then
+#         print_error "nmcli not found. Wi-Fi setup skipped."
+#         return
+#     fi
+
+#     print_status "Scanning for Wi-Fi networks..."
+#     # List networks
+#     mapfile -t SSIDS < <(nmcli -t -f SSID dev wifi list | grep -v '^$' | sort -u)
+
+#     if [ "${#SSIDS[@]}" -eq 0 ]; then
+#         print_error "No Wi-Fi networks detected"
+#         return
+#     fi
+
+#     echo ""
+#     echo -e "${BLUE}Available Wi-Fi Networks:${NC}"
+#     for i in "${!SSIDS[@]}"; do
+#         echo "  [$i] ${SSIDS[$i]}"
+#     done
+
+#     echo -n -e "${BLUE}Select Wi-Fi network by number:${NC} "
+#     read -r choice
+#     if [[ ! $choice =~ ^[0-9]+$ ]] || [ "$choice" -ge "${#SSIDS[@]}" ]; then
+#         print_error "Invalid selection. Skipping Wi-Fi setup."
+#         return
+#     fi
+
+#     SSID="${SSIDS[$choice]}"
+#     echo -n -e "${BLUE}Enter password for \"$SSID\":${NC} "
+#     read -rs PASSWORD
+#     echo ""
+
+#     print_status "Connecting to Wi-Fi \"$SSID\"..."
+#     if nmcli dev wifi connect "$SSID" password "$PASSWORD"; then
+#         print_status "Connected to $SSID successfully!"
+#     else
+#         print_error "Failed to connect to $SSID. Check password and try manually."
+#     fi
+# }
+
 
 # Check if script is run as root
 if [ "$EUID" -ne 0 ] && [ "$DRY_RUN" -eq 0 ]; then
@@ -798,8 +722,6 @@ ensure_docker_permissions() {
     fi
 }
 
-# ─── Source-based setup (legacy) ──────────────────────────────────────────────
-
 # Clone and setup the project
 setup_liveos() {
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -1002,14 +924,16 @@ check_port() {
     fi
 }
 
-# ─── Main installation flow ──────────────────────────────────────────────────
-
+# Main installation flow
 if [ "$DRY_RUN" -eq 1 ]; then
     print_status "Running in dry-run mode - no changes will be made"
 fi
 
 # Prompt for port if not set via environment variables
 prompt_port
+
+# Prompt for Wi-Fi connection (optional)
+# prompt_wifi
 
 # Prompt for domain
 prompt_domain
@@ -1019,34 +943,19 @@ check_port
 
 # Install dependencies
 if [ "$NO_DEP" -eq 0 ]; then
-    if [ "$FROM_SOURCE" -eq 1 ]; then
-        # Source build requires git + build tools
-        install_git
-        install_build_tools
-    fi
-    install_archive_tools
-    install_cifs_utils
-    install_nodejs
-    install_docker
-    ensure_docker_permissions
-    install_avahi
-    install_nmcli
+    install_git
+  install_build_tools
+  install_archive_tools
+  install_cifs_utils
+  install_nodejs
+  install_docker
+  ensure_docker_permissions
+  install_avahi
+  install_nmcli
 fi
 
 # Setup the application
-if [ "$FROM_SOURCE" -eq 1 ]; then
-    setup_liveos
-else
-    # Artifact-based install (default)
-    ARCH="$(detect_architecture)"
-    if [ -n "$INSTALL_VERSION" ]; then
-        VERSION="$INSTALL_VERSION"
-    else
-        VERSION="$(get_latest_version)"
-    fi
-    print_status "Installing LiveOS ${VERSION} for ${ARCH}..."
-    install_from_artifact "$VERSION" "$ARCH"
-fi
+setup_liveos
 
 # Install and start service
 install_service

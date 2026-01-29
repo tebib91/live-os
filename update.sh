@@ -7,7 +7,6 @@ set -e
 
 INSTALL_DIR="/opt/live-os"
 SERVICE_NAME="liveos"
-GITHUB_REPO="tebib91/live-os"
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -17,19 +16,6 @@ NC='\033[0m' # No Color
 print_status() { echo -e "${GREEN}[+]${NC} $1"; }
 print_error() { echo -e "${RED}[!]${NC} $1"; }
 print_info() { echo -e "${BLUE}[i]${NC} $1"; }
-
-# ─── Parse arguments ─────────────────────────────────────────────────────────
-
-FROM_SOURCE=0
-while [[ "$#" -gt 0 ]]; do
-    case $1 in
-        --from-source) FROM_SOURCE=1 ;;
-        *) echo "Unknown parameter: $1"; exit 1 ;;
-    esac
-    shift
-done
-
-# ─── Shared helpers ──────────────────────────────────────────────────────────
 
 get_version_from_file() {
     local file="$1"
@@ -72,43 +58,6 @@ PY
     print_error "Node.js or python3 is required to read package.json"
     exit 1
 }
-
-detect_architecture() {
-    local machine
-    machine="$(uname -m)"
-    case "$machine" in
-        x86_64|amd64)   echo "amd64" ;;
-        aarch64|arm64)   echo "arm64" ;;
-        *)
-            print_error "Unsupported architecture: $machine"
-            exit 1
-            ;;
-    esac
-}
-
-get_latest_release_tag() {
-    local api_url="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
-    local tag
-
-    if command -v curl >/dev/null 2>&1; then
-        tag="$(curl -fsSL "$api_url" | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')"
-    elif command -v wget >/dev/null 2>&1; then
-        tag="$(wget -qO- "$api_url" | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')"
-    else
-        print_error "curl or wget is required."
-        exit 1
-    fi
-
-    if [ -z "$tag" ]; then
-        print_error "Could not determine the latest release."
-        exit 1
-    fi
-
-    echo "$tag"
-}
-
-# Strip leading 'v' from a tag to get a comparable version string
-strip_v() { echo "${1#v}"; }
 
 ensure_archive_tools() {
     if command -v unzip >/dev/null 2>&1 || command -v bsdtar >/dev/null 2>&1; then
@@ -172,8 +121,6 @@ ensure_migrations_ready() {
     fi
 }
 
-# ─── Root & directory checks ─────────────────────────────────────────────────
-
 # Ensure script is run as root
 if [ "$EUID" -ne 0 ]; then
     print_error "Please run as root"
@@ -198,240 +145,105 @@ fi
 
 print_info "Current installed version: $LOCAL_VERSION"
 
-# ─── Artifact-based update (default) ─────────────────────────────────────────
+# Fetch latest changes from git
+git fetch origin
 
-update_from_artifact() {
-    local arch
-    arch="$(detect_architecture)"
+# Get remote version from branch (assuming develop by default)
+REMOTE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+REMOTE_VERSION=$(git show origin/$REMOTE_BRANCH:package.json | get_version_from_stdin)
 
-    local latest_tag
-    latest_tag="$(get_latest_release_tag)"
-    local latest_version
-    latest_version="$(strip_v "$latest_tag")"
+print_info "Latest available version: $REMOTE_VERSION"
 
-    print_info "Latest available version: $latest_version"
+if [ "$LOCAL_VERSION" == "$REMOTE_VERSION" ]; then
+    print_status "LiveOS is already up to date! ✅"
+    exit 0
+fi
 
-    if [ "$LOCAL_VERSION" = "$latest_version" ]; then
-        print_status "LiveOS is already up to date!"
-        exit 0
-    fi
+print_status "Updating LiveOS from version $LOCAL_VERSION to $REMOTE_VERSION..."
 
-    print_status "Updating LiveOS from $LOCAL_VERSION to $latest_version..."
+# Backup .env file once before all operations
+if [ -f "$INSTALL_DIR/.env" ]; then
+    print_info "Backing up .env file..."
+    cp "$INSTALL_DIR/.env" "$INSTALL_DIR/.env.backup"
+fi
 
-    local tarball="liveos-${latest_tag}-linux-${arch}.tar.gz"
-    local base_url="https://github.com/${GITHUB_REPO}/releases/download/${latest_tag}"
-    local dest="/tmp/${tarball}"
+# Pull latest changes
+git fetch origin "$REMOTE_BRANCH"
+git reset --hard origin/"$REMOTE_BRANCH"
 
-    # Download tarball + checksum
-    print_status "Downloading ${tarball}..."
-    if command -v curl >/dev/null 2>&1; then
-        curl -fSL -o "$dest" "${base_url}/${tarball}"
-        curl -fSL -o "${dest}.sha256" "${base_url}/${tarball}.sha256"
-    elif command -v wget >/dev/null 2>&1; then
-        wget -q -O "$dest" "${base_url}/${tarball}"
-        wget -q -O "${dest}.sha256" "${base_url}/${tarball}.sha256"
-    fi
+# Install dependencies (skip Husky setup scripts)
+# Note: TypeScript is needed for build even in production
+print_status "Installing dependencies..."
+npm ci --include=dev --ignore-scripts
 
-    print_status "Verifying checksum..."
-    (cd /tmp && sha256sum -c "${tarball}.sha256")
-    if [ $? -ne 0 ]; then
-        print_error "Checksum verification failed!"
-        rm -f "$dest" "${dest}.sha256"
-        exit 1
-    fi
-    print_status "Checksum OK"
+ensure_archive_tools
+ensure_cifs_utils
+ensure_migrations_ready
 
-    # Backup .env and database
-    local backup_dir="/tmp/liveos-backup-$$"
-    mkdir -p "$backup_dir"
+# Rebuild native modules
+print_status "Rebuilding native modules..."
 
-    if [ -f "$INSTALL_DIR/.env" ]; then
-        print_info "Backing up .env..."
-        cp "$INSTALL_DIR/.env" "$backup_dir/.env"
-    fi
-
-    if [ -f "$INSTALL_DIR/prisma/live-os.db" ]; then
-        print_info "Backing up database..."
-        cp "$INSTALL_DIR/prisma/live-os.db" "$backup_dir/live-os.db"
-    fi
-
-    # Preserve external-apps if present
-    if [ -d "$INSTALL_DIR/external-apps" ]; then
-        print_info "Backing up external-apps..."
-        cp -r "$INSTALL_DIR/external-apps" "$backup_dir/external-apps"
-    fi
-
-    # Stop service
-    print_status "Stopping LiveOS service..."
-    systemctl stop "$SERVICE_NAME" 2>/dev/null || true
-
-    # Remove old installation and extract new
-    print_status "Extracting new version..."
-    rm -rf "$INSTALL_DIR"
-    mkdir -p "$INSTALL_DIR"
-    tar xzf "$dest" -C "$INSTALL_DIR"
-
-    # Cleanup download
-    rm -f "$dest" "${dest}.sha256"
-
-    # Restore backups
-    if [ -f "$backup_dir/.env" ]; then
-        cp "$backup_dir/.env" "$INSTALL_DIR/.env"
-        print_status "Restored .env configuration"
-    fi
-
-    if [ -f "$backup_dir/live-os.db" ]; then
-        cp "$backup_dir/live-os.db" "$INSTALL_DIR/prisma/live-os.db"
-        print_status "Restored database"
-    fi
-
-    if [ -d "$backup_dir/external-apps" ]; then
-        cp -r "$backup_dir/external-apps" "$INSTALL_DIR/external-apps"
-        print_status "Restored external-apps"
-    fi
-
-    rm -rf "$backup_dir"
-
-    cd "$INSTALL_DIR"
-
-    # Run migrations
-    print_status "Running database migrations..."
-    if ! npx prisma migrate deploy --schema=prisma/schema.prisma; then
-        print_error "Prisma migrations failed. Database may be out of sync."
-        exit 1
-    fi
-
-    # Restart service
-    print_status "Restarting LiveOS service..."
-    systemctl start "$SERVICE_NAME"
-
-    # Wait for service to start
-    sleep 3
-
-    if systemctl is-active --quiet "$SERVICE_NAME"; then
-        print_status "Update complete! LiveOS is now at version $latest_version"
-        print_status "Service is running successfully"
-        echo ""
-        print_info "View logs with: sudo journalctl -u $SERVICE_NAME -f"
-        print_info "Check status with: sudo systemctl status $SERVICE_NAME"
-    else
-        print_error "Service failed to start after update"
-        print_error "Check logs with: sudo journalctl -u $SERVICE_NAME -n 50"
-        exit 1
-    fi
-}
-
-# ─── Source-based update (legacy / --from-source) ────────────────────────────
-
-update_from_source() {
-    # Fetch latest changes from git
-    git fetch origin
-
-    # Get remote version from branch (assuming develop by default)
-    REMOTE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-    REMOTE_VERSION=$(git show origin/$REMOTE_BRANCH:package.json | get_version_from_stdin)
-
-    print_info "Latest available version: $REMOTE_VERSION"
-
-    if [ "$LOCAL_VERSION" == "$REMOTE_VERSION" ]; then
-        print_status "LiveOS is already up to date!"
-        exit 0
-    fi
-
-    print_status "Updating LiveOS from version $LOCAL_VERSION to $REMOTE_VERSION..."
-
-    # Backup .env file once before all operations
-    if [ -f "$INSTALL_DIR/.env" ]; then
-        print_info "Backing up .env file..."
-        cp "$INSTALL_DIR/.env" "$INSTALL_DIR/.env.backup"
-    fi
-
-    # Pull latest changes
-    git fetch origin "$REMOTE_BRANCH"
-    git reset --hard origin/"$REMOTE_BRANCH"
-
-    # Install dependencies (skip Husky setup scripts)
-    # Note: TypeScript is needed for build even in production
-    print_status "Installing dependencies..."
-    npm ci --include=dev --ignore-scripts
-
-    ensure_archive_tools
-    ensure_cifs_utils
-    ensure_migrations_ready
-
-    # Rebuild native modules
-    print_status "Rebuilding native modules..."
-
-    # Rebuild node-pty (for terminal feature)
-    if [ ! -f "node_modules/node-pty/build/Release/pty.node" ]; then
-        print_status "Building node-pty..."
-        npm rebuild node-pty 2>&1 | tee /tmp/node-pty-build.log || {
-            print_error "Warning: node-pty build failed. Terminal feature will not be available."
-            print_info "The application will still work without terminal functionality"
-        }
-    else
-        print_status "node-pty already built"
-    fi
-
-    # Rebuild better-sqlite3 (CRITICAL for database)
-    print_status "Building better-sqlite3 for database..."
-    npm rebuild better-sqlite3 2>&1 | tee /tmp/better-sqlite3-build.log || {
-        print_error "Error: better-sqlite3 build failed. Database will not work."
-        print_error "Check /tmp/better-sqlite3-build.log for details"
-        exit 1
+# Rebuild node-pty (for terminal feature)
+if [ ! -f "node_modules/node-pty/build/Release/pty.node" ]; then
+    print_status "Building node-pty..."
+    npm rebuild node-pty 2>&1 | tee /tmp/node-pty-build.log || {
+        print_error "Warning: node-pty build failed. Terminal feature will not be available."
+        print_info "The application will still work without terminal functionality"
     }
-    print_status "better-sqlite3 built successfully"
-
-    # Run database migrations
-    print_status "Running database migrations..."
-    if ! npx prisma migrate deploy --schema=prisma/schema.prisma; then
-        print_error "Prisma migrations failed. Database may be out of sync."
-        exit 1
-    fi
-
-    # Regenerate Prisma client to match installed runtime
-    print_status "Generating Prisma client..."
-    npx prisma generate --schema=prisma/schema.prisma
-
-    # Build project
-    print_status "Building project..."
-    npm run build
-
-    # Restore .env configuration from backup
-    if [ -f "$INSTALL_DIR/.env.backup" ]; then
-        cp "$INSTALL_DIR/.env.backup" "$INSTALL_DIR/.env"
-        print_status "Restored .env configuration"
-        # Clean up backup file
-        rm -f "$INSTALL_DIR/.env.backup"
-    else
-        print_info "No .env backup found - using default or git version"
-    fi
-
-    # Restart service
-    print_status "Restarting LiveOS service..."
-    systemctl restart "$SERVICE_NAME"
-
-    # Wait for service to start
-    sleep 3
-
-    # Check service status
-    if systemctl is-active --quiet "$SERVICE_NAME"; then
-        print_status "Update complete! LiveOS is now at version $REMOTE_VERSION"
-        print_status "Service is running successfully"
-        echo ""
-        print_info "View logs with: sudo journalctl -u $SERVICE_NAME -f"
-        print_info "Check status with: sudo systemctl status $SERVICE_NAME"
-    else
-        print_error "Service failed to start after update"
-        print_error "Check logs with: sudo journalctl -u $SERVICE_NAME -n 50"
-        exit 1
-    fi
-}
-
-# ─── Main ────────────────────────────────────────────────────────────────────
-
-if [ "$FROM_SOURCE" -eq 1 ]; then
-    update_from_source
 else
-    update_from_artifact
+    print_status "node-pty already built"
+fi
+
+# Rebuild better-sqlite3 (CRITICAL for database)
+print_status "Building better-sqlite3 for database..."
+npm rebuild better-sqlite3 2>&1 | tee /tmp/better-sqlite3-build.log || {
+    print_error "Error: better-sqlite3 build failed. Database will not work."
+    print_error "Check /tmp/better-sqlite3-build.log for details"
+    exit 1
+}
+print_status "better-sqlite3 built successfully"
+
+# Run database migrations
+print_status "Running database migrations..."
+if ! npx prisma migrate deploy --schema=prisma/schema.prisma; then
+    print_error "Prisma migrations failed. Database may be out of sync."
+    exit 1
+fi
+
+# Regenerate Prisma client to match installed runtime
+print_status "Generating Prisma client..."
+npx prisma generate --schema=prisma/schema.prisma
+
+# Build project
+print_status "Building project..."
+npm run build
+
+# Restore .env configuration from backup
+if [ -f "$INSTALL_DIR/.env.backup" ]; then
+    cp "$INSTALL_DIR/.env.backup" "$INSTALL_DIR/.env"
+    print_status "Restored .env configuration"
+    # Clean up backup file
+    rm -f "$INSTALL_DIR/.env.backup"
+else
+    print_info "No .env backup found - using default or git version"
+fi
+
+# Restart service
+print_status "Restarting LiveOS service..."
+systemctl restart "$SERVICE_NAME"
+
+# Wait for service to start
+sleep 3
+
+# Check service status
+if systemctl is-active --quiet "$SERVICE_NAME"; then
+    print_status "✅ Update complete! LiveOS is now at version $REMOTE_VERSION"
+    print_status "Service is running successfully"
+    echo ""
+    print_info "View logs with: sudo journalctl -u $SERVICE_NAME -f"
+    print_info "Check status with: sudo systemctl status $SERVICE_NAME"
+else
+    print_error "⚠️  Service failed to start after update"
+    print_error "Check logs with: sudo journalctl -u $SERVICE_NAME -n 50"
+    exit 1
 fi
