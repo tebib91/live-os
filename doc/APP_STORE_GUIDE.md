@@ -55,6 +55,7 @@ https://getumbrel.github.io/umbrel-apps-gallery/[app-id]/icon.svg
 ```
 
 **Example:**
+
 - AdGuard Home: https://getumbrel.github.io/umbrel-apps-gallery/adguard-home/icon.svg
 - Nextcloud: https://getumbrel.github.io/umbrel-apps-gallery/nextcloud/icon.svg
 
@@ -156,8 +157,8 @@ export async function getAppStoreApps(): Promise<App[]> {
   // ... existing code ...
 
   // Filter out specific apps
-  const filteredApps = validApps.filter(app => {
-    return !['unwanted-app-1', 'unwanted-app-2'].includes(app.id);
+  const filteredApps = validApps.filter((app) => {
+    return !["unwanted-app-1", "unwanted-app-2"].includes(app.id);
   });
 
   return filteredApps;
@@ -171,7 +172,12 @@ To use your own icons instead of Umbrel's CDN, modify `getAppIcon()` in `app/act
 ```typescript
 async function getAppIcon(folderName: string, appId: string): Promise<string> {
   // Check for local icon first
-  const localIconPath = path.join(process.cwd(), 'public', 'app-icons', `${appId}.svg`);
+  const localIconPath = path.join(
+    process.cwd(),
+    "public",
+    "app-icons",
+    `${appId}.svg`,
+  );
   try {
     await fs.access(localIconPath);
     return `/app-icons/${appId}.svg`;
@@ -206,12 +212,12 @@ LiveOS now supports deploying your own Docker containers directly from the App S
 **Example docker-compose.yml:**
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   myapp:
     image: nginx:latest
     ports:
-      - '8080:80'
+      - "8080:80"
     volumes:
       - ./data:/usr/share/nginx/html
     environment:
@@ -274,6 +280,7 @@ Custom deployments appear in the **Installed Applications** grid alongside Umbre
 ### Naming Rules
 
 App names must follow these rules:
+
 - Lowercase letters only
 - Numbers allowed
 - Hyphens allowed (for word separation)
@@ -289,6 +296,7 @@ App names must follow these rules:
 ### Port Management
 
 **Important:** Ensure ports don't conflict with:
+
 - LiveOS itself (default: 3000)
 - Other installed apps
 - System services
@@ -306,20 +314,24 @@ ss -tulpn
 ### Troubleshooting Custom Deployments
 
 **"App name already exists"**
+
 - Choose a different name
 - Or remove the existing app first
 
 **"Container name already in use"**
+
 - The container name conflicts with an existing container
 - Choose a different container name
 - Or remove the conflicting container: `docker rm <name>`
 
 **"Invalid port mapping"**
+
 - Ensure format is `host:container` (e.g., `8080:80`)
 - Ports must be between 1024-65535
 - Separate multiple ports with commas
 
 **"Failed to deploy"**
+
 - Check Docker is running: `docker ps`
 - Verify image name is correct
 - Check logs: `docker logs <container-name>`
@@ -411,7 +423,7 @@ To contribute apps to the official Umbrel repository:
 ## Resources
 
 - **Umbrel Apps**: https://github.com/getumbrel/umbrel-apps
-- **Your Fork**: https://github.com/tebib91/umbrel-apps-ref
+- **Your Fork**: https://github.com/live-doctor/umbrel-apps-ref
 - **App Gallery**: https://getumbrel.github.io/umbrel-apps-gallery/
 - **Docker Compose Docs**: https://docs.docker.com/compose/
 - **Script Documentation**: [scripts/README.md](./scripts/README.md)
@@ -427,4 +439,4 @@ Questions? Issues?
 
 ---
 
-*Umbrel app counts and update stats are no longer tracked (local store removed).*
+_Umbrel app counts and update stats are no longer tracked (local store removed)._

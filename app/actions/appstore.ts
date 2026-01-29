@@ -13,15 +13,15 @@ import { promisify } from "util";
 import YAML from "yaml";
 import { logAction, withActionLogging } from "./logger";
 import {
-  CASAOS_OFFICIAL_ZIP,
-  getCasaCommunityStores,
-  isLikelyCasaStore,
-  parseCasaOSStore,
+    CASAOS_OFFICIAL_ZIP,
+    getCasaCommunityStores,
+    isLikelyCasaStore,
+    parseCasaOSStore,
 } from "./store/casa-store";
 import {
-  getUmbrelCommunityStores,
-  isLikelyUmbrelStore,
-  parseUmbrelStore,
+    getUmbrelCommunityStores,
+    isLikelyUmbrelStore,
+    parseUmbrelStore,
 } from "./store/umbrel-store";
 import { listFiles, resolveAsset } from "./store/utils";
 
@@ -29,7 +29,7 @@ const execAsync = promisify(exec);
 
 const STORE_ROOT = path.join(process.cwd(), "external-apps");
 const CASAOS_RECOMMEND_LIST_URL =
-  "https://raw.githubusercontent.com/tebib91/live-os/refs/heads/main/recommend-list.json";
+  "https://raw.githubusercontent.com/live-doctor/live-os/refs/heads/main/recommend-list.json";
 
 type StoreFormat = "casaos" | "umbrel";
 

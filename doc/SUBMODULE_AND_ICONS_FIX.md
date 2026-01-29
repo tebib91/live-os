@@ -2,6 +2,7 @@
 
 **Date:** 2026-01-12
 **Issues Fixed:**
+
 > Deprecated: The Umbrel app store submodule is no longer used. Use the CasaOS import flow instead.
 
 1. umbrel-apps-ref folder missing on server
@@ -13,6 +14,7 @@
 ## Issue 1: umbrel-apps-ref Missing on Server
 
 ### Problem:
+
 The `umbrel-apps-ref` folder is in your local repository but not pushed to GitHub, so when installing on the server, the folder doesn't exist and the app store is empty.
 
 ### Solution: Git Submodule ✅
@@ -22,19 +24,22 @@ We've added `umbrel-apps-ref` as a **git submodule** that references your forked
 #### What Changed:
 
 **`.gitmodules` (created):**
+
 ```ini
 [submodule "umbrel-apps-ref"]
 	path = umbrel-apps-ref
-	url = https://github.com/tebib91/umbrel-apps-ref.git
+	url = https://github.com/live-doctor/umbrel-apps-ref.git
 ```
 
 **`install.sh` (updated):**
+
 ```bash
 # After cloning the repository
 git submodule update --init --recursive
 ```
 
 **`update.sh` (updated):**
+
 ```bash
 # After pulling latest changes
 git submodule update --init --recursive
@@ -52,28 +57,30 @@ git submodule update --init --recursive
 ## Issue 2: Dock Icons Not Loading
 
 ### Problem:
+
 Dock icons from `img.icons8.com` were not loading because the domain wasn't whitelisted in Next.js image configuration.
 
 ### Solution: Added Remote Patterns ✅
 
 **`next.config.ts` (updated):**
+
 ```typescript
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'cdn.jsdelivr.net',
-        pathname: '/gh/**',
+        protocol: "https",
+        hostname: "cdn.jsdelivr.net",
+        pathname: "/gh/**",
       },
       {
-        protocol: 'https',
-        hostname: 'img.icons8.com',  // ✅ Dock icons
+        protocol: "https",
+        hostname: "img.icons8.com", // ✅ Dock icons
       },
       {
-        protocol: 'https',
-        hostname: 'getumbrel.github.io',  // ✅ App store icons
-        pathname: '/umbrel-apps-gallery/**',
+        protocol: "https",
+        hostname: "getumbrel.github.io", // ✅ App store icons
+        pathname: "/umbrel-apps-gallery/**",
       },
     ],
   },
@@ -81,6 +88,7 @@ const nextConfig: NextConfig = {
 ```
 
 #### Domains Whitelisted:
+
 - ✅ `img.icons8.com` - Dock icons (Finder, Terminal, Monitor, etc.)
 - ✅ `getumbrel.github.io` - Umbrel app store icons
 - ✅ `cdn.jsdelivr.net` - Previous configuration (kept)
@@ -90,11 +98,13 @@ const nextConfig: NextConfig = {
 ## Issue 3: Build Tools Running Every Update
 
 ### Problem:
+
 `npm rebuild node-pty` was running on every update, even when not needed, wasting time.
 
 ### Solution: Conditional Rebuild ✅
 
 **`update.sh` (updated):**
+
 ```bash
 # Only rebuild if not already built
 if [ ! -f "node_modules/node-pty/build/Release/pty.node" ]; then
@@ -106,6 +116,7 @@ fi
 ```
 
 #### How It Works:
+
 - Checks if `pty.node` already exists
 - Only rebuilds if missing
 - Saves time on subsequent updates
@@ -140,7 +151,7 @@ sudo rm -rf /opt/live-os
 sudo rm /etc/systemd/system/liveos.service
 
 # Install with latest changes
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/live-doctor/live-os/develop/install.sh -o install.sh
 sudo bash install.sh
 ```
 
@@ -154,6 +165,7 @@ sudo bash update.sh
 ```
 
 The update script will now:
+
 - ✅ Pull latest changes
 - ✅ Initialize/update submodules (umbrel-apps-ref)
 - ✅ Skip rebuilding if already built
@@ -164,6 +176,7 @@ The update script will now:
 ## Verification
 
 ### Check Submodule:
+
 ```bash
 cd /opt/live-os
 ls -la umbrel-apps-ref/
@@ -171,11 +184,13 @@ ls -la umbrel-apps-ref/
 ```
 
 ### Check Icons:
+
 1. Open browser: `http://your-server-ip:3000`
 2. Check dock at bottom
 3. Icons should be visible (Finder, Terminal, Monitor, Store, Settings)
 
 ### Check App Store:
+
 1. Click Store icon in dock
 2. Should show 298 apps with icons
 3. Icons should load properly
@@ -188,7 +203,7 @@ ls -la umbrel-apps-ref/
 
 ```bash
 # Add submodule (already done)
-git submodule add https://github.com/tebib91/umbrel-apps-ref.git umbrel-apps-ref
+git submodule add https://github.com/live-doctor/umbrel-apps-ref.git umbrel-apps-ref
 
 # Initialize submodule (install.sh does this)
 git submodule update --init --recursive
@@ -213,13 +228,15 @@ Next.js optimizes images by default, but only allows whitelisted domains for sec
 ## Files Modified
 
 ### 1. `.gitmodules` (NEW)
+
 ```ini
 [submodule "umbrel-apps-ref"]
 	path = umbrel-apps-ref
-	url = https://github.com/tebib91/umbrel-apps-ref.git
+	url = https://github.com/live-doctor/umbrel-apps-ref.git
 ```
 
 ### 2. `install.sh`
+
 ```bash
 # Line 333-337
 print_status "Initializing app store (umbrel-apps-ref submodule)..."
@@ -230,6 +247,7 @@ git submodule update --init --recursive || {
 ```
 
 ### 3. `update.sh`
+
 ```bash
 # Line 70-75
 print_status "Updating app store (umbrel-apps-ref submodule)..."
@@ -247,14 +265,15 @@ fi
 ```
 
 ### 4. `next.config.ts`
+
 ```typescript
 // Added img.icons8.com and getumbrel.github.io
 images: {
   remotePatterns: [
-    { hostname: 'cdn.jsdelivr.net' },
-    { hostname: 'img.icons8.com' },          // NEW
-    { hostname: 'getumbrel.github.io' },    // NEW
-  ]
+    { hostname: "cdn.jsdelivr.net" },
+    { hostname: "img.icons8.com" }, // NEW
+    { hostname: "getumbrel.github.io" }, // NEW
+  ];
 }
 ```
 
@@ -263,6 +282,7 @@ images: {
 ## Benefits
 
 ### Git Submodule:
+
 - ✅ Separates app store from main repository
 - ✅ Easy to update apps independently
 - ✅ Smaller main repository size
@@ -270,12 +290,14 @@ images: {
 - ✅ References your fork correctly
 
 ### Image Configuration:
+
 - ✅ Dock icons load instantly
 - ✅ App store icons load from Umbrel CDN
 - ✅ Images are optimized automatically
 - ✅ Better performance and caching
 
 ### Build Optimization:
+
 - ✅ Faster updates (no unnecessary rebuilds)
 - ✅ Only rebuilds when needed
 - ✅ Saves server resources
@@ -285,12 +307,14 @@ images: {
 ## Troubleshooting
 
 ### Submodule Not Initialized:
+
 ```bash
 cd /opt/live-os
 sudo git submodule update --init --recursive
 ```
 
 ### Icons Still Not Loading:
+
 ```bash
 # Rebuild Next.js
 cd /opt/live-os
@@ -299,6 +323,7 @@ sudo systemctl restart liveos
 ```
 
 ### Check Image Domains:
+
 ```bash
 cat /opt/live-os/next.config.ts
 # Should show all three domains

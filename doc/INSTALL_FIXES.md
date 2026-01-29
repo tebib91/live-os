@@ -14,6 +14,7 @@ The install script didn't check for or install Docker, which is required for the
 
 **Solution:**
 Added `install_docker()` function that:
+
 - ✅ Checks if Docker is already installed
 - ✅ Installs Docker from official repository (Debian/Ubuntu/CentOS/Fedora)
 - ✅ Starts and enables Docker service
@@ -21,6 +22,7 @@ Added `install_docker()` function that:
 - ✅ Installs Docker Compose plugin
 
 **Installation method:** Official Docker documentation
+
 - https://docs.docker.com/engine/install/ubuntu/
 
 ---
@@ -29,6 +31,7 @@ Added `install_docker()` function that:
 
 **Problem:**
 Node.js cannot execute TypeScript files directly. When trying to run `server.ts` or import `.ts` files:
+
 ```
 TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"
 ```
@@ -38,6 +41,7 @@ TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"
 Instead of converting TypeScript to JavaScript, we use **tsx** to execute TypeScript in production.
 
 #### What We Did:
+
 - **Added `tsx` package** to dependencies
 - **Created `server.ts`** (TypeScript entry point)
 - **Kept all files as TypeScript** - no .js conversion needed
@@ -45,6 +49,7 @@ Instead of converting TypeScript to JavaScript, we use **tsx** to execute TypeSc
 - **Updated systemd service** to use `tsx`
 
 #### Why tsx?
+
 - ✅ Execute TypeScript directly in Node.js
 - ✅ No compilation step needed
 - ✅ Keep entire codebase as TypeScript
@@ -52,6 +57,7 @@ Instead of converting TypeScript to JavaScript, we use **tsx** to execute TypeSc
 - ✅ Better developer experience
 
 #### Previous Attempts (what we DON'T do):
+
 - ❌ Converting files to JavaScript (breaks type safety)
 - ❌ Compiling TypeScript separately (extra complexity)
 - ❌ Using ts-node (slower, not production-optimized)
@@ -64,11 +70,13 @@ Instead of converting TypeScript to JavaScript, we use **tsx** to execute TypeSc
 
 **Problem:**
 Service fails to start with:
+
 ```
 Error: Failed to load native module: pty.node
 ```
 
 **Root Cause:**
+
 - `node-pty` is a native C++ module that requires compilation
 - `npm install --ignore-scripts` skipped the build step
 - Missing build tools (gcc, g++, make, python3) on Ubuntu server
@@ -76,12 +84,14 @@ Error: Failed to load native module: pty.node
 **Solution: Install Build Tools & Rebuild ✅**
 
 #### What We Did:
+
 - **Added `install_build_tools()` function** to install.sh
 - **Runs `npm rebuild node-pty`** after installation
 - **Made terminal optional** - app won't crash if node-pty fails
 - **Graceful error handling** in server.ts
 
 #### Quick Fix on Server:
+
 ```bash
 # Install build tools
 sudo apt-get install -y build-essential python3
@@ -95,6 +105,7 @@ sudo systemctl restart liveos
 ```
 
 #### Build Tools Installed:
+
 - `build-essential` (gcc, g++, make)
 - `python3` (required by node-gyp)
 
@@ -105,6 +116,7 @@ sudo systemctl restart liveos
 ## 📝 Files Modified
 
 ### 1. `install.sh`
+
 ```bash
 # Added Docker installation function
 install_docker() {
@@ -121,12 +133,14 @@ ExecStart=$INSTALL_DIR/node_modules/.bin/tsx server.ts
 ```
 
 ### 2. `update.sh`
+
 ```bash
 # Updated npm install command
 npm install --ignore-scripts
 ```
 
 ### 3. `package.json`
+
 ```json
 {
   "type": "module",
@@ -141,21 +155,23 @@ npm install --ignore-scripts
 ```
 
 ### 4. `server.js` → `server.ts`
+
 ```typescript
 // Converted to TypeScript with proper types
-import { createServer } from 'http';
-import { parse } from 'url';
-import next from 'next';
-import { initializeWebSocketServer } from './lib/terminal/websocket-server.js';
+import { createServer } from "http";
+import { parse } from "url";
+import next from "next";
+import { initializeWebSocketServer } from "./lib/terminal/websocket-server.js";
 
 // Full TypeScript implementation with type safety
 ```
 
 ### 5. `lib/terminal/websocket-server.ts`
+
 ```typescript
 // Kept as TypeScript (no conversion to .js)
-import { WebSocketServer } from 'ws';
-import * as pty from 'node-pty';
+import { WebSocketServer } from "ws";
+import * as pty from "node-pty";
 
 // Proper TypeScript types throughout
 ```
@@ -165,22 +181,26 @@ import * as pty from 'node-pty';
 ## 🧪 Testing
 
 ### Test Build Locally
+
 ```bash
 npm run build
 ```
 
 **Result:** ✅ SUCCESS
+
 ```
 ✓ Compiled successfully in 1952.7ms
 ✓ Generating static pages (4/4) in 165.6ms
 ```
 
 ### Test Dry Run
+
 ```bash
 bash install.sh --dry-run
 ```
 
 **Expected Output:**
+
 ```
 [DRY] Would: Check and install Docker
 [DRY] Would: Clone repository
@@ -196,11 +216,12 @@ bash install.sh --dry-run
 
 ```bash
 # On your Ubuntu server
-curl -fsSL https://raw.githubusercontent.com/tebib91/live-os/develop/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/live-doctor/live-os/develop/install.sh -o install.sh
 sudo bash install.sh
 ```
 
 **What happens:**
+
 1. ✅ Prompts for port (default: 3000)
 2. ✅ Prompts for domain (optional)
 3. ✅ Installs Node.js 20.x
@@ -218,6 +239,7 @@ sudo bash install.sh
 ## 🔍 Verification After Installation
 
 ### 1. Check if Docker is Installed
+
 ```bash
 docker --version
 docker compose version
@@ -225,18 +247,21 @@ systemctl status docker
 ```
 
 ### 2. Check if LiveOS is Running
+
 ```bash
 systemctl status liveos
 journalctl -u liveos -n 50
 ```
 
 ### 3. Check Build Files
+
 ```bash
 ls -la /opt/live-os/.next
 cat /opt/live-os/next.config.js
 ```
 
 ### 4. Test Docker
+
 ```bash
 docker ps
 docker images
@@ -247,12 +272,14 @@ docker images
 ## 🎯 What's Fixed
 
 ### Before:
+
 - ❌ Docker not installed
 - ❌ TypeScript missing in production
 - ❌ Build fails with `next.config.ts` error
 - ❌ Can't install/manage Docker apps
 
 ### After:
+
 - ✅ Docker automatically installed
 - ✅ TypeScript included in build
 - ✅ Build succeeds with `next.config.js`
@@ -264,6 +291,7 @@ docker images
 ## 📊 Docker Installation Details
 
 ### What Gets Installed:
+
 ```bash
 # Official Docker packages:
 - docker-ce              # Docker Engine
@@ -274,6 +302,7 @@ docker images
 ```
 
 ### Docker Service:
+
 ```bash
 # Automatically:
 - Started: systemctl start docker
@@ -282,9 +311,11 @@ docker images
 ```
 
 ### Verification:
+
 ```bash
 docker run hello-world
 ```
+
 Should pull and run successfully.
 
 ---
@@ -300,6 +331,7 @@ sudo bash update.sh
 ```
 
 **What happens:**
+
 1. ✅ Backs up .env file
 2. ✅ Pulls latest changes (includes next.config.js)
 3. ✅ Runs `npm install --ignore-scripts` (includes TypeScript)
@@ -308,6 +340,7 @@ sudo bash update.sh
 6. ✅ Restarts service
 
 **Manual Docker Installation** (if not done automatically):
+
 ```bash
 # Install Docker manually
 curl -fsSL https://get.docker.com -o get-docker.sh
@@ -325,6 +358,7 @@ sudo systemctl enable docker
 ### Issue: Docker installation fails
 
 **Solution:**
+
 ```bash
 # Check your Ubuntu version
 lsb_release -a
@@ -343,6 +377,7 @@ sudo sh get-docker.sh
 ### Issue: TypeScript still missing
 
 **Solution:**
+
 ```bash
 cd /opt/live-os
 
@@ -357,6 +392,7 @@ sudo systemctl restart liveos
 ### Issue: next.config.ts still exists
 
 **Solution:**
+
 ```bash
 cd /opt/live-os
 
@@ -378,6 +414,7 @@ sudo systemctl restart liveos
 After installation, you should see:
 
 ### Docker Working:
+
 ```bash
 $ docker --version
 Docker version 24.0.7, build afdd53b
@@ -387,6 +424,7 @@ Docker Compose version v2.23.0
 ```
 
 ### LiveOS Running:
+
 ```bash
 $ systemctl status liveos
 ● liveos.service - LiveOS - Self-hosted Operating System
@@ -394,12 +432,14 @@ $ systemctl status liveos
 ```
 
 ### Build Successful:
+
 ```bash
 $ ls /opt/live-os/.next/
 cache  server  static  BUILD_ID  package.json
 ```
 
 ### App Store Working:
+
 ```bash
 # Should show 298 apps
 $ curl http://localhost:3000
@@ -410,6 +450,7 @@ $ curl http://localhost:3000
 ## 🎉 Ready to Use!
 
 Your LiveOS installation now includes:
+
 - ✅ Complete Docker setup
 - ✅ TypeScript build support
 - ✅ 298 apps in store
@@ -420,11 +461,13 @@ Your LiveOS installation now includes:
 - ✅ Settings panel
 
 **Access your server:**
+
 - http://localhost:3000
 - http://YOUR_SERVER_IP:3000
 - http://your-domain.local:3000
 
 **Next steps:**
+
 1. Browse the App Store
 2. Install Docker apps
 3. Monitor system resources
