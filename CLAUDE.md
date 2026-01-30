@@ -50,12 +50,12 @@ LiveOS is a self-hosted operating system dashboard for managing infrastructure, 
 
 #### Component Size Guidelines
 
-| Size | Classification | Action |
-|------|---------------|--------|
-| < 50 lines | Excellent | Ideal micro-component |
-| 50-100 lines | Good | Acceptable |
-| 100-150 lines | Warning | Consider splitting |
-| > 150 lines | Violation | MUST refactor |
+| Size          | Classification | Action                |
+| ------------- | -------------- | --------------------- |
+| < 50 lines    | Excellent      | Ideal micro-component |
+| 50-100 lines  | Good           | Acceptable            |
+| 100-150 lines | Warning        | Consider splitting    |
+| > 150 lines   | Violation      | MUST refactor         |
 
 #### Breaking Down Components
 
@@ -67,6 +67,7 @@ When a component exceeds limits, extract into:
 4. **Types file**: TypeScript definitions
 
 **Example Structure:**
+
 ```
 components/system-monitor/
 ├── index.ts                    # Barrel export
@@ -85,6 +86,7 @@ components/system-monitor/
 #### Good vs Bad Examples
 
 **❌ BAD - Monolithic Component (500+ lines):**
+
 ```tsx
 // system-monitor-dialog.tsx - 500 lines
 export function SystemMonitorDialog() {
@@ -94,6 +96,7 @@ export function SystemMonitorDialog() {
 ```
 
 **✅ GOOD - Micro-Component Architecture:**
+
 ```tsx
 // system-monitor-dialog.tsx - 170 lines
 import { DialogHeader } from "./dialog-header";
@@ -119,6 +122,7 @@ export function SystemMonitorDialog() {
 All UI components MUST use the shared design tokens for consistency. Never hardcode styles.
 
 #### Design Tokens File Location
+
 ```
 components/ui/design-tokens.ts
 ```
@@ -126,6 +130,7 @@ components/ui/design-tokens.ts
 #### Available Design Tokens
 
 **Card Styles:**
+
 ```typescript
 import { card } from "@/components/ui/design-tokens";
 
@@ -135,6 +140,7 @@ className={`${card.base} ${card.padding.md}`}
 ```
 
 **Typography:**
+
 ```typescript
 import { text } from "@/components/ui/design-tokens";
 
@@ -144,6 +150,7 @@ import { text } from "@/components/ui/design-tokens";
 ```
 
 **Colors:**
+
 ```typescript
 import { colors } from "@/components/ui/design-tokens";
 
@@ -156,6 +163,7 @@ import { colors } from "@/components/ui/design-tokens";
 ```
 
 **Buttons:**
+
 ```typescript
 import { button } from "@/components/ui/design-tokens";
 
@@ -164,6 +172,7 @@ import { button } from "@/components/ui/design-tokens";
 ```
 
 **Status Indicators:**
+
 ```typescript
 import { statusDot } from "@/components/ui/design-tokens";
 
@@ -174,6 +183,7 @@ import { statusDot } from "@/components/ui/design-tokens";
 ```
 
 **Alerts:**
+
 ```typescript
 import { alert } from "@/components/ui/design-tokens";
 
@@ -184,6 +194,7 @@ import { alert } from "@/components/ui/design-tokens";
 ```
 
 **Icon Boxes:**
+
 ```typescript
 import { iconBox } from "@/components/ui/design-tokens";
 
@@ -193,10 +204,11 @@ import { iconBox } from "@/components/ui/design-tokens";
 ```
 
 **Dialog Styles:**
+
 ```typescript
 import { dialog } from "@/components/ui/design-tokens";
 
-// dialog.content = "bg-white/5 border border-white/10 backdrop-blur-3xl..."
+// dialog.content = "bg-white/5 border border-white/10 backdrop-blur-xl..."
 // dialog.header = "border-b border-white/5 bg-gradient-to-r from-white/10..."
 ```
 
@@ -222,6 +234,7 @@ When you detect inconsistent design, **automatically fix it**. Common issues:
 **CRITICAL: This app runs on low-powered servers like Raspberry Pi 4**
 
 All code MUST be optimized for:
+
 - Limited CPU (4-core ARM)
 - Limited RAM (2-8 GB)
 - Limited I/O bandwidth
@@ -230,11 +243,12 @@ All code MUST be optimized for:
 #### Performance Rules
 
 **React Optimization:**
+
 ```tsx
 // ✅ GOOD - Memoize expensive computations
-const sortedApps = useMemo(() =>
-  apps.sort((a, b) => b.cpuUsage - a.cpuUsage),
-  [apps]
+const sortedApps = useMemo(
+  () => apps.sort((a, b) => b.cpuUsage - a.cpuUsage),
+  [apps],
 );
 
 // ✅ GOOD - Memoize callbacks passed to children
@@ -243,26 +257,27 @@ const handleClick = useCallback(() => {
 }, [id]);
 
 // ✅ GOOD - Lazy load heavy components
-const SystemMonitor = dynamic(() => import('./SystemMonitor'), {
+const SystemMonitor = dynamic(() => import("./SystemMonitor"), {
   loading: () => <Skeleton />,
-  ssr: false
+  ssr: false,
 });
 
 // ❌ BAD - Inline function creates new reference every render
-<Button onClick={() => handleAction(id)} />
+<Button onClick={() => handleAction(id)} />;
 
 // ❌ BAD - Computing on every render
 const sorted = apps.sort((a, b) => b.cpu - a.cpu);
 ```
 
 **Data Fetching:**
+
 ```tsx
 // ✅ GOOD - Debounce frequent updates (500ms minimum)
 const lastUpdateRef = useRef(0);
 if (Date.now() - lastUpdateRef.current < 500) return;
 
 // ✅ GOOD - Limit history arrays
-setHistory(prev => [...prev, value].slice(-30)); // Max 30 items
+setHistory((prev) => [...prev, value].slice(-30)); // Max 30 items
 
 // ✅ GOOD - Cleanup on unmount
 useEffect(() => {
@@ -274,45 +289,48 @@ useEffect(() => {
 setInterval(fetch, 100); // Too fast!
 
 // ❌ BAD - Unbounded arrays
-setHistory(prev => [...prev, value]); // Memory leak!
+setHistory((prev) => [...prev, value]); // Memory leak!
 ```
 
 **Bundle Size:**
+
 ```tsx
 // ✅ GOOD - Import only what you need
-import { X, Settings } from 'lucide-react';
+import { X, Settings } from "lucide-react";
 
 // ✅ GOOD - Dynamic imports for heavy libraries
-const Chart = dynamic(() => import('recharts').then(m => m.AreaChart));
+const Chart = dynamic(() => import("recharts").then((m) => m.AreaChart));
 
 // ❌ BAD - Import entire library
-import * as Icons from 'lucide-react';
+import * as Icons from "lucide-react";
 
 // ❌ BAD - Heavy library in main bundle
-import { AreaChart, LineChart, BarChart } from 'recharts';
+import { AreaChart, LineChart, BarChart } from "recharts";
 ```
 
 #### Performance Checklist
 
-| Check | Rule |
-|-------|------|
-| Polling interval | ≥ 3000ms for data, ≥ 500ms for UI |
-| History arrays | Max 30-60 items |
-| Memoization | `useMemo` for computed values |
-| Callbacks | `useCallback` for event handlers |
+| Check            | Rule                                 |
+| ---------------- | ------------------------------------ |
+| Polling interval | ≥ 3000ms for data, ≥ 500ms for UI    |
+| History arrays   | Max 30-60 items                      |
+| Memoization      | `useMemo` for computed values        |
+| Callbacks        | `useCallback` for event handlers     |
 | Heavy components | `dynamic()` import with `ssr: false` |
-| Images | WebP format, lazy loading |
-| Animations | CSS over JS, `will-change` sparingly |
+| Images           | WebP format, lazy loading            |
+| Animations       | CSS over JS, `will-change` sparingly |
 
 #### Specific Optimizations
 
 **Real-Time Monitoring:**
+
 - Use Server-Sent Events (SSE) instead of WebSocket polling
 - Debounce updates: 500ms minimum between re-renders
 - Limit chart data points: 30 max for mini charts, 60 for full charts
 - Clear data on component unmount
 
 **Image Handling:**
+
 ```tsx
 // ✅ GOOD - Next.js Image with optimization
 <Image
@@ -328,19 +346,23 @@ import { AreaChart, LineChart, BarChart } from 'recharts';
 ```
 
 **Lists & Grids:**
+
 ```tsx
 // ✅ GOOD - Virtualize long lists (>20 items)
-import { VirtualizedList } from 'react-window';
+import { VirtualizedList } from "react-window";
 
 // ✅ GOOD - Pagination over infinite scroll
 const [page, setPage] = useState(1);
 const items = allItems.slice(0, page * 20);
 
 // ❌ BAD - Render all items at once
-{allItems.map(item => <Card key={item.id} />)}
+{
+  allItems.map((item) => <Card key={item.id} />);
+}
 ```
 
 **State Management:**
+
 ```tsx
 // ✅ GOOD - Split state to minimize re-renders
 const [loading, setLoading] = useState(false);
@@ -354,6 +376,7 @@ const [state, setState] = useState({ loading: false, data: null, error: null });
 ```
 
 **CSS Performance:**
+
 ```css
 /* ✅ GOOD - Use transform for animations */
 .card:hover {
@@ -368,18 +391,19 @@ const [state, setState] = useState({ loading: false, data: null, error: null });
 /* ❌ BAD - Animating expensive properties */
 .card:hover {
   width: 110%;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
 }
 ```
 
 #### Memory Management
 
 **Cleanup Patterns:**
+
 ```tsx
 useEffect(() => {
   const controller = new AbortController();
 
-  fetch('/api/data', { signal: controller.signal })
+  fetch("/api/data", { signal: controller.signal })
     .then(setData)
     .catch(() => {});
 
@@ -388,6 +412,7 @@ useEffect(() => {
 ```
 
 **Avoid Memory Leaks:**
+
 - Always cleanup subscriptions, intervals, event listeners
 - Use `AbortController` for fetch requests
 - Limit array/object growth with `.slice()`
@@ -396,6 +421,7 @@ useEffect(() => {
 #### Server-Side Considerations
 
 **For Raspberry Pi / Low-Powered Servers:**
+
 ```bash
 # Limit Node.js memory usage
 NODE_OPTIONS="--max-old-space-size=512" npm start
@@ -405,6 +431,7 @@ NODE_ENV=production npm start
 ```
 
 **Next.js Configuration:**
+
 ```js
 // next.config.js
 module.exports = {
@@ -413,7 +440,7 @@ module.exports = {
 
   // Optimize images for ARM
   images: {
-    formats: ['image/webp'],
+    formats: ["image/webp"],
     minimumCacheTTL: 60 * 60 * 24, // 24h cache
   },
 
@@ -424,15 +451,15 @@ module.exports = {
 
 #### Performance Anti-Patterns to Avoid
 
-| Anti-Pattern | Problem | Solution |
-|--------------|---------|----------|
-| `useEffect` without deps | Runs every render | Add dependency array |
-| Inline objects/arrays | New reference each render | `useMemo` or move outside |
-| Polling < 1s | CPU overload | Increase interval |
-| Unbounded state arrays | Memory leak | Use `.slice(-N)` |
-| Heavy sync operations | Blocks main thread | Use Web Workers or `requestIdleCallback` |
-| Unoptimized images | Large downloads | Use Next.js Image |
-| Console.log in prod | Memory + CPU waste | Remove or use debug flag |
+| Anti-Pattern             | Problem                   | Solution                                 |
+| ------------------------ | ------------------------- | ---------------------------------------- |
+| `useEffect` without deps | Runs every render         | Add dependency array                     |
+| Inline objects/arrays    | New reference each render | `useMemo` or move outside                |
+| Polling < 1s             | CPU overload              | Increase interval                        |
+| Unbounded state arrays   | Memory leak               | Use `.slice(-N)`                         |
+| Heavy sync operations    | Blocks main thread        | Use Web Workers or `requestIdleCallback` |
+| Unoptimized images       | Large downloads           | Use Next.js Image                        |
+| Console.log in prod      | Memory + CPU waste        | Remove or use debug flag                 |
 
 ## Development Commands
 
@@ -452,12 +479,14 @@ npm run lint:fix        # Run ESLint with auto-fix
 ## Production Deployment
 
 The project is designed to be installed via a shell script to `/opt/live-os` and run as a systemd service. The installation process:
+
 - Clones the repository
 - Runs `npm install` and `npm run build`
 - Creates a systemd service that runs `npm start`
 - Configurable via `LIVEOS_HTTP_PORT` environment variable (default: 3000)
 
 Service management:
+
 ```bash
 sudo systemctl [start|stop|restart] liveos
 sudo systemctl status liveos
@@ -558,16 +587,19 @@ These actions are called directly from client components, eliminating the need f
 **Micro-Component Examples:**
 
 **System Monitor** (`components/system-monitor/`):
+
 - `metric-chart-card.tsx` (80 lines) - Reusable card with chart
 - `app-list-item.tsx` (25 lines) - Single app display
 - `connection-status.tsx` (20 lines) - Status indicator
 
 **Settings** (`components/settings/`):
+
 - `metric-card.tsx` (43 lines) - Metric display
 - `info-row.tsx` (13 lines) - Label/value row
 - Each tab is its own file (15-60 lines each)
 
 **Lock Screen** (`components/lock-screen/`):
+
 - `user-header.tsx` (25 lines) - User info display
 - `pin-input-form.tsx` (80 lines) - PIN input
 
@@ -587,6 +619,7 @@ store/AppName/
 ```
 
 **appfile.json format**:
+
 ```json
 {
   "id": "app-name",
@@ -610,6 +643,7 @@ store/AppName/
 - Uses CSS variables for light/dark mode (`.dark` class)
 
 **Standard Color Palette:**
+
 - CPU: `#06b6d4` (cyan)
 - Memory: `#f59e0b` (amber)
 - GPU: `#a855f7` (purple)
@@ -622,6 +656,7 @@ store/AppName/
 - Danger: `red-*`
 
 **Card Styling (from design-tokens.ts):**
+
 ```
 Base: bg-black/30 backdrop-blur-xl rounded-2xl border border-white/15 shadow-lg shadow-black/25
 Padding: p-4 (sm), p-5 (md), p-6 (lg)
@@ -630,6 +665,7 @@ Selected: bg-black/40 border-cyan-500/50 ring-1 ring-cyan-500/30
 ```
 
 **Typography (from design-tokens.ts):**
+
 ```
 Label: text-xs text-white/40 -tracking-[0.01em]
 Value: text-2xl font-bold text-white/90 -tracking-[0.02em]
@@ -669,6 +705,7 @@ Muted: text-xs text-white/60 -tracking-[0.01em]
 **Primary Target**: Debian LTS (Long Term Support) - All system commands and operations are designed for Debian-based systems.
 
 LiveOS is optimized for deployment on **Debian LTS** servers, ensuring:
+
 - Long-term stability and security updates
 - Wide Docker compatibility
 - Standard Linux tooling
@@ -677,16 +714,19 @@ LiveOS is optimized for deployment on **Debian LTS** servers, ensuring:
 ### Platform Support
 
 **✅ Debian LTS (Primary)**
+
 - Full production support
 - Optimized system commands
 - Tested and recommended platform
 
 **🔧 Development Support**
+
 - **macOS**: Development environment support
 - **Ubuntu/Debian variants**: Should work with minimal changes
 - **Other Linux**: May require command adaptations
 
 **❌ Not Supported**
+
 - **Windows**: Not supported (consider WSL2 for development only)
 
 ### System Commands for Debian LTS
@@ -750,6 +790,7 @@ sudo apt install -y \
 ## Features Inspired by UmbrelOS & CasaOS
 
 ### From UmbrelOS
+
 - Clean, modern app store interface
 - App manifest format (appfile.json)
 - Docker-based app installation
@@ -758,6 +799,7 @@ sudo apt install -y \
 - Standardized environment variables
 
 ### From CasaOS
+
 - Intuitive dashboard layout
 - Real-time system monitoring
 - Simple app management
@@ -771,6 +813,7 @@ sudo apt install -y \
 The file manager (`components/file-manager/`) provides comprehensive file browsing with ~85% feature parity to CasaOS.
 
 **Implemented Features:**
+
 - File browsing with history/breadcrumbs, grid/list views
 - Create, rename, delete (soft), move, copy operations
 - Text file editing (Monaco editor with syntax highlighting)
@@ -782,21 +825,22 @@ The file manager (`components/file-manager/`) provides comprehensive file browsi
 
 ### Missing Features Roadmap
 
-| Feature | Priority | Status |
-|---------|----------|--------|
-| **File Upload** | 🔴 Critical | Not implemented - drag-drop or file input |
-| **Multi-select** | 🔴 Critical | Can't select multiple files for batch operations |
-| **Drag-and-Drop** | 🟠 High | No file reordering or inter-folder dragging |
-| **Empty Trash** | 🟠 High | Soft delete works, but no permanent delete |
-| **Recents** | 🟡 Medium | Sidebar stub exists but not functional |
-| **Video/Audio/PDF Preview** | 🟡 Medium | Components exist but not fully integrated |
-| **Right-click Empty Space** | 🟡 Medium | Context menu only works on files |
-| **File Properties Dialog** | 🟢 Low | No detailed stats (owner, permissions UI) |
-| **Advanced Search** | 🟢 Low | No regex, size/date filters |
+| Feature                     | Priority    | Status                                           |
+| --------------------------- | ----------- | ------------------------------------------------ |
+| **File Upload**             | 🔴 Critical | Not implemented - drag-drop or file input        |
+| **Multi-select**            | 🔴 Critical | Can't select multiple files for batch operations |
+| **Drag-and-Drop**           | 🟠 High     | No file reordering or inter-folder dragging      |
+| **Empty Trash**             | 🟠 High     | Soft delete works, but no permanent delete       |
+| **Recents**                 | 🟡 Medium   | Sidebar stub exists but not functional           |
+| **Video/Audio/PDF Preview** | 🟡 Medium   | Components exist but not fully integrated        |
+| **Right-click Empty Space** | 🟡 Medium   | Context menu only works on files                 |
+| **File Properties Dialog**  | 🟢 Low      | No detailed stats (owner, permissions UI)        |
+| **Advanced Search**         | 🟢 Low      | No regex, size/date filters                      |
 
 ### Dead Code to Remove
 
 **⚠️ `app/actions/files.ts`** (160 lines) - Contains duplicate implementations never imported:
+
 - `listFiles()` → duplicated in `filesystem.ts` as `readDirectory()`
 - `createFolder()` → duplicated in `filesystem.ts` as `createDirectory()`
 - `deleteItem()`, `renameItem()`, `getItemInfo()` → all duplicated
@@ -805,32 +849,36 @@ The file manager (`components/file-manager/`) provides comprehensive file browsi
 
 ### Architecture Issues
 
-| Issue | Location | Recommendation |
-|-------|----------|----------------|
-| **Mega-hook** | `use-files-dialog.ts` (650+ lines) | Split into `use-file-navigation.ts`, `use-file-operations.ts`, `use-file-selection.ts` |
-| **Partial viewer integration** | `file-viewer/*.tsx` | Video/audio/PDF viewers exist but only images work in fullscreen |
-| **Stub feature** | `files-sidebar.tsx:60-62` | "Recents" button has no onClick handler |
+| Issue                          | Location                           | Recommendation                                                                         |
+| ------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------------- |
+| **Mega-hook**                  | `use-files-dialog.ts` (650+ lines) | Split into `use-file-navigation.ts`, `use-file-operations.ts`, `use-file-selection.ts` |
+| **Partial viewer integration** | `file-viewer/*.tsx`                | Video/audio/PDF viewers exist but only images work in fullscreen                       |
+| **Stub feature**               | `files-sidebar.tsx:60-62`          | "Recents" button has no onClick handler                                                |
 
 ### File Manager Performance Rules
 
 **CRITICAL: File operations can be slow on Raspberry Pi**
 
 #### Directory Listing
+
 ```tsx
 // ✅ GOOD - Limit items displayed, paginate
 const visibleItems = items.slice(0, 50);
 
 // ✅ GOOD - Memoize sorted/filtered results
-const sortedItems = useMemo(() =>
-  items.sort((a, b) => a.name.localeCompare(b.name)),
-  [items]
+const sortedItems = useMemo(
+  () => items.sort((a, b) => a.name.localeCompare(b.name)),
+  [items],
 );
 
 // ❌ BAD - Render thousands of items
-{items.map(item => <FileCard key={item.path} />)}
+{
+  items.map((item) => <FileCard key={item.path} />);
+}
 ```
 
 #### File Operations
+
 ```tsx
 // ✅ GOOD - Show loading state during operations
 const [isOperating, setIsOperating] = useState(false);
@@ -839,17 +887,20 @@ const [isOperating, setIsOperating] = useState(false);
 const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
 // ❌ BAD - Search on every keystroke
-useEffect(() => { searchFiles(query); }, [query]);
+useEffect(() => {
+  searchFiles(query);
+}, [query]);
 ```
 
 #### Large Files
+
 ```tsx
 // ✅ GOOD - Stream large files, don't load into memory
 // API routes use streaming for downloads
 
 // ✅ GOOD - Limit text editor to 1MB
 if (file.size > 1024 * 1024) {
-  toast.error('File too large to edit');
+  toast.error("File too large to edit");
   return;
 }
 
@@ -858,6 +909,7 @@ const content = await readFileContent(hugePath);
 ```
 
 #### Thumbnails & Icons
+
 ```tsx
 // ✅ GOOD - Use static icons from public/icons/files/
 <img src={`/icons/files/${getFileIcon(type)}.svg`} />
@@ -871,14 +923,14 @@ const thumbnail = await generateThumbnail(path);
 
 #### Performance Checklist (File Manager)
 
-| Check | Rule |
-|-------|------|
+| Check             | Rule                                          |
+| ----------------- | --------------------------------------------- |
 | Directory listing | Max 50-100 visible items, virtualize for more |
-| Search debounce | ≥ 300ms delay |
-| File size limits | 1MB for text editor, streaming for downloads |
-| Icon loading | Static SVGs, no runtime generation |
-| Operations | Show loading states, abort on unmount |
-| History array | Max 50 navigation entries |
+| Search debounce   | ≥ 300ms delay                                 |
+| File size limits  | 1MB for text editor, streaming for downloads  |
+| Icon loading      | Static SVGs, no runtime generation            |
+| Operations        | Show loading states, abort on unmount         |
+| History array     | Max 50 navigation entries                     |
 
 ### File Manager Structure
 
@@ -934,22 +986,26 @@ app/api/files/
 ### When Detecting Issues
 
 **If component exceeds 150 lines**:
+
 1. Identify logical sub-components
 2. Extract into separate files
 3. Create types.ts for shared types
 4. Create utils.ts for helper functions
 
 **If you detect design inconsistencies**:
+
 1. Check if a design token exists
 2. If yes, replace hardcoded styles with token
 3. If no, consider adding new token to design-tokens.ts
 4. Apply the fix immediately
 
 **If you detect SOLID violations**:
+
 1. Refactor the code to follow SOLID principles
 2. Explain the violation and how it was fixed
 
 **If you detect unnecessary complexity**:
+
 1. Simplify the code following KISS
 2. Remove unused abstractions
 

@@ -1,4 +1,9 @@
-import type { App } from "@/components/app-store/types";
+import type {
+  App,
+  EnvConfig,
+  PortConfig,
+  VolumeConfig,
+} from "@/components/app-store/types";
 import {
   fileExists,
   listFiles,
@@ -60,6 +65,11 @@ export async function parseUmbrelStore(
           ),
       );
 
+      // Parse container metadata from docker-compose
+      const container = composeFile
+        ? await buildContainerMetadata(composeFile, appId)
+        : undefined;
+
       apps.push({
         id: appId,
         title: manifest.name,
@@ -76,6 +86,7 @@ export async function parseUmbrelStore(
         website: manifest.website,
         repo: manifest.repo,
         composePath: composeFile ?? "",
+        container: container ?? undefined,
       });
     } catch (error) {
       console.warn(`Failed to parse Umbrel manifest at ${manifestPath}:`, error);
@@ -128,6 +139,164 @@ interface UmbrelManifest {
   submitter?: string;
   submission?: string;
 }
+
+// ============================================================================
+// Container metadata from docker-compose
+// ============================================================================
+
+async function buildContainerMetadata(
+  composePath: string,
+  appId: string,
+): Promise<{
+  image: string;
+  ports: PortConfig[];
+  volumes: VolumeConfig[];
+  environment: EnvConfig[];
+} | null> {
+  try {
+    const content = await fs.readFile(composePath, "utf-8");
+    const doc = YAML.parse(content) as ComposeDocument;
+    const services = doc?.services;
+    if (!services || typeof services !== "object") return null;
+
+    // Prefer a service matching the app id, otherwise use the first service
+    const mainKey =
+      Object.keys(services).find((k) => k === appId) ??
+      Object.keys(services)[0];
+    if (!mainKey) return null;
+
+    const service = services[mainKey];
+    if (!service) return null;
+
+    return {
+      image: service.image || "",
+      ports: normalizePorts(service.ports),
+      volumes: normalizeVolumes(service.volumes),
+      environment: normalizeEnv(service.environment),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function normalizePorts(
+  rawPorts?: Array<string | ComposePortObject>,
+): PortConfig[] {
+  if (!rawPorts) return [];
+  const results: PortConfig[] = [];
+
+  for (const port of rawPorts) {
+    if (typeof port === "string") {
+      const [hostPart, containerPartRaw] = port.split(":");
+      const [containerPart, protocolPart] = (
+        containerPartRaw || hostPart
+      ).split("/");
+      const container = containerPart?.toString() || "";
+      if (container) {
+        results.push({
+          container,
+          published: hostPart?.toString() || container,
+          protocol: (protocolPart || "tcp").toString(),
+        });
+      }
+    } else if (typeof port === "object" && port !== null) {
+      const container = (
+        port.target ?? port.container ?? ""
+      ).toString();
+      const published = (
+        port.published ?? port.host ?? container
+      ).toString();
+      const protocol = (port.protocol ?? "tcp").toString();
+      if (container) {
+        results.push({ container, published, protocol });
+      }
+    }
+  }
+
+  return results;
+}
+
+function normalizeVolumes(
+  rawVolumes?: Array<string | ComposeVolumeObject>,
+): VolumeConfig[] {
+  if (!rawVolumes) return [];
+  const results: VolumeConfig[] = [];
+
+  for (const vol of rawVolumes) {
+    if (typeof vol === "string") {
+      const parts = vol.split(":");
+      const source = parts[0] || "";
+      const container = parts[1] || source;
+      if (container) {
+        results.push({ container, source });
+      }
+    } else if (typeof vol === "object" && vol !== null) {
+      const container = (vol.target ?? vol.container ?? "").toString();
+      const source = (vol.source ?? vol.from ?? "").toString();
+      if (container) {
+        results.push({ container, source });
+      }
+    }
+  }
+
+  return results;
+}
+
+function normalizeEnv(
+  rawEnv?: Array<string> | Record<string, string | number>,
+): EnvConfig[] {
+  if (!rawEnv) return [];
+  const results: EnvConfig[] = [];
+
+  if (Array.isArray(rawEnv)) {
+    for (const item of rawEnv) {
+      if (typeof item === "string" && item.includes("=")) {
+        const [key, ...rest] = item.split("=");
+        results.push({ key, value: rest.join("=") });
+      }
+    }
+  } else if (typeof rawEnv === "object") {
+    for (const [key, value] of Object.entries(rawEnv)) {
+      results.push({ key, value: String(value ?? "") });
+    }
+  }
+
+  return results;
+}
+
+// ============================================================================
+// Compose type definitions
+// ============================================================================
+
+type ComposePortObject = {
+  target?: string | number;
+  container?: string | number;
+  published?: string | number;
+  host?: string | number;
+  protocol?: string;
+};
+
+type ComposeVolumeObject = {
+  target?: string;
+  container?: string;
+  source?: string;
+  from?: string;
+};
+
+type ComposeService = {
+  image?: string;
+  ports?: Array<string | ComposePortObject>;
+  volumes?: Array<string | ComposeVolumeObject>;
+  environment?: Array<string> | Record<string, string | number>;
+};
+
+type ComposeDocument = {
+  services?: Record<string, ComposeService>;
+};
+
+// ============================================================================
+// Icon & gallery resolution
+// ============================================================================
 
 async function resolveUmbrelIcon(
   manifestIcon: string | undefined,

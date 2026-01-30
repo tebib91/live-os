@@ -106,6 +106,14 @@ export function FeaturedAppCard({ app, index = 0, onClick }: FeaturedAppCardProp
           />
         </div>
       </div>
+      {/* Store text */}
+      {app.storeName && (
+        <div className="absolute bottom-3 right-4 z-10">
+          <span className="text-[9px] leading-none text-white/65">
+            {app.storeName}
+          </span>
+        </div>
+      )}
 
       {/* App Info - positioned at bottom */}
       <div className="relative z-10 space-y-1">

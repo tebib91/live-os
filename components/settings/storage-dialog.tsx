@@ -1,22 +1,21 @@
-
 "use client";
 
 import { getStorageInfo, type StorageInfo } from "@/app/actions/storage";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatBytes } from "@/lib/utils";
 import {
-  Gauge,
-  HardDrive,
-  HardDriveDownload,
-  Loader2,
-  RefreshCw,
+    Gauge,
+    HardDrive,
+    HardDriveDownload,
+    Loader2,
+    RefreshCw,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -57,7 +56,7 @@ export function StorageDialog({ open, onOpenChange }: StorageDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] bg-white/5 backdrop-blur-3xl border border-white/10 p-0 overflow-hidden shadow-2xl shadow-black/40">
+      <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] bg-white/5 backdrop-blur-xl border border-white/10 p-0 overflow-hidden shadow-2xl shadow-black/40">
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-white/10 bg-gradient-to-r from-white/10 via-white/5 to-transparent">
           <div className="space-y-1 min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-white/70">
@@ -141,14 +140,23 @@ export function StorageDialog({ open, onOpenChange }: StorageDialogProps) {
                           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white"
                         >
                           <div className="min-w-0">
-                            <p className="font-semibold truncate">{disk.name || disk.device}</p>
+                            <p className="font-semibold truncate">
+                              {disk.name || disk.device}
+                            </p>
                             <p className="text-white/60 text-xs truncate">
-                              {(disk.vendor || "Unknown vendor")} · {disk.interfaceType || "?"}
+                              {disk.vendor || "Unknown vendor"} ·{" "}
+                              {disk.interfaceType || "?"}
                             </p>
                           </div>
-                          <div className="text-white/80">{formatBytes(disk.size)}</div>
-                          <div className="text-white/70 text-xs">Type: {disk.type || "Unknown"}</div>
-                          <div className="text-white/60 text-xs truncate">Serial: {disk.serialNum || "N/A"}</div>
+                          <div className="text-white/80">
+                            {formatBytes(disk.size)}
+                          </div>
+                          <div className="text-white/70 text-xs">
+                            Type: {disk.type || "Unknown"}
+                          </div>
+                          <div className="text-white/60 text-xs truncate">
+                            Serial: {disk.serialNum || "N/A"}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -165,11 +173,21 @@ export function StorageDialog({ open, onOpenChange }: StorageDialogProps) {
                           key={`${part.name}-${part.uuid ?? part.label ?? part.mount}`}
                           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white"
                         >
-                          <div className="truncate font-semibold">{part.name}</div>
-                          <div className="text-white/80 truncate">{part.mount || "—"}</div>
-                          <div className="text-white/70 text-xs">{part.fsType || "Unknown"}</div>
-                          <div className="text-white/70 text-xs truncate">{part.label || part.uuid || "No label"}</div>
-                          <div className="text-white/80 text-sm">{formatBytes(Number(part.size) || 0)}</div>
+                          <div className="truncate font-semibold">
+                            {part.name}
+                          </div>
+                          <div className="text-white/80 truncate">
+                            {part.mount || "—"}
+                          </div>
+                          <div className="text-white/70 text-xs">
+                            {part.fsType || "Unknown"}
+                          </div>
+                          <div className="text-white/70 text-xs truncate">
+                            {part.label || part.uuid || "No label"}
+                          </div>
+                          <div className="text-white/80 text-sm">
+                            {formatBytes(Number(part.size) || 0)}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -187,13 +205,19 @@ export function StorageDialog({ open, onOpenChange }: StorageDialogProps) {
                           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white"
                         >
                           <div className="truncate font-semibold">{vol.fs}</div>
-                          <div className="text-white/70 text-xs">{vol.type || "Unknown"}</div>
-                          <div className="text-white/70 text-xs truncate">{vol.mount || "—"}</div>
+                          <div className="text-white/70 text-xs">
+                            {vol.type || "Unknown"}
+                          </div>
+                          <div className="text-white/70 text-xs truncate">
+                            {vol.mount || "—"}
+                          </div>
                           <div className="text-white/80 text-sm">
                             {formatBytes(vol.used)} / {formatBytes(vol.size)}{" "}
                             {vol.use ? `(${vol.use}%)` : ""}
                           </div>
-                          <div className="text-white/60 text-xs truncate">{vol.mount || vol.type || ""}</div>
+                          <div className="text-white/60 text-xs truncate">
+                            {vol.mount || vol.type || ""}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -201,11 +225,17 @@ export function StorageDialog({ open, onOpenChange }: StorageDialogProps) {
                 </Section>
 
                 <Section title="df -h">
-                  <CommandOutput output={info.dfOutput} placeholder="df -h output unavailable." />
+                  <CommandOutput
+                    output={info.dfOutput}
+                    placeholder="df -h output unavailable."
+                  />
                 </Section>
 
                 <Section title="lsblk -f">
-                  <CommandOutput output={info.lsblkOutput} placeholder="lsblk output unavailable." />
+                  <CommandOutput
+                    output={info.lsblkOutput}
+                    placeholder="lsblk output unavailable."
+                  />
                 </Section>
               </>
             )}
@@ -216,7 +246,15 @@ export function StorageDialog({ open, onOpenChange }: StorageDialogProps) {
   );
 }
 
-function StatCard({ label, value, icon }: { label: string; value: number | string; icon: React.ReactNode }) {
+function StatCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number | string;
+  icon: React.ReactNode;
+}) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white flex items-center justify-between">
       <div className="space-y-1">
@@ -230,7 +268,13 @@ function StatCard({ label, value, icon }: { label: string; value: number | strin
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-2">
       <h4 className="text-sm font-semibold text-white">{title}</h4>
@@ -243,7 +287,13 @@ function EmptyMessage({ text }: { text: string }) {
   return <p className="text-sm text-white/60">{text}</p>;
 }
 
-function CommandOutput({ output, placeholder }: { output: string | null; placeholder: string }) {
+function CommandOutput({
+  output,
+  placeholder,
+}: {
+  output: string | null;
+  placeholder: string;
+}) {
   return (
     <div className="rounded-lg border border-white/10 bg-black/40 text-white/80 font-mono text-xs p-3 overflow-x-auto whitespace-pre-wrap">
       {output || placeholder}

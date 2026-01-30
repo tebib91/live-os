@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  pollAndBroadcast,
   sendInstallProgress,
   type InstallProgressPayload,
 } from "@/app/api/system/stream/route";
@@ -9,7 +10,11 @@ import fs from "fs/promises";
 import path from "path";
 import { logAction } from "../logger";
 import { backupComposeFile, cleanupBackup, restoreComposeFile } from "./backup";
-import { getAppMeta, removeInstalledAppRecord } from "./db";
+import {
+  getAppMeta,
+  getRecordedContainerName,
+  removeInstalledAppRecord,
+} from "./db";
 import { waitForContainerRunning } from "./health";
 import {
   DEFAULT_APP_ICON,
@@ -25,24 +30,28 @@ const TRASH_ROOT = "/DATA/AppTrash";
 /**
  * Stop an app
  */
-export async function stopApp(appId: string): Promise<boolean> {
-  console.log(`[Docker] stopApp: Stopping app "${appId}"...`);
+export async function stopApp(containerName: string): Promise<boolean> {
+  console.log(`[Docker] stopApp: Stopping app "${containerName}"...`);
 
   try {
-    if (!validateAppId(appId)) {
-      console.warn(`[Docker] stopApp: Invalid app ID: "${appId}"`);
+    if (!validateAppId(containerName)) {
+      console.warn(`[Docker] stopApp: Invalid app ID: "${containerName}"`);
       return false;
     }
 
-    const containerName = getContainerName(appId);
+    // const containerName = getContainerName(containerName);
     console.log(`[Docker] stopApp: Container name: ${containerName}`);
     console.log(`[Docker] stopApp: Executing: docker stop ${containerName}`);
 
     await execAsync(`docker stop ${containerName}`);
-    console.log(`[Docker] stopApp: Successfully stopped "${appId}"`);
+    console.log(`[Docker] stopApp: Successfully stopped "${containerName}"`);
+    void pollAndBroadcast();
     return true;
   } catch (error) {
-    console.error(`[Docker] stopApp: Error stopping "${appId}":`, error);
+    console.error(
+      `[Docker] stopApp: Error stopping "${containerName}":`,
+      error,
+    );
     return false;
   }
 }
@@ -50,29 +59,34 @@ export async function stopApp(appId: string): Promise<boolean> {
 /**
  * Start an app
  */
-export async function startApp(appId: string): Promise<boolean> {
-  console.log(`[Docker] startApp: Starting app "${appId}"...`);
+export async function startApp(containerName: string): Promise<boolean> {
+  console.log(`[Docker] startApp: Starting app "${containerName}"...`);
 
   try {
-    if (!validateAppId(appId)) {
-      console.warn(`[Docker] startApp: Invalid app ID: "${appId}"`);
+    if (!validateAppId(containerName)) {
+      console.warn(`[Docker] startApp: Invalid app ID: "${containerName}"`);
       return false;
     }
 
-    const containerName = getContainerName(appId);
     console.log(`[Docker] startApp: Container name: ${containerName}`);
     console.log(`[Docker] startApp: Executing: docker start ${containerName}`);
 
     await execAsync(`docker start ${containerName}`);
     const healthy = await waitForContainerRunning(containerName, 5, 2000);
     if (!healthy) {
-      console.warn(`[Docker] startApp: Container "${containerName}" not running after start`);
+      console.warn(
+        `[Docker] startApp: Container "${containerName}" not running after start`,
+      );
       return false;
     }
-    console.log(`[Docker] startApp: Successfully started "${appId}"`);
+    console.log(`[Docker] startApp: Successfully started "${containerName}"`);
+    void pollAndBroadcast();
     return true;
   } catch (error) {
-    console.error(`[Docker] startApp: Error starting "${appId}":`, error);
+    console.error(
+      `[Docker] startApp: Error starting "${containerName}":`,
+      error,
+    );
     return false;
   }
 }
@@ -80,33 +94,37 @@ export async function startApp(appId: string): Promise<boolean> {
 /**
  * Restart an app
  */
-export async function restartApp(appId: string): Promise<boolean> {
-  console.log(`[Docker] restartApp: Restarting app "${appId}"...`);
+export async function restartApp(containerName: string): Promise<boolean> {
+  console.log(`[Docker] restartApp: Restarting app "${containerName}"...`);
 
   try {
-    if (!validateAppId(appId)) {
-      console.warn(`[Docker] restartApp: Invalid app ID: "${appId}"`);
+    if (!validateAppId(containerName)) {
+      console.warn(`[Docker] restartApp: Invalid app ID: "${containerName}"`);
       return false;
     }
 
-    const containerName = getContainerName(appId);
     console.log(`[Docker] restartApp: Container name: ${containerName}`);
     console.log(
-      `[Docker] restartApp: Executing: docker restart ${containerName}`
+      `[Docker] restartApp: Executing: docker restart ${containerName}`,
     );
 
     await execAsync(`docker restart ${containerName}`);
     const healthy = await waitForContainerRunning(containerName, 5, 2000);
     if (!healthy) {
-      console.warn(`[Docker] restartApp: Container "${containerName}" not running after restart`);
+      console.warn(
+        `[Docker] restartApp: Container "${containerName}" not running after restart`,
+      );
       return false;
     }
-    console.log(`[Docker] restartApp: Successfully restarted "${appId}"`);
+    console.log(
+      `[Docker] restartApp: Successfully restarted "${containerName}"`,
+    );
+    void pollAndBroadcast();
     return true;
   } catch (error) {
     console.error(
-      `[Docker] restartApp: Error restarting "${appId}":`,
-      error
+      `[Docker] restartApp: Error restarting "${containerName}":`,
+      error,
     );
     return false;
   }
@@ -115,12 +133,12 @@ export async function restartApp(appId: string): Promise<boolean> {
 /**
  * Update an app by pulling new images and recreating containers
  */
-export async function updateApp(appId: string): Promise<boolean> {
-  if (!validateAppId(appId)) return false;
+export async function updateApp(containerName: string): Promise<boolean> {
+  if (!validateAppId(containerName)) return false;
 
-  let meta = { name: appId, icon: DEFAULT_APP_ICON };
+  let meta = { name: containerName, icon: DEFAULT_APP_ICON };
   try {
-    meta = await getAppMeta(appId);
+    meta = await getAppMeta(containerName);
   } catch {
     // Use fallback meta
   }
@@ -132,7 +150,7 @@ export async function updateApp(appId: string): Promise<boolean> {
   ) =>
     sendInstallProgress({
       type: "install-progress",
-      appId,
+      containerName,
       name: meta.name,
       icon: meta.icon,
       progress,
@@ -142,18 +160,20 @@ export async function updateApp(appId: string): Promise<boolean> {
 
   emitProgress(0.05, "Starting update", "starting");
 
-  const resolved = await findComposeForApp(appId);
+  const resolved = await findComposeForApp(containerName);
   if (!resolved) {
-    console.warn(`[Docker] updateApp: compose not found for ${appId}`);
+    console.warn(`[Docker] updateApp: compose not found for ${containerName}`);
     emitProgress(1, "Compose file not found", "error");
     return false;
   }
 
-  const backupPath = await backupComposeFile(resolved.composePath, appId);
+  const backupPath = await backupComposeFile(
+    resolved.composePath,
+    containerName,
+  );
 
   try {
     const sanitized = await sanitizeComposeFile(resolved.composePath);
-    const containerName = getContainerName(appId);
     const envVars: NodeJS.ProcessEnv = {
       ...process.env,
       CONTAINER_NAME: containerName,
@@ -174,50 +194,61 @@ export async function updateApp(appId: string): Promise<boolean> {
     emitProgress(0.85, "Verifying container health");
     const healthy = await waitForContainerRunning(containerName, 5, 2000);
     if (!healthy) {
-      console.warn(`[Docker] updateApp: container not healthy after update for ${appId}`);
+      console.warn(
+        `[Docker] updateApp: container not healthy after update for ${containerName}`,
+      );
 
       // Attempt rollback
       if (backupPath) {
         emitProgress(0.9, "Rolling back to previous version");
         await restoreComposeFile(backupPath, resolved.composePath);
-        const rollbackSanitized = await sanitizeComposeFile(resolved.composePath);
+        const rollbackSanitized = await sanitizeComposeFile(
+          resolved.composePath,
+        );
         await execAsync(
           `cd "${resolved.appDir}" && docker compose -f "${rollbackSanitized}" up -d`,
           { env: envVars },
         ).catch(() => null);
       }
 
-      await cleanupBackup(appId);
+      await cleanupBackup(containerName);
       emitProgress(1, "Rolled back after failed update", "error");
-      await logAction("update:error", { appId, error: "Container not healthy, rolled back" });
+      await logAction("update:error", {
+        containerName,
+        error: "Container not healthy, rolled back",
+      });
       return false;
     }
 
-    await cleanupBackup(appId);
+    await cleanupBackup(containerName);
     await triggerAppsUpdate();
-    await logAction("update:success", { appId, containerName });
+    await logAction("update:success", { containerName });
     emitProgress(1, "Update complete", "completed");
     return true;
   } catch (error) {
-    console.error(`[Docker] updateApp: failed for ${appId}:`, error);
+    console.error(`[Docker] updateApp: failed for ${containerName}:`, error);
 
     // Attempt rollback on exception
     if (backupPath) {
-      await restoreComposeFile(backupPath, resolved.composePath).catch(() => null);
+      await restoreComposeFile(backupPath, resolved.composePath).catch(
+        () => null,
+      );
       const envVars: NodeJS.ProcessEnv = {
         ...process.env,
-        CONTAINER_NAME: getContainerName(appId),
+        CONTAINER_NAME: containerName,
       };
-      const rollbackSanitized = await sanitizeComposeFile(resolved.composePath).catch(() => resolved.composePath);
+      const rollbackSanitized = await sanitizeComposeFile(
+        resolved.composePath,
+      ).catch(() => resolved.composePath);
       await execAsync(
         `cd "${resolved.appDir}" && docker compose -f "${rollbackSanitized}" up -d`,
         { env: envVars },
       ).catch(() => null);
     }
-    await cleanupBackup(appId);
+    await cleanupBackup(containerName);
 
     const errorMsg = (error as Error)?.message ?? "unknown";
-    await logAction("update:error", { appId, error: errorMsg });
+    await logAction("update:error", { containerName, error: errorMsg });
     emitProgress(1, "Update failed, rolled back", "error");
     return false;
   }
@@ -235,11 +266,45 @@ export async function uninstallApp(appId: string): Promise<boolean> {
       return false;
     }
 
-    const containerName = getContainerName(appId);
-    console.log(
-      `[Docker] uninstallApp: Removing container "${containerName}"...`
-    );
-    await execAsync(`docker rm -f ${containerName}`);
+    const recordedContainer = await getRecordedContainerName(appId);
+    const generatedContainer = getContainerName(appId);
+    const containerCandidates = Array.from(
+      new Set([recordedContainer, generatedContainer].filter(Boolean)),
+    ) as string[];
+
+    // Try docker compose down (covers multiple service names)
+    const resolved = await findComposeForApp(appId);
+    if (resolved) {
+      try {
+        const sanitizedCompose = await sanitizeComposeFile(
+          resolved.composePath,
+        );
+        console.log(
+          `[Docker] uninstallApp: docker compose down for "${appId}" at ${sanitizedCompose}`,
+        );
+        await execAsync(
+          `cd "${resolved.appDir}" && docker compose -f "${sanitizedCompose}" down -v --remove-orphans`,
+        );
+      } catch (composeErr) {
+        console.warn(
+          `[Docker] uninstallApp: compose down failed for "${appId}":`,
+          composeErr,
+        );
+      }
+    }
+
+    // Explicitly remove any remaining candidate containers
+    for (const name of containerCandidates) {
+      try {
+        console.log(`[Docker] uninstallApp: Removing container "${name}"...`);
+        await execAsync(`docker rm -f ${name}`);
+      } catch (err) {
+        console.warn(
+          `[Docker] uninstallApp: Failed to remove container "${name}":`,
+          err,
+        );
+      }
+    }
 
     const appDataPath = path.join("/DATA/AppData", appId);
     try {
@@ -260,17 +325,18 @@ export async function uninstallApp(appId: string): Promise<boolean> {
       }
     }
 
-    await removeInstalledAppRecord(containerName);
+    for (const name of containerCandidates) {
+      await removeInstalledAppRecord(name);
+    }
     await triggerAppsUpdate();
+    void pollAndBroadcast();
 
-    console.log(
-      `[Docker] uninstallApp: Successfully uninstalled "${appId}"`
-    );
+    console.log(`[Docker] uninstallApp: Successfully uninstalled "${appId}"`);
     return true;
   } catch (error) {
     console.error(
       `[Docker] uninstallApp: Error uninstalling "${appId}":`,
-      error
+      error,
     );
     return false;
   }
@@ -310,7 +376,10 @@ export async function emptyTrash(appId?: string): Promise<boolean> {
       const entries = await fs.readdir(TRASH_ROOT).catch(() => [] as string[]);
       for (const entry of entries) {
         if (entry.startsWith(`${appId}_`)) {
-          await fs.rm(path.join(TRASH_ROOT, entry), { recursive: true, force: true });
+          await fs.rm(path.join(TRASH_ROOT, entry), {
+            recursive: true,
+            force: true,
+          });
         }
       }
     } else {

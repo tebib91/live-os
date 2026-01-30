@@ -84,6 +84,8 @@ export async function deployCustomRun(
   volumes?: string,
   envVars?: string,
   iconUrl?: string,
+  networkType?: string,
+  webUIPort?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!validateAppId(appName)) {
     return {
@@ -103,13 +105,20 @@ export async function deployCustomRun(
 
     let command = `docker run -d --name "${finalContainer}" --restart unless-stopped`;
 
-    // Ports
-    for (const mapping of splitCommaList(ports)) {
-      const [host, container] = mapping.split(":");
-      if (!validatePort(host) || !validatePort(container)) {
-        return { success: false, error: `Invalid port mapping: ${mapping}` };
+    // Network type
+    if (networkType && networkType !== "bridge") {
+      command += ` --network ${networkType}`;
+    }
+
+    // Ports (skipped for host networking — host mode shares the host network directly)
+    if (networkType !== "host") {
+      for (const mapping of splitCommaList(ports)) {
+        const [host, container] = mapping.split(":");
+        if (!validatePort(host) || !validatePort(container)) {
+          return { success: false, error: `Invalid port mapping: ${mapping}` };
+        }
+        command += ` -p ${mapping}`;
       }
-      command += ` -p ${mapping}`;
     }
 
     // Volumes
@@ -139,6 +148,8 @@ export async function deployCustomRun(
       volumes: volumes || "",
       env: envVars || "",
       deployMethod: "run",
+      networkType: networkType || "bridge",
+      webUIPort: webUIPort || "",
     });
     await triggerAppsUpdate();
     return { success: true };

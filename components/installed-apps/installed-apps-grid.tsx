@@ -4,15 +4,13 @@
 import { getAppWebUI } from "@/app/actions/docker";
 import type { InstalledApp } from "@/components/app-store/types";
 import { Card } from "@/components/ui/card";
-import { useSystemStatus } from "@/hooks/useSystemStatus";
 import type { InstalledApp as WSInstalledApp } from "@/hooks/system-status-types";
-import { Trash2 } from "lucide-react";
+import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppContextMenu } from "./app-context-menu";
-import { TrashDialog } from "./trash-dialog";
 
 export function InstalledAppsGrid() {
   const { installedApps: wsApps, connected } = useSystemStatus();
@@ -45,14 +43,6 @@ export function InstalledAppsGrid() {
     });
   }, [apps]);
 
-  const [showTrash, setShowTrash] = useState(false);
-
-  // Callback for context menu actions - triggers a refresh event
-  const handleAction = useCallback(() => {
-    // Dispatch event for any listeners (backwards compatibility)
-    window.dispatchEvent(new CustomEvent("refreshInstalledApps"));
-  }, []);
-
   // Show loading state if not connected yet
   if (!connected && apps.length === 0) {
     return (
@@ -76,17 +66,6 @@ export function InstalledAppsGrid() {
 
   return (
     <div className="w-full max-w-5xl px-4">
-      <div className="flex items-center justify-end mb-3">
-        <button
-          onClick={() => setShowTrash(true)}
-          className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
-          title="View trash"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Trash
-        </button>
-      </div>
-
       <motion.div
         variants={{
           hidden: { opacity: 0 },
@@ -107,7 +86,7 @@ export function InstalledAppsGrid() {
               show: { opacity: 1, scale: 1 },
             }}
           >
-            <AppContextMenu app={app} onAction={handleAction}>
+            <AppContextMenu app={app}>
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.97 }}
@@ -169,8 +148,6 @@ export function InstalledAppsGrid() {
           </motion.div>
         ))}
       </motion.div>
-
-      <TrashDialog open={showTrash} onOpenChange={setShowTrash} />
     </div>
   );
 }

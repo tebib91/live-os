@@ -1,25 +1,28 @@
-'use client';
+"use client";
 
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { FileCreationRow } from '@/components/file-manager/file-creation-row';
-import { FileEditorModal } from '@/components/file-manager/file-editor-modal';
-import { FilesContent } from '@/components/file-manager/files-content';
-import { FileUploadZone } from '@/components/file-manager/file-upload-zone';
+import type { FileSystemItem } from "@/app/actions/filesystem";
+import { trashItem } from "@/app/actions/filesystem";
 import {
-  FilesContextMenu,
-  FileClipboardProvider,
-  useFileClipboard,
-} from '@/components/file-manager/context-menu';
-import { NetworkStorageDialog } from '@/components/file-manager/network-storage-dialog';
-import { SmbShareDialog } from '@/components/file-manager/smb-share-dialog';
-import { FilesSidebar } from '@/components/file-manager/files-sidebar';
-import { FilesToolbar } from '@/components/file-manager/files-toolbar';
-import { useFilesDialog } from '@/components/file-manager/use-files-dialog';
-import { FileViewer, getViewerType } from '@/components/file-manager/file-viewer';
-import type { FileSystemItem } from '@/app/actions/filesystem';
-import { trashItem } from '@/app/actions/filesystem';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { toast } from 'sonner';
+    FileClipboardProvider,
+    FilesContextMenu,
+    useFileClipboard,
+} from "@/components/file-manager/context-menu";
+import { FileCreationRow } from "@/components/file-manager/file-creation-row";
+import { FileEditorModal } from "@/components/file-manager/file-editor-modal";
+import { FileUploadZone } from "@/components/file-manager/file-upload-zone";
+import {
+    FileViewer,
+    getViewerType,
+} from "@/components/file-manager/file-viewer";
+import { FilesContent } from "@/components/file-manager/files-content";
+import { FilesSidebar } from "@/components/file-manager/files-sidebar";
+import { FilesToolbar } from "@/components/file-manager/files-toolbar";
+import { NetworkStorageDialog } from "@/components/file-manager/network-storage-dialog";
+import { SmbShareDialog } from "@/components/file-manager/smb-share-dialog";
+import { useFilesDialog } from "@/components/file-manager/use-files-dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface FilesDialogProps {
   open: boolean;
@@ -87,7 +90,9 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
   const { clipboard, cut, copy, clear: clearClipboard } = useFileClipboard();
   const [networkDialogOpen, setNetworkDialogOpen] = useState(false);
   const [smbShareDialogOpen, setSmbShareDialogOpen] = useState(false);
-  const [shareTargetItem, setShareTargetItem] = useState<FileSystemItem | null>(null);
+  const [shareTargetItem, setShareTargetItem] = useState<FileSystemItem | null>(
+    null,
+  );
   const [viewerItem, setViewerItem] = useState<FileSystemItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedItem = contextMenu.item;
@@ -100,45 +105,51 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
   }, []);
 
   // Handle file selection from input
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const handleFileSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
 
-    const formData = new FormData();
-    formData.append('targetDir', currentPath);
-    Array.from(files).forEach((file) => formData.append('files', file));
+      const formData = new FormData();
+      formData.append("targetDir", currentPath);
+      Array.from(files).forEach((file) => formData.append("files", file));
 
-    try {
-      const response = await fetch('/api/files/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const result = await response.json();
+      try {
+        const response = await fetch("/api/files/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const result = await response.json();
 
-      if (result.success) {
-        toast.success(result.message);
-        refresh();
-      } else {
-        toast.error(result.error || 'Upload failed');
+        if (result.success) {
+          toast.success(result.message);
+          refresh();
+        } else {
+          toast.error(result.error || "Upload failed");
+        }
+      } catch {
+        toast.error("Upload failed - network error");
       }
-    } catch {
-      toast.error('Upload failed - network error');
-    }
 
-    // Reset input
-    e.target.value = '';
-  }, [currentPath, refresh]);
+      // Reset input
+      e.target.value = "";
+    },
+    [currentPath, refresh],
+  );
 
   // Handle opening files - check if viewable first
-  const handleOpenItem = useCallback((item: FileSystemItem) => {
-    const isImage =
-      item.type === 'file' && getViewerType(item.name) === 'image';
-    if (isImage) {
-      setViewerItem(item);
-    } else {
-      openItem(item);
-    }
-  }, [openItem]);
+  const handleOpenItem = useCallback(
+    (item: FileSystemItem) => {
+      const isImage =
+        item.type === "file" && getViewerType(item.name) === "image";
+      if (isImage) {
+        setViewerItem(item);
+      } else {
+        openItem(item);
+      }
+    },
+    [openItem],
+  );
 
   // Handle SMB share dialog
   const handleShareNetwork = useCallback((item: FileSystemItem) => {
@@ -147,11 +158,14 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
   }, []);
 
   // Handle rename with prompt
-  const handleRename = useCallback((item: FileSystemItem) => {
-    const newName = prompt(`Rename "${item.name}" to:`, item.name);
-    if (!newName || newName === item.name) return;
-    renameItem(item);
-  }, [renameItem]);
+  const handleRename = useCallback(
+    (item: FileSystemItem) => {
+      const newName = prompt(`Rename "${item.name}" to:`, item.name);
+      if (!newName || newName === item.name) return;
+      renameItem(item);
+    },
+    [renameItem],
+  );
 
   // Keyboard shortcuts for clipboard operations
   useEffect(() => {
@@ -163,52 +177,61 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
       const target = contextMenu.item || selectedItem;
 
       // Cut: Cmd+X
-      if (isMeta && key === 'x' && target) {
+      if (isMeta && key === "x" && target) {
         event.preventDefault();
         cut([target]);
-        toast.success('Item ready to move');
+        toast.success("Item ready to move");
         return;
       }
 
       // Copy: Cmd+C
-      if (isMeta && key === 'c' && target) {
+      if (isMeta && key === "c" && target) {
         event.preventDefault();
         copy([target]);
-        toast.success('Item copied to clipboard');
+        toast.success("Item copied to clipboard");
         return;
       }
 
       // Paste: Cmd+V
-      if (isMeta && key === 'v' && clipboard.items.length > 0) {
+      if (isMeta && key === "v" && clipboard.items.length > 0) {
         event.preventDefault();
         // Paste handled by context menu actions hook
         return;
       }
 
       // Trash: Cmd+Backspace
-      if (isMeta && event.key === 'Backspace' && target) {
+      if (isMeta && event.key === "Backspace" && target) {
         event.preventDefault();
         if (!confirm(`Move "${target.name}" to trash?`)) return;
         const result = await trashItem(target.path);
         if (result.success) {
-          toast.success('Item moved to trash');
+          toast.success("Item moved to trash");
           refresh();
         } else {
-          toast.error(result.error || 'Failed to move item to trash');
+          toast.error(result.error || "Failed to move item to trash");
         }
         return;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, editorOpen, contextMenu.item, selectedItem, clipboard, cut, copy, refresh]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    open,
+    editorOpen,
+    contextMenu.item,
+    selectedItem,
+    clipboard,
+    cut,
+    copy,
+    refresh,
+  ]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[95vw] sm:max-w-[1400px] max-h-[90vh] bg-white/5 border border-white/10 backdrop-blur-3xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden ring-1 ring-white/5"
+        className="max-w-[95vw] sm:max-w-[1400px] max-h-[90vh] bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden ring-1 ring-white/5"
         aria-describedby="files-description"
       >
         <div className="flex h-[90vh]">
@@ -294,7 +317,8 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
 
             <div className="px-6 py-3 border-t border-zinc-800">
               <div className="text-xs text-white/40 text-right -tracking-[0.01em]">
-                {filteredItems.length} items {showHidden && `(${content?.items.length} total)`}
+                {filteredItems.length} items{" "}
+                {showHidden && `(${content?.items.length} total)`}
               </div>
             </div>
 
@@ -331,13 +355,16 @@ function FilesDialogContent({ open, onOpenChange }: FilesDialogProps) {
         onSave={saveEditor}
       />
 
-      <NetworkStorageDialog open={networkDialogOpen} onOpenChange={setNetworkDialogOpen} />
+      <NetworkStorageDialog
+        open={networkDialogOpen}
+        onOpenChange={setNetworkDialogOpen}
+      />
 
       <SmbShareDialog
         open={smbShareDialogOpen}
         onOpenChange={setSmbShareDialogOpen}
-        targetPath={shareTargetItem?.path || ''}
-        targetName={shareTargetItem?.name || ''}
+        targetPath={shareTargetItem?.path || ""}
+        targetName={shareTargetItem?.name || ""}
       />
 
       {viewerItem && (

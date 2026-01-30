@@ -12,7 +12,7 @@ import {
   validateAppId,
   validatePort,
 } from "./utils";
-import { getAllAppMeta, getInstalledAppRecords, getRecordedContainerName } from "./db";
+import { getAllAppMeta, getInstallConfig, getInstalledAppRecords, getRecordedContainerName } from "./db";
 
 /**
  * Get list of installed LiveOS apps
@@ -200,9 +200,17 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
           : `/${appMeta.path}`
         : "";
 
+    // 2b) Check installConfig.webUIPort for custom-deployed apps
+    const installConfig = await getInstallConfig(appId);
+    const configWebUIPort = installConfig?.webUIPort as string | undefined;
+
     if (hostPort) {
       resolvedUrl = `${protocol}://${host}:${hostPort}${pathSuffix}`;
       resolutionMethod = "host-port";
+    } else if (configWebUIPort && validatePort(configWebUIPort)) {
+      // 2c) Custom deploy web UI port (host network or explicit override)
+      resolvedUrl = `${protocol}://${host}:${configWebUIPort}${pathSuffix}`;
+      resolutionMethod = "metadata-port";
     } else if (appMeta?.port && validatePort(appMeta.port)) {
       // 3) Fallback to metadata port (host network or compose without publish)
       resolvedUrl = `${protocol}://${host}:${appMeta.port}${pathSuffix}`;

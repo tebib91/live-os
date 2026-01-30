@@ -1,5 +1,6 @@
 import { exec } from "child_process";
 import fs from "fs/promises";
+import { readFileSync } from "fs";
 import os from "os";
 import path from "path";
 import { promisify } from "util";
@@ -50,6 +51,23 @@ export function validatePath(pathStr: string): boolean {
  */
 export function getContainerName(appId: string): string {
   return `${CONTAINER_PREFIX}${appId.toLowerCase()}`;
+}
+
+/**
+ * Guess compose-generated container name from compose file and location
+ */
+export function guessComposeContainerName(composePath: string): string | null {
+  try {
+    const raw = readFileSync(composePath, "utf-8");
+    const doc = YAML.parse(raw) as { name?: string; services?: Record<string, unknown> };
+    const firstService = doc?.services ? Object.keys(doc.services)[0] : null;
+    if (!firstService) return null;
+    const project = (doc.name || path.basename(path.dirname(composePath))).toLowerCase();
+    const service = firstService.toLowerCase();
+    return `${project}-${service}-1`;
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -14,6 +14,7 @@ import {
   parsePorts,
   parseVolumes,
   type EnvVarRow,
+  type NetworkType,
   type PortMapping,
   type VolumeMount,
 } from "./docker-run-utils";
@@ -54,6 +55,8 @@ export function useDockerRunForm({ open, dockerRun, appIcon }: UseDockerRunFormA
   const [envVarRows, setEnvVarRows] = useState<EnvVarRow[]>([
     { id: "env-0", key: "", value: "" },
   ]);
+  const [networkType, setNetworkType] = useState<NetworkType>("bridge");
+  const [webUIPort, setWebUIPort] = useState("");
 
   // Reset the form when the dialog opens or initial data changes.
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -79,6 +82,8 @@ export function useDockerRunForm({ open, dockerRun, appIcon }: UseDockerRunFormA
     setPortMappings(parsedPorts);
     setVolumeMounts(parsedVolumes);
     setEnvVarRows(parsedEnvVars);
+    setNetworkType("bridge");
+    setWebUIPort("");
   }, [open, dockerRun, appIcon, nextId]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -179,6 +184,8 @@ export function useDockerRunForm({ open, dockerRun, appIcon }: UseDockerRunFormA
     setPortMappings(ensurePortRows([], nextId));
     setVolumeMounts(ensureVolumeRows([], nextId));
     setEnvVarRows(ensureEnvRows([], nextId));
+    setNetworkType("bridge");
+    setWebUIPort("");
   };
 
   return {
@@ -203,6 +210,10 @@ export function useDockerRunForm({ open, dockerRun, appIcon }: UseDockerRunFormA
     updateEnvVarRow,
     addEnvVarRow,
     removeEnvVarRow,
+    networkType,
+    setNetworkType,
+    webUIPort,
+    setWebUIPort,
     reset,
   };
 }

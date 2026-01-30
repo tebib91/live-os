@@ -22,10 +22,8 @@ export function SystemStatusCard() {
     health: "Healthy",
   };
 
-
-
   return (
-    <Card className="fixed top-8 left-8 z-10 w-80 bg-zinc-950/60 backdrop-blur-3xl ">
+    <Card className="fixed top-8 left-8 z-10 w-80 bg-zinc-950/60 backdrop-blur-xl ">
       {/* System Status Header */}
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center justify-between mb-4">

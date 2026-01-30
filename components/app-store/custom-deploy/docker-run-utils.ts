@@ -1,3 +1,4 @@
+export type NetworkType = "bridge" | "host" | "macvlan" | "none";
 export type PortMapping = { id: string; host: string; container: string };
 export type VolumeMount = { id: string; host: string; container: string };
 export type EnvVarRow = { id: string; key: string; value: string };

@@ -125,6 +125,8 @@ export function CustomDeployDialog({
           serializedVolumes || undefined,
           serializedEnvVars || undefined,
           dockerRunForm.iconUrl || undefined,
+          dockerRunForm.networkType,
+          dockerRunForm.webUIPort || undefined,
         );
       }
 
@@ -136,9 +138,6 @@ export function CustomDeployDialog({
         setAppName("");
         setDockerCompose("");
         dockerRunForm.reset();
-
-        // Trigger refresh of installed apps
-        window.dispatchEvent(new CustomEvent("refreshInstalledApps"));
 
         // Call success callback if provided
         onDeploySuccess?.();
@@ -266,6 +265,10 @@ export function CustomDeployDialog({
                     onIconUrlPaste={dockerRunForm.handleIconPaste}
                     containerName={dockerRunForm.containerName}
                     onContainerNameChange={dockerRunForm.setContainerName}
+                    networkType={dockerRunForm.networkType}
+                    onNetworkTypeChange={dockerRunForm.setNetworkType}
+                    webUIPort={dockerRunForm.webUIPort}
+                    onWebUIPortChange={dockerRunForm.setWebUIPort}
                     portMappings={dockerRunForm.portMappings}
                     onAddPortMapping={dockerRunForm.addPortMapping}
                     onUpdatePortMapping={dockerRunForm.updatePortMapping}

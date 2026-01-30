@@ -5,7 +5,12 @@ import {
   getCasaOsRecommendList,
 } from "@/app/actions/appstore";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { motion } from "framer-motion";
@@ -41,6 +46,24 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedApp, setSelectedApp] = useState<App | null>(null);
   const { installedApps, installProgress } = useSystemStatus({ fast: true });
+  const storeMap = useMemo(() => {
+    const map = new Map<string, string>();
+    apps.forEach((app) => {
+      if (app.storeSlug) {
+        map.set(app.storeSlug, app.storeName || app.storeSlug);
+      }
+    });
+    return map;
+  }, [apps]);
+
+  const normalizeCategory = (value: string) =>
+    value.trim().toLowerCase().replace(/\s+/g, " ");
+
+  const formatCategoryLabel = (value: string) =>
+    value
+      .split(" ")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
 
   const loadApps = useCallback(async () => {
     try {
@@ -52,10 +75,8 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
       ]);
       setApps(loadedApps);
       setRecommendedIds(recommended);
-
     } catch (error) {
       setError("Unable to load applications. Please try again.");
-
     } finally {
       setLoading(false);
     }
@@ -69,12 +90,25 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
 
   // Get unique categories
   const categories = useMemo(() => {
-    const cats = new Set<string>();
+    const catLabels = new Map<string, string>();
     apps.forEach((app) => {
-      app.category?.forEach((cat) => cats.add(cat));
+      app.category?.forEach((cat) => {
+        const norm = normalizeCategory(cat);
+        if (!catLabels.has(norm)) {
+          catLabels.set(norm, formatCategoryLabel(norm));
+        }
+      });
     });
-    return ["discover", "all", ...Array.from(cats).sort()];
-  }, [apps]);
+    const storeCats = Array.from(storeMap.keys()).map(
+      (slug) => `store:${slug}`,
+    );
+    return [
+      "discover",
+      "all",
+      ...storeCats,
+      ...Array.from(catLabels.keys()).sort(),
+    ];
+  }, [apps, storeMap]);
 
   // Filter apps based on search and category
   const filteredApps = useMemo(() => {
@@ -87,7 +121,11 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
       const matchesCategory =
         selectedCategory === "discover" ||
         selectedCategory === "all" ||
-        app.category?.includes(selectedCategory);
+        (selectedCategory.startsWith("store:")
+          ? app.storeSlug === selectedCategory.replace("store:", "")
+          : app.category?.some(
+              (cat) => normalizeCategory(cat) === selectedCategory,
+            ));
 
       return matchesSearch && matchesCategory;
     });
@@ -118,29 +156,52 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
   const popularApps = useMemo(() => discoverApps.slice(0, 9), [discoverApps]);
 
   // Get new apps (last 9 added)
-  const newApps = useMemo(() => discoverApps.slice(-9).reverse(), [discoverApps]);
+  const newApps = useMemo(
+    () => discoverApps.slice(-9).reverse(),
+    [discoverApps],
+  );
 
-  const getInstalledApp = useCallback((app: App) => {
-    return (
-      installedApps.find(
-        (installed) => installed.appId.toLowerCase() === app.id.toLowerCase(),
-      ) || undefined
-    );
-  }, [installedApps]);
+  const getInstalledApp = useCallback(
+    (app: App) => {
+      return (
+        installedApps.find(
+          (installed) => installed.appId.toLowerCase() === app.id.toLowerCase(),
+        ) || undefined
+      );
+    },
+    [installedApps],
+  );
 
   // Memoized callbacks for list items
-  const handleCloseDialog = useCallback(() => onOpenChange(false), [onOpenChange]);
+  const handleCloseDialog = useCallback(
+    () => onOpenChange(false),
+    [onOpenChange],
+  );
   const handleOpenSettings = useCallback(() => setSettingsOpen(true), []);
   const handleClearSearch = useCallback(() => setSearchQuery(""), []);
 
   const isDiscoverView = selectedCategory === "discover" && searchQuery === "";
 
+  const categoryLabel = (category: string) => {
+    if (category === "discover") return "Discover";
+    if (category === "all") return "All";
+    if (category.startsWith("store:")) {
+      const slug = category.replace("store:", "");
+      return storeMap.get(slug) || slug;
+    }
+    return formatCategoryLabel(category);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[95vw] sm:max-w-6xl max-h-[95vh] bg-white/5 border border-white/10 backdrop-blur-3xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden ring-1 ring-white/5"
+        className="max-w-[95vw] sm:max-w-6xl max-h-[95vh] bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden ring-1 ring-white/5"
       >
+        <DialogTitle className="sr-only">App Store</DialogTitle>
+        <DialogDescription className="sr-only">
+          Discover, install, and manage applications.
+        </DialogDescription>
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-gradient-to-r from-white/10 via-white/5 to-transparent backdrop-blur">
           <div className="flex items-center gap-4">
@@ -204,12 +265,13 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                     setSearchQuery("");
                   }
                 }}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${selectedCategory === category
-                  ? "bg-white text-zinc-900"
-                  : "bg-white/10 text-white hover:bg-white/15"
-                  }`}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                  selectedCategory === category
+                    ? "bg-white text-zinc-900"
+                    : "bg-white/10 text-white hover:bg-white/15"
+                }`}
               >
-                {category.charAt(0).toUpperCase() + category.slice(1)}
+                {categoryLabel(category)}
               </button>
             ))}
           </div>
@@ -237,12 +299,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
           {!loading && !error && (
             <div className="space-y-1 px-1">
               <h2 className="text-2xl font-bold text-white">
-                {isDiscoverView
-                  ? "Discover"
-                  : selectedCategory === "all"
-                    ? "All apps"
-                    : selectedCategory.charAt(0).toUpperCase() +
-                    selectedCategory.slice(1)}
+                {isDiscoverView ? "Discover" : categoryLabel(selectedCategory)}
               </h2>
               {isDiscoverView ? (
                 <p className="text-sm text-white/60">
@@ -252,7 +309,8 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                 <>
                   {searchQuery ? (
                     <p className="text-sm text-white/60">
-                      {filteredApps.length} results for &quot;{searchQuery}&quot;
+                      {filteredApps.length} results for &quot;{searchQuery}
+                      &quot;
                     </p>
                   ) : selectedCategory === "all" ? (
                     <p className="text-sm text-white/60">
@@ -376,7 +434,7 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
                   <AppListGrid>
                     {filteredApps.map((app, index) => (
                       <AppListItem
-                        key={app.id}
+                        key={app.id + index}
                         app={app}
                         installedApp={getInstalledApp(app)}
                         index={index}

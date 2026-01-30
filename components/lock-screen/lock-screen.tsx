@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { getCurrentUser, verifyPin, type AuthUser } from "@/app/actions/auth";
 import { card } from "@/components/ui/design-tokens";
 import { PIN_LENGTH } from "@/lib/config";
-import { UserHeader } from "./user-header";
+import { useEffect, useState } from "react";
 import { PinInputForm } from "./pin-input-form";
+import { UserHeader } from "./user-header";
 
 type LockScreenProps = {
   open: boolean;
@@ -47,7 +47,8 @@ export function LockScreen({ open, onUnlock }: LockScreenProps) {
     };
   }, []);
 
-  const friendlyName = user?.username ?? (loadingUser ? "Loading user..." : "User");
+  const friendlyName =
+    user?.username ?? (loadingUser ? "Loading user..." : "User");
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -75,8 +76,10 @@ export function LockScreen({ open, onUnlock }: LockScreenProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-zinc-950/60 backdrop-blur-3xl px-4">
-      <div className={`w-full max-w-lg space-y-8 rounded-3xl ${card.base} p-10`}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-zinc-950/60 backdrop-blur-xl px-4">
+      <div
+        className={`w-full max-w-lg space-y-8 rounded-3xl ${card.base} p-10`}
+      >
         <UserHeader username={friendlyName} loading={loadingUser} />
         <PinInputForm
           pin={pin}

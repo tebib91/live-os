@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
-import { AlertTriangle, CheckCircle2, WifiOff } from "lucide-react";
-import { useRebootTracker } from "@/hooks/useRebootTracker";
-import { Button } from "@/components/ui/button";
 import { OrbitLoader } from "@/components/auth/orbit-loader";
+import { Button } from "@/components/ui/button";
+import { useRebootTracker } from "@/hooks/useRebootTracker";
+import { AlertTriangle, CheckCircle2, WifiOff } from "lucide-react";
+import { useEffect } from "react";
 
 export function RebootOverlay() {
   const { phase, elapsedSeconds, dismissFailure } = useRebootTracker();
@@ -47,7 +47,7 @@ export function RebootOverlay() {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/75 backdrop-blur-2xl">
-      <div className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-3xl shadow-2xl shadow-black/50 px-8 py-10">
+      <div className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl shadow-2xl shadow-black/50 px-8 py-10">
         <div className="absolute -top-24 -left-16 h-52 w-52 rounded-full bg-cyan-400/15 blur-3xl" />
         <div className="absolute -bottom-28 -right-20 h-64 w-64 rounded-full bg-indigo-500/15 blur-3xl" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-60" />
@@ -78,7 +78,8 @@ export function RebootOverlay() {
             </div>
             {(phase === "waiting" || phase === "initiating") && (
               <p className="text-xs text-white/60">
-                We&apos;ll keep trying to reconnect automatically, even if you refresh.
+                We&apos;ll keep trying to reconnect automatically, even if you
+                refresh.
               </p>
             )}
           </div>
@@ -93,7 +94,10 @@ export function RebootOverlay() {
                 <Button variant="secondary" onClick={dismissFailure}>
                   Dismiss
                 </Button>
-                <Button variant="default" onClick={() => window.location.reload()}>
+                <Button
+                  variant="default"
+                  onClick={() => window.location.reload()}
+                >
                   Reload page
                 </Button>
               </div>

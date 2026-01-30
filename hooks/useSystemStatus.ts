@@ -244,9 +244,14 @@ export function useSystemStatus(
     return subscribeToSystemStatus(setState, fast);
   }, [enabled, fast]);
 
-  const refreshApps = useCallback(() => {
-    window.dispatchEvent(new CustomEvent("refreshInstalledApps"));
-  }, []);
+  const pushInstallProgress = useCallback(
+    (update: InstallProgress) => {
+      updateSharedState({
+        installProgress: updateInstallProgress(sharedState.installProgress, update),
+      });
+    },
+    [],
+  );
 
   return {
     systemStats: state.systemStats,
@@ -257,6 +262,6 @@ export function useSystemStatus(
     installProgress: state.installProgress,
     connected: state.connected,
     error: state.error,
-    refreshApps,
+    pushInstallProgress,
   };
 }

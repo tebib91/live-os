@@ -16,7 +16,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ExternalLink, Loader2, Settings2 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getDefaultInstallConfig } from "./app-install-dialog";
 import {
@@ -26,6 +26,7 @@ import {
 import { AppScreenshots } from "./app-screenshots";
 import type { App, InstalledApp } from "./types";
 import type { InstallProgress } from "@/hooks/system-status-types";
+import { useSystemStatus } from "@/hooks/useSystemStatus";
 
 interface AppDetailDialogProps {
   open: boolean;
@@ -54,6 +55,8 @@ export function AppDetailDialog({
   );
   const [mediaThumb, setMediaThumb] = useState<string | undefined>(undefined);
   const [loadingMedia, setLoadingMedia] = useState(false);
+  const { pushInstallProgress } = useSystemStatus({ fast: true });
+  const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInstalled = Boolean(installedApp);
   const activeProgress =
     installProgress && installProgress.appId === app.id
@@ -73,6 +76,28 @@ export function AppDetailDialog({
 
   const handleQuickInstall = async () => {
     setInstalling(true);
+    pushInstallProgress({
+      appId: app.id,
+      name: app.title || app.name,
+      icon: app.icon,
+      progress: 0,
+      status: "starting",
+      message: "Starting install…",
+    });
+    // Optimistic ticker while compose runs
+    let optimistic = 0.08;
+    if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    progressTimerRef.current = setInterval(() => {
+      optimistic = Math.min(0.9, optimistic + 0.05);
+      pushInstallProgress({
+        appId: app.id,
+        name: app.title || app.name,
+        icon: app.icon,
+        progress: optimistic,
+        status: "running",
+        message: "Installing…",
+      });
+    }, 1200);
     try {
       const config = getDefaultInstallConfig(app);
       const result = await installApp(app.id, config, {
@@ -85,13 +110,41 @@ export function AppDetailDialog({
         onInstallSuccess?.();
         await handleOpen();
         onOpenChange(false);
+        pushInstallProgress({
+          appId: app.id,
+          name: app.title || app.name,
+          icon: app.icon,
+          progress: 1,
+          status: "completed",
+          message: "Installation complete",
+        });
       } else {
         toast.error(result.error || "Failed to install application");
+        pushInstallProgress({
+          appId: app.id,
+          name: app.title || app.name,
+          icon: app.icon,
+          progress: 1,
+          status: "error",
+          message: result.error || "Install failed",
+        });
       }
     } catch (err: unknown) {
       // Error handled by toast
       toast.error("Failed to install application");
+      pushInstallProgress({
+        appId: app.id,
+        name: app.title || app.name,
+        icon: app.icon,
+        progress: 1,
+        status: "error",
+        message: "Install failed",
+      });
     } finally {
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
       setInstalling(false);
     }
   };

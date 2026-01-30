@@ -104,6 +104,8 @@ export async function getAppStoreApps(): Promise<App[]> {
         repo: record.repo ?? undefined,
         composePath: record.composePath,
         container: (record as any)?.container ?? undefined,
+        storeName: record.store?.name ?? undefined,
+        storeSlug: record.store?.slug ?? undefined,
       }));
       await logAction("appstore:list:done", { count: apps.length });
       return apps;
@@ -165,6 +167,9 @@ export async function importAppStore(
 
   const storeSlug = slugify(url);
   const targetDir = path.join(STORE_ROOT, storeSlug);
+  const urlNameFallback =
+    url.split("/").pop()?.replace(/\.zip$/i, "") || storeSlug;
+  let resolvedStoreName = meta?.name ?? urlNameFallback ?? storeSlug;
 
   try {
     await logAction("appstore:import:start", { url, storeSlug });
@@ -210,6 +215,13 @@ export async function importAppStore(
     await fs.mkdir(targetDir, { recursive: true });
     await extractZipBuffer(buffer, targetDir);
 
+    // Try to derive a friendly name from the extracted folder if none was provided.
+    if (!meta?.name) {
+      resolvedStoreName =
+        (await deriveStoreName(targetDir, urlNameFallback, storeSlug)) ??
+        resolvedStoreName;
+    }
+
     const storeFormat = await detectStoreFormat(targetDir);
     const parsedApps =
       storeFormat === "casaos"
@@ -223,7 +235,7 @@ export async function importAppStore(
       where: { slug: storeSlug },
       update: {
         url,
-        name: meta?.name ?? storeSlug,
+        name: resolvedStoreName,
         description: meta?.description,
         localPath: targetDir,
         manifestHash: zipHash,
@@ -231,7 +243,7 @@ export async function importAppStore(
       create: {
         slug: storeSlug,
         url,
-        name: meta?.name ?? storeSlug,
+        name: resolvedStoreName,
         description: meta?.description,
         localPath: targetDir,
         manifestHash: zipHash,
@@ -241,6 +253,11 @@ export async function importAppStore(
     for (const app of parsedApps) {
       const categories = app.category ?? [];
       const screenshots = app.screenshots ?? [];
+      const developer =
+        app.developer === undefined || app.developer === null
+          ? null
+          : String(app.developer);
+
       await prisma.app.upsert({
         where: { storeId_appId: { storeId: store.id, appId: app.id } },
         update: {
@@ -250,7 +267,7 @@ export async function importAppStore(
           tagline: app.tagline,
           overview: app.overview,
           category: categories,
-          developer: app.developer,
+          developer,
           screenshots,
           version: app.version,
           port: Number.isFinite(app.port as number)
@@ -271,7 +288,7 @@ export async function importAppStore(
           tagline: app.tagline,
           overview: app.overview,
           category: categories,
-          developer: app.developer,
+          developer,
           screenshots,
           version: app.version,
           port: Number.isFinite(app.port as number)
@@ -424,6 +441,30 @@ function slugify(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+async function deriveStoreName(
+  targetDir: string,
+  fallback: string,
+  storeSlug: string,
+): Promise<string | null> {
+  try {
+    const entries = await fs.readdir(targetDir, { withFileTypes: true });
+    const dirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+    if (dirs.length === 1) {
+      return dirs[0];
+    }
+    if (dirs.length > 1) {
+      // Prefer a folder that matches the slug or fallback
+      const matchSlug = dirs.find((d) => d.includes(storeSlug));
+      if (matchSlug) return matchSlug;
+      const matchFallback = dirs.find((d) => d.includes(fallback));
+      if (matchFallback) return matchFallback;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
 }
 
 /**

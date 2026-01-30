@@ -1,10 +1,19 @@
-'use client';
+"use client";
 
-import { getComposeForApp } from '@/app/actions/appstore';
-import { getAppWebUI, restartApp, startApp, stopApp, uninstallApp } from '@/app/actions/docker';
-import { CustomDeployDialog, type CustomDeployInitialData } from '@/components/app-store/custom-deploy-dialog';
-import type { InstalledApp } from '@/components/app-store/types';
-import { Button } from '@/components/ui/button';
+import { getComposeForApp } from "@/app/actions/appstore";
+import {
+  getAppWebUI,
+  restartApp,
+  startApp,
+  stopApp,
+  uninstallApp,
+} from "@/app/actions/docker";
+import {
+  CustomDeployDialog,
+  type CustomDeployInitialData,
+} from "@/components/app-store/custom-deploy-dialog";
+import type { InstalledApp } from "@/components/app-store/types";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,14 +21,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   ExternalLink,
   FileText,
@@ -28,10 +37,10 @@ import {
   RotateCw,
   Square,
   Trash2,
-} from 'lucide-react';
-import { useRef, useState } from 'react';
-import { toast } from 'sonner';
-import { LogsDialog } from './logs-dialog';
+} from "lucide-react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+import { LogsDialog } from "./logs-dialog";
 
 type ComposePort = {
   published?: number | string;
@@ -57,16 +66,17 @@ type ComposeContainer = {
 
 interface AppContextMenuProps {
   app: InstalledApp;
-  onAction?: () => void;
   children: React.ReactNode;
 }
 
-export function AppContextMenu({ app, onAction, children }: AppContextMenuProps) {
+export function AppContextMenu({ app, children }: AppContextMenuProps) {
   const [loading, setLoading] = useState(false);
   const [showUninstallConfirm, setShowUninstallConfirm] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [showCustomDeploy, setShowCustomDeploy] = useState(false);
-  const [customData, setCustomData] = useState<CustomDeployInitialData | null>(null);
+  const [customData, setCustomData] = useState<CustomDeployInitialData | null>(
+    null,
+  );
   const [customLoading, setCustomLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const lastOpenedViaContext = useRef(false);
@@ -75,27 +85,28 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
     try {
       const url = await getAppWebUI(app.appId);
       if (url) {
-        window.open(url, '_blank');
+        window.open(url, "_blank");
       } else {
-        toast.error('Unable to determine app URL. Ensure the container exposes a port and is running.');
+        toast.error(
+          "Unable to determine app URL. Ensure the container exposes a port and is running.",
+        );
       }
     } catch {
-      toast.error('Failed to open app');
+      toast.error("Failed to open app");
     }
   };
 
   const handleStop = async () => {
     setLoading(true);
     try {
-      const success = await stopApp(app.appId);
+      const success = await stopApp(app.containerName || app.appId);
       if (success) {
         toast.success(`${app.name} stopped`);
-        onAction?.();
       } else {
-        toast.error('Failed to stop app');
+        toast.error("Failed to stop app");
       }
     } catch {
-      toast.error('Failed to stop app');
+      toast.error("Failed to stop app");
     } finally {
       setLoading(false);
     }
@@ -104,15 +115,14 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
   const handleStart = async () => {
     setLoading(true);
     try {
-      const success = await startApp(app.appId);
+      const success = await startApp(app.containerName);
       if (success) {
         toast.success(`${app.name} started`);
-        onAction?.();
       } else {
-        toast.error('Failed to start app');
+        toast.error("Failed to start app");
       }
     } catch {
-      toast.error('Failed to start app');
+      toast.error("Failed to start app");
     } finally {
       setLoading(false);
     }
@@ -121,15 +131,14 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
   const handleRestart = async () => {
     setLoading(true);
     try {
-      const success = await restartApp(app.appId);
+      const success = await restartApp(app.containerName);
       if (success) {
         toast.success(`${app.name} restarted`);
-        onAction?.();
       } else {
-        toast.error('Failed to restart app');
+        toast.error("Failed to restart app");
       }
     } catch {
-      toast.error('Failed to restart app');
+      toast.error("Failed to restart app");
     } finally {
       setLoading(false);
     }
@@ -140,7 +149,7 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
     try {
       const result = await getComposeForApp(app.appId);
       if (!result.success) {
-        toast.error(result.error || 'App config not found');
+        toast.error(result.error || "App config not found");
         return;
       }
 
@@ -150,31 +159,35 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
         dockerCompose: result.content,
         dockerRun: container
           ? {
-            image: container.image || '',
-            containerName: app.appId,
-            ports: (container.ports || [])
-              .map((p) =>
-                [p.published ?? p.host, p.container ?? p.target].filter(Boolean).join(':'),
-              )
-              .filter(Boolean)
-              .join(','),
-            volumes: (container.volumes || [])
-              .map((v) => [v.source, v.container || v.target].filter(Boolean).join(':'))
-              .filter(Boolean)
-              .join(','),
-            env: (container.environment || [])
-              .map((e) => (typeof e === 'string' ? e : `${e.key}=${e.value}`))
-              .filter(Boolean)
-              .join(','),
-          }
+              image: container.image || "",
+              containerName: app.appId,
+              ports: (container.ports || [])
+                .map((p) =>
+                  [p.published ?? p.host, p.container ?? p.target]
+                    .filter(Boolean)
+                    .join(":"),
+                )
+                .filter(Boolean)
+                .join(","),
+              volumes: (container.volumes || [])
+                .map((v) =>
+                  [v.source, v.container || v.target].filter(Boolean).join(":"),
+                )
+                .filter(Boolean)
+                .join(","),
+              env: (container.environment || [])
+                .map((e) => (typeof e === "string" ? e : `${e.key}=${e.value}`))
+                .filter(Boolean)
+                .join(","),
+            }
           : undefined,
         appIcon: result.appIcon,
         appTitle: result.appTitle,
       });
       setShowCustomDeploy(true);
     } catch (error) {
-      console.error('Failed to load app config for edit:', error);
-      toast.error('Failed to load app config');
+      console.error("Failed to load app config for edit:", error);
+      toast.error("Failed to load app config");
     } finally {
       setCustomLoading(false);
     }
@@ -183,16 +196,15 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
   const handleUninstall = async () => {
     setLoading(true);
     try {
-      const success = await uninstallApp(app.appId);
+      const success = await uninstallApp(app.containerName);
       if (success) {
         toast.success(`${app.name} uninstalled`);
         setShowUninstallConfirm(false);
-        onAction?.();
       } else {
-        toast.error('Failed to uninstall app');
+        toast.error("Failed to uninstall app");
       }
     } catch {
-      toast.error('Failed to uninstall app');
+      toast.error("Failed to uninstall app");
     } finally {
       setLoading(false);
     }
@@ -234,7 +246,7 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
             Open
           </DropdownMenuItem>
 
-          {app.status === 'running' ? (
+          {app.status === "running" ? (
             <DropdownMenuItem onClick={handleStop} disabled={loading}>
               {loading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -263,12 +275,18 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
             Restart
           </DropdownMenuItem>
 
-          <DropdownMenuItem onClick={() => setShowLogs(true)} disabled={loading}>
+          <DropdownMenuItem
+            onClick={() => setShowLogs(true)}
+            disabled={loading}
+          >
             <FileText className="mr-2 h-4 w-4" />
             View Logs
           </DropdownMenuItem>
 
-          <DropdownMenuItem onClick={handleEditDeploy} disabled={loading || customLoading}>
+          <DropdownMenuItem
+            onClick={handleEditDeploy}
+            disabled={loading || customLoading}
+          >
             {customLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -291,12 +309,16 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
       </DropdownMenu>
 
       {/* Uninstall Confirmation Dialog */}
-      <Dialog open={showUninstallConfirm} onOpenChange={setShowUninstallConfirm}>
+      <Dialog
+        open={showUninstallConfirm}
+        onOpenChange={setShowUninstallConfirm}
+      >
         <DialogContent className="bg-white/90 dark:bg-black/90 backdrop-blur-md border-white/20 dark:border-white/10">
           <DialogHeader>
             <DialogTitle>Uninstall {app.name}?</DialogTitle>
             <DialogDescription>
-              This will remove the app. Data will be moved to trash and can be recovered later.
+              This will remove the app. Data will be moved to trash and can be
+              recovered later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -320,11 +342,7 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
       </Dialog>
 
       {/* Logs Dialog */}
-      <LogsDialog
-        open={showLogs}
-        onOpenChange={setShowLogs}
-        app={app}
-      />
+      <LogsDialog open={showLogs} onOpenChange={setShowLogs} app={app} />
 
       <CustomDeployDialog
         open={showCustomDeploy}
@@ -332,7 +350,6 @@ export function AppContextMenu({ app, onAction, children }: AppContextMenuProps)
         initialData={customData || undefined}
         onDeploySuccess={() => {
           setShowCustomDeploy(false);
-          onAction?.();
         }}
       />
     </>

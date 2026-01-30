@@ -17,8 +17,10 @@ export const card = {
 
 // Dialog Styles
 export const dialog = {
-  content: "bg-white/5 border border-white/10 backdrop-blur-3xl shadow-2xl shadow-black/50 ring-1 ring-white/5",
-  header: "border-b border-white/5 bg-gradient-to-r from-white/10 via-white/5 to-transparent backdrop-blur",
+  content:
+    "bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl shadow-black/50 ring-1 ring-white/5",
+  header:
+    "border-b border-white/5 bg-gradient-to-r from-white/10 via-white/5 to-transparent backdrop-blur",
 } as const;
 
 // Typography
@@ -58,12 +60,12 @@ export const statusDot = {
 
 // Colors by type
 export const colors = {
-  cpu: "#06b6d4",      // cyan
-  memory: "#f59e0b",   // amber/orange
-  gpu: "#a855f7",      // purple
-  storage: "#10b981",  // emerald/green
+  cpu: "#06b6d4", // cyan
+  memory: "#f59e0b", // amber/orange
+  gpu: "#a855f7", // purple
+  storage: "#10b981", // emerald/green
   network: {
-    upload: "#8b5cf6",   // violet
+    upload: "#8b5cf6", // violet
     download: "#ec4899", // pink
   },
 } as const;
@@ -78,7 +80,8 @@ export const iconBox = {
 // Buttons
 export const button = {
   ghost: "border border-white/15 bg-white/10 hover:bg-white/20 text-white",
-  closeIcon: "h-10 w-10 rounded-full border border-white/15 bg-white/10 text-white/60 hover:text-white hover:bg-white/20 transition-colors",
+  closeIcon:
+    "h-10 w-10 rounded-full border border-white/15 bg-white/10 text-white/60 hover:text-white hover:bg-white/20 transition-colors",
 } as const;
 
 // Alert boxes

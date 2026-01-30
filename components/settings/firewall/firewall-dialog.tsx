@@ -1,23 +1,31 @@
 "use client";
 
 import {
-  addFirewallRule,
-  deleteFirewallRule,
-  disableFirewall,
-  enableFirewall,
-  getFirewallStatus,
-  resetFirewall,
+    addFirewallRule,
+    deleteFirewallRule,
+    disableFirewall,
+    enableFirewall,
+    getFirewallStatus,
+    resetFirewall,
 } from "@/app/actions/firewall";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
-import { AlertTriangle, Loader2, RefreshCw, RotateCcw, Shield, ShieldOff, X } from "lucide-react";
+import {
+    AlertTriangle,
+    Loader2,
+    RefreshCw,
+    RotateCcw,
+    Shield,
+    ShieldOff,
+    X,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AddRuleForm } from "./add-rule-form";
@@ -31,7 +39,11 @@ type FirewallDialogProps = {
 
 export function FirewallDialog({ open, onOpenChange }: FirewallDialogProps) {
   const [data, setData] = useState<FirewallData>({
-    status: { enabled: false, defaultIncoming: "unknown", defaultOutgoing: "unknown" },
+    status: {
+      enabled: false,
+      defaultIncoming: "unknown",
+      defaultOutgoing: "unknown",
+    },
     rules: [],
     loading: true,
   });
@@ -72,7 +84,9 @@ export function FirewallDialog({ open, onOpenChange }: FirewallDialogProps) {
     const result = await action();
 
     if (result.success) {
-      toast.success(data.status.enabled ? "Firewall disabled" : "Firewall enabled");
+      toast.success(
+        data.status.enabled ? "Firewall disabled" : "Firewall enabled",
+      );
       await fetchStatus();
     } else {
       toast.error(result.error || "Failed to toggle firewall");
@@ -113,7 +127,8 @@ export function FirewallDialog({ open, onOpenChange }: FirewallDialogProps) {
   };
 
   const handleReset = async () => {
-    if (!confirm("This will reset all firewall rules to default. Continue?")) return;
+    if (!confirm("This will reset all firewall rules to default. Continue?"))
+      return;
 
     setActionLoading(true);
     const result = await resetFirewall();
@@ -131,7 +146,7 @@ export function FirewallDialog({ open, onOpenChange }: FirewallDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] bg-white/5 border border-white/10 backdrop-blur-3xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden"
+        className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-gradient-to-r from-white/10 via-white/5 to-transparent">
@@ -160,7 +175,9 @@ export function FirewallDialog({ open, onOpenChange }: FirewallDialogProps) {
               disabled={data.loading}
               className="h-9 w-9 text-white/60 hover:text-white hover:bg-white/10"
             >
-              <RefreshCw className={`h-4 w-4 ${data.loading ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-4 w-4 ${data.loading ? "animate-spin" : ""}`}
+              />
             </Button>
             <Button
               variant="ghost"
@@ -179,7 +196,9 @@ export function FirewallDialog({ open, onOpenChange }: FirewallDialogProps) {
             {data.error && (
               <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30">
                 <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-red-300 whitespace-pre-wrap">{data.error}</div>
+                <div className="text-sm text-red-300 whitespace-pre-wrap">
+                  {data.error}
+                </div>
               </div>
             )}
 
@@ -203,7 +222,8 @@ export function FirewallDialog({ open, onOpenChange }: FirewallDialogProps) {
                     />
                     <div>
                       <div className="text-sm font-medium text-white">
-                        Firewall is {data.status.enabled ? "enabled" : "disabled"}
+                        Firewall is{" "}
+                        {data.status.enabled ? "enabled" : "disabled"}
                       </div>
                       <div className="text-xs text-white/50">
                         Default: {data.status.defaultIncoming} incoming,{" "}
@@ -221,8 +241,13 @@ export function FirewallDialog({ open, onOpenChange }: FirewallDialogProps) {
                 {/* Add Rule Form */}
                 {data.status.enabled && (
                   <div>
-                    <h3 className="text-sm font-medium text-white mb-3">Add New Rule</h3>
-                    <AddRuleForm onAdd={handleAddRule} loading={actionLoading} />
+                    <h3 className="text-sm font-medium text-white mb-3">
+                      Add New Rule
+                    </h3>
+                    <AddRuleForm
+                      onAdd={handleAddRule}
+                      loading={actionLoading}
+                    />
                   </div>
                 )}
 

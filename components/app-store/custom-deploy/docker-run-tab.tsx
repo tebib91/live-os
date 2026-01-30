@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ImageIcon } from "lucide-react";
 import type { ClipboardEvent } from "react";
-import type { EnvVarRow, PortMapping, VolumeMount } from "./docker-run-utils";
+import type { EnvVarRow, NetworkType, PortMapping, VolumeMount } from "./docker-run-utils";
 import { DockerRunEnvVars } from "./docker-run-env-vars";
 import { DockerRunPortMappings } from "./docker-run-port-mappings";
 import { DockerRunVolumeMounts } from "./docker-run-volume-mounts";
@@ -18,6 +18,10 @@ type DockerRunTabProps = {
   onIconUrlPaste: (e: ClipboardEvent<HTMLInputElement>) => void;
   containerName: string;
   onContainerNameChange: (value: string) => void;
+  networkType: NetworkType;
+  onNetworkTypeChange: (value: NetworkType) => void;
+  webUIPort: string;
+  onWebUIPortChange: (value: string) => void;
   portMappings: PortMapping[];
   onAddPortMapping: () => void;
   onUpdatePortMapping: (
@@ -56,6 +60,10 @@ export function DockerRunTab({
   onIconUrlPaste,
   containerName,
   onContainerNameChange,
+  networkType,
+  onNetworkTypeChange,
+  webUIPort,
+  onWebUIPortChange,
   portMappings,
   onAddPortMapping,
   onUpdatePortMapping,
@@ -141,6 +149,53 @@ export function DockerRunTab({
           style={inputStyle}
           disabled={loading}
         />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="network-type" className="text-zinc-200">
+            Network Type
+          </Label>
+          <select
+            id="network-type"
+            value={networkType}
+            onChange={(e) => onNetworkTypeChange(e.target.value as NetworkType)}
+            className="flex h-9 w-full rounded-md px-3 py-1 text-sm text-white placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            style={inputStyle}
+            disabled={loading}
+          >
+            <option value="bridge">Bridge (default)</option>
+            <option value="host">Host</option>
+            <option value="macvlan">Macvlan</option>
+            <option value="none">None</option>
+          </select>
+          {networkType === "host" && (
+            <p className="text-xs text-yellow-400">
+              Host networking ignores port mappings — the container shares the host network directly.
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="web-ui-port" className="text-zinc-200">
+            Web UI Port (Optional)
+          </Label>
+          <Input
+            id="web-ui-port"
+            type="number"
+            placeholder="Auto-detect from first port"
+            value={webUIPort}
+            onChange={(e) => onWebUIPortChange(e.target.value)}
+            className="text-white placeholder:text-zinc-500"
+            style={inputStyle}
+            disabled={loading}
+            min={1}
+            max={65535}
+          />
+          <p className="text-xs text-zinc-400">
+            Port used by the &quot;Open&quot; button. Leave empty to use the first mapped port.
+          </p>
+        </div>
       </div>
 
       <DockerRunPortMappings

@@ -59,7 +59,7 @@ export interface UseSystemStatusReturn {
   installProgress: InstallProgress[];
   connected: boolean;
   error: string | null;
-  refreshApps: () => void;
+  pushInstallProgress: (update: InstallProgress) => void;
 }
 
 export interface MetricsMessage {

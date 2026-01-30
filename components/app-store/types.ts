@@ -56,6 +56,10 @@ export interface App {
   defaultPassword?: string; // Default login password
   dependencies?: string[]; // Required app dependencies
 
+  // Store metadata
+  storeName?: string; // Human-friendly store name
+  storeSlug?: string; // Store slug identifier
+
   // CasaOS-specific fields
   architectures?: string[]; // Supported architectures (amd64, arm64, arm)
   tips?: AppTips; // Pre-installation tips

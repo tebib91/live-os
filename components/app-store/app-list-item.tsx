@@ -69,28 +69,35 @@ export function AppListItem({ app, installedApp, index = 0, onClick }: AppListIt
         </p>
       </div>
 
-      {/* CTA */}
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={isInstalled ? handleOpen : onClick}
-        className={`h-8 px-3 text-xs bg-transparent shadow-none ${isInstalled
-          ? "border-emerald-300/40 text-emerald-100 hover:bg-emerald-500/10 hover:text-emerald-50"
-          : "border-white/20 text-white hover:bg-white/10 hover:text-white"
-        }`}
-      >
-        {isInstalled ? (
-          <>
-            <ExternalLink className="h-3.5 w-3.5 mr-1" />
-            Open
-          </>
-        ) : (
-          <>
-            <Download className="h-3.5 w-3.5 mr-1" />
-            Install
-          </>
+      {/* CTA + Store badge */}
+      <div className="flex flex-col items-end gap-1">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={isInstalled ? handleOpen : onClick}
+          className={`h-8 px-3 text-xs bg-transparent shadow-none ${isInstalled
+            ? "border-emerald-300/40 text-emerald-100 hover:bg-emerald-500/10 hover:text-emerald-50"
+            : "border-white/20 text-white hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          {isInstalled ? (
+            <>
+              <ExternalLink className="h-3.5 w-3.5 mr-1" />
+              Open
+            </>
+          ) : (
+            <>
+              <Download className="h-3.5 w-3.5 mr-1" />
+              Install
+            </>
+          )}
+        </Button>
+        {app.storeName && (
+          <span className="text-[9px] leading-none text-white/50">
+            {app.storeName}
+          </span>
         )}
-      </Button>
+      </div>
     </motion.div>
   );
 }

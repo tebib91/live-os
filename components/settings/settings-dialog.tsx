@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useRebootTracker } from "@/hooks/useRebootTracker";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { VERSION } from "@/lib/config";
 import { formatBytes, formatUptime } from "@/lib/utils";
@@ -45,9 +46,6 @@ import { StorageDialog } from "./storage-dialog";
 import { SystemDetailsDialog } from "./system-details-dialog";
 import { LiveOsTailDialog } from "./troubleshoot/liveos-tail-dialog";
 import { WifiDialog } from "./wifi-dialog";
-import { useRebootTracker } from "@/hooks/useRebootTracker";
-
-
 
 const getMetricColor = (
   percentage: number,
@@ -158,21 +156,28 @@ export function SettingsDialog({
       fetchFirewallStatus();
       // fetchLanDevices() removed - too slow for auto-fetch
     }
-  }, [open, fetchSystemInfo, fetchWallpapers, fetchUptime, fetchFirewallStatus]);
+  }, [
+    open,
+    fetchSystemInfo,
+    fetchWallpapers,
+    fetchUptime,
+    fetchFirewallStatus,
+  ]);
 
-  const handleWallpaperSelect = useCallback(async (path: string) => {
-    onWallpaperChange?.(path);
-    setSavingWallpaper(true);
-    try {
-      await updateSettings({ currentWallpaper: path });
-    } catch {
-      toast.error(
-        "Wallpaper could not be saved. It will reset on refresh.",
-      );
-    } finally {
-      setSavingWallpaper(false);
-    }
-  }, [onWallpaperChange]);
+  const handleWallpaperSelect = useCallback(
+    async (path: string) => {
+      onWallpaperChange?.(path);
+      setSavingWallpaper(true);
+      try {
+        await updateSettings({ currentWallpaper: path });
+      } catch {
+        toast.error("Wallpaper could not be saved. It will reset on refresh.");
+      } finally {
+        setSavingWallpaper(false);
+      }
+    },
+    [onWallpaperChange],
+  );
 
   const hardware: HardwareInfo | undefined = systemStats?.hardware;
   const uptimeLabel = formatUptime(uptimeSeconds || 0);
@@ -219,30 +224,54 @@ export function SettingsDialog({
   }, []);
 
   // Memoized callbacks for dialog openers to prevent child re-renders
-  const handleCloseDialog = useCallback(() => onOpenChange(false), [onOpenChange]);
+  const handleCloseDialog = useCallback(
+    () => onOpenChange(false),
+    [onOpenChange],
+  );
   const handleOpenWifiDialog = useCallback(() => setWifiDialogOpen(true), []);
-  const handleOpenNetworkDevices = useCallback(() => setNetworkDevicesOpen(true), []);
-  const handleOpenFirewallDialog = useCallback(() => setFirewallDialogOpen(true), []);
+  const handleOpenNetworkDevices = useCallback(
+    () => setNetworkDevicesOpen(true),
+    [],
+  );
+  const handleOpenFirewallDialog = useCallback(
+    () => setFirewallDialogOpen(true),
+    [],
+  );
   const handleOpenLogsDialog = useCallback(() => setLogsDialogOpen(true), []);
-  const handleOpenAdvancedDialog = useCallback(() => setAdvancedDialogOpen(true), []);
-  const handleOpenSystemDetails = useCallback(() => setSystemDetailsOpen(true), []);
-  const handleOpenStorageDialog = useCallback(() => setStorageDialogOpen(true), []);
+  const handleOpenAdvancedDialog = useCallback(
+    () => setAdvancedDialogOpen(true),
+    [],
+  );
+  const handleOpenSystemDetails = useCallback(
+    () => setSystemDetailsOpen(true),
+    [],
+  );
+  const handleOpenStorageDialog = useCallback(
+    () => setStorageDialogOpen(true),
+    [],
+  );
 
-  const handleFirewallDialogChange = useCallback((open: boolean) => {
-    setFirewallDialogOpen(open);
-    if (!open) fetchFirewallStatus();
-  }, [fetchFirewallStatus]);
+  const handleFirewallDialogChange = useCallback(
+    (open: boolean) => {
+      setFirewallDialogOpen(open);
+      if (!open) fetchFirewallStatus();
+    },
+    [fetchFirewallStatus],
+  );
 
-  const handleNetworkDevicesChange = useCallback((devices: LanDevice[], error: string | null) => {
-    setLanDevices(devices);
-    setLanDevicesError(error);
-  }, []);
+  const handleNetworkDevicesChange = useCallback(
+    (devices: LanDevice[], error: string | null) => {
+      setLanDevices(devices);
+      setLanDevicesError(error);
+    },
+    [],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[95vw] sm:max-w-[1200px] max-h-[90vh] bg-white/5 border border-white/10 backdrop-blur-3xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden ring-1 ring-white/5"
+        className="max-w-[95vw] sm:max-w-[1200px] max-h-[90vh] bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl shadow-black/50 p-0 gap-0 overflow-hidden ring-1 ring-white/5"
         aria-describedby="settings-description"
       >
         <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-gradient-to-r from-white/10 via-white/5 to-transparent backdrop-blur">
@@ -368,7 +397,10 @@ export function SettingsDialog({
           open={advancedDialogOpen}
           onOpenChange={setAdvancedDialogOpen}
         />
-        <StorageDialog open={storageDialogOpen} onOpenChange={setStorageDialogOpen} />
+        <StorageDialog
+          open={storageDialogOpen}
+          onOpenChange={setStorageDialogOpen}
+        />
       </DialogContent>
     </Dialog>
   );
