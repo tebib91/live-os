@@ -14,9 +14,12 @@ import { CustomDeployHeader } from "./custom-deploy/custom-deploy-header";
 import { DockerComposeTab } from "./custom-deploy/docker-compose-tab";
 import { DockerRunTab } from "./custom-deploy/docker-run-tab";
 import {
+  serializeCapabilities,
+  serializeDevices,
   serializeEnvVars,
   serializePorts,
   serializeVolumes,
+  type RestartPolicy,
 } from "./custom-deploy/docker-run-utils";
 import { useDockerRunForm } from "./custom-deploy/use-docker-run-form";
 
@@ -29,6 +32,16 @@ export interface CustomDeployInitialData {
     ports?: string;
     volumes?: string;
     env?: string;
+    webUIPort?: string;
+    networkType?: "bridge" | "host" | "macvlan" | "none";
+    devices?: string;
+    command?: string;
+    privileged?: boolean;
+    memoryLimit?: string;
+    cpuShares?: string;
+    restartPolicy?: RestartPolicy;
+    capabilities?: string;
+    hostname?: string;
   };
   appIcon?: string;
   appTitle?: string;
@@ -117,17 +130,27 @@ export function CustomDeployDialog({
         const serializedPorts = serializePorts(dockerRunForm.portMappings);
         const serializedVolumes = serializeVolumes(dockerRunForm.volumeMounts);
         const serializedEnvVars = serializeEnvVars(dockerRunForm.envVarRows);
-        result = await deployCustomRun(
+        const serializedDevices = serializeDevices(dockerRunForm.deviceMappings);
+        const serializedCaps = serializeCapabilities(dockerRunForm.capabilities);
+        result = await deployCustomRun({
           appName,
-          fullImage,
-          dockerRunForm.containerName || undefined,
-          serializedPorts || undefined,
-          serializedVolumes || undefined,
-          serializedEnvVars || undefined,
-          dockerRunForm.iconUrl || undefined,
-          dockerRunForm.networkType,
-          dockerRunForm.webUIPort || undefined,
-        );
+          imageName: fullImage,
+          containerName: dockerRunForm.containerName || undefined,
+          ports: serializedPorts || undefined,
+          volumes: serializedVolumes || undefined,
+          envVars: serializedEnvVars || undefined,
+          iconUrl: dockerRunForm.iconUrl || undefined,
+          networkType: dockerRunForm.networkType,
+          webUIPort: dockerRunForm.webUIPort || undefined,
+          devices: serializedDevices || undefined,
+          command: dockerRunForm.containerCommand || undefined,
+          privileged: dockerRunForm.privileged || undefined,
+          memoryLimit: dockerRunForm.memoryLimit || undefined,
+          cpuShares: dockerRunForm.cpuShares || undefined,
+          restartPolicy: dockerRunForm.restartPolicy,
+          capabilities: serializedCaps || undefined,
+          hostname: dockerRunForm.containerHostname || undefined,
+        });
       }
 
       if (result.success) {
@@ -281,6 +304,26 @@ export function CustomDeployDialog({
                     onAddEnvVarRow={dockerRunForm.addEnvVarRow}
                     onUpdateEnvVarRow={dockerRunForm.updateEnvVarRow}
                     onRemoveEnvVarRow={dockerRunForm.removeEnvVarRow}
+                    deviceMappings={dockerRunForm.deviceMappings}
+                    onAddDeviceMapping={dockerRunForm.addDeviceMapping}
+                    onUpdateDeviceMapping={dockerRunForm.updateDeviceMapping}
+                    onRemoveDeviceMapping={dockerRunForm.removeDeviceMapping}
+                    capabilities={dockerRunForm.capabilities}
+                    onAddCapability={dockerRunForm.addCapability}
+                    onUpdateCapability={dockerRunForm.updateCapability}
+                    onRemoveCapability={dockerRunForm.removeCapability}
+                    restartPolicy={dockerRunForm.restartPolicy}
+                    onRestartPolicyChange={dockerRunForm.setRestartPolicy}
+                    privileged={dockerRunForm.privileged}
+                    onPrivilegedChange={dockerRunForm.setPrivileged}
+                    memoryLimit={dockerRunForm.memoryLimit}
+                    onMemoryLimitChange={dockerRunForm.setMemoryLimit}
+                    cpuShares={dockerRunForm.cpuShares}
+                    onCpuSharesChange={dockerRunForm.setCpuShares}
+                    containerHostname={dockerRunForm.containerHostname}
+                    onContainerHostnameChange={dockerRunForm.setContainerHostname}
+                    containerCommand={dockerRunForm.containerCommand}
+                    onContainerCommandChange={dockerRunForm.setContainerCommand}
                   />
                 </TabsContent>
               )}

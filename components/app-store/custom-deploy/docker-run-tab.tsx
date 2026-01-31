@@ -2,7 +2,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ImageIcon } from "lucide-react";
 import type { ClipboardEvent } from "react";
-import type { EnvVarRow, NetworkType, PortMapping, VolumeMount } from "./docker-run-utils";
+import type {
+  CapabilityRow,
+  DeviceMapping,
+  EnvVarRow,
+  NetworkType,
+  PortMapping,
+  RestartPolicy,
+  VolumeMount,
+} from "./docker-run-utils";
+import { DockerRunAdvancedOptions } from "./docker-run-advanced-options";
+import { DockerRunCapabilities } from "./docker-run-capabilities";
+import { DockerRunDeviceMappings } from "./docker-run-device-mappings";
 import { DockerRunEnvVars } from "./docker-run-env-vars";
 import { DockerRunPortMappings } from "./docker-run-port-mappings";
 import { DockerRunVolumeMounts } from "./docker-run-volume-mounts";
@@ -42,6 +53,31 @@ type DockerRunTabProps = {
   onAddEnvVarRow: () => void;
   onUpdateEnvVarRow: (id: string, field: "key" | "value", value: string) => void;
   onRemoveEnvVarRow: (id: string) => void;
+  // Advanced fields
+  deviceMappings: DeviceMapping[];
+  onAddDeviceMapping: () => void;
+  onUpdateDeviceMapping: (
+    id: string,
+    field: "host" | "container",
+    value: string,
+  ) => void;
+  onRemoveDeviceMapping: (id: string) => void;
+  capabilities: CapabilityRow[];
+  onAddCapability: () => void;
+  onUpdateCapability: (id: string, name: string) => void;
+  onRemoveCapability: (id: string) => void;
+  restartPolicy: RestartPolicy;
+  onRestartPolicyChange: (value: RestartPolicy) => void;
+  privileged: boolean;
+  onPrivilegedChange: (value: boolean) => void;
+  memoryLimit: string;
+  onMemoryLimitChange: (value: string) => void;
+  cpuShares: string;
+  onCpuSharesChange: (value: string) => void;
+  containerHostname: string;
+  onContainerHostnameChange: (value: string) => void;
+  containerCommand: string;
+  onContainerCommandChange: (value: string) => void;
 };
 
 const inputStyle = {
@@ -76,6 +112,26 @@ export function DockerRunTab({
   onAddEnvVarRow,
   onUpdateEnvVarRow,
   onRemoveEnvVarRow,
+  deviceMappings,
+  onAddDeviceMapping,
+  onUpdateDeviceMapping,
+  onRemoveDeviceMapping,
+  capabilities,
+  onAddCapability,
+  onUpdateCapability,
+  onRemoveCapability,
+  restartPolicy,
+  onRestartPolicyChange,
+  privileged,
+  onPrivilegedChange,
+  memoryLimit,
+  onMemoryLimitChange,
+  cpuShares,
+  onCpuSharesChange,
+  containerHostname,
+  onContainerHostnameChange,
+  containerCommand,
+  onContainerCommandChange,
 }: DockerRunTabProps) {
   return (
     <div className="space-y-5">
@@ -220,6 +276,38 @@ export function DockerRunTab({
         onAdd={onAddEnvVarRow}
         onUpdate={onUpdateEnvVarRow}
         onRemove={onRemoveEnvVarRow}
+      />
+
+      <DockerRunDeviceMappings
+        loading={loading}
+        rows={deviceMappings}
+        onAdd={onAddDeviceMapping}
+        onUpdate={onUpdateDeviceMapping}
+        onRemove={onRemoveDeviceMapping}
+      />
+
+      <DockerRunCapabilities
+        loading={loading}
+        rows={capabilities}
+        onAdd={onAddCapability}
+        onUpdate={onUpdateCapability}
+        onRemove={onRemoveCapability}
+      />
+
+      <DockerRunAdvancedOptions
+        loading={loading}
+        restartPolicy={restartPolicy}
+        onRestartPolicyChange={onRestartPolicyChange}
+        privileged={privileged}
+        onPrivilegedChange={onPrivilegedChange}
+        memoryLimit={memoryLimit}
+        onMemoryLimitChange={onMemoryLimitChange}
+        cpuShares={cpuShares}
+        onCpuSharesChange={onCpuSharesChange}
+        containerHostname={containerHostname}
+        onContainerHostnameChange={onContainerHostnameChange}
+        containerCommand={containerCommand}
+        onContainerCommandChange={onContainerCommandChange}
       />
     </div>
   );

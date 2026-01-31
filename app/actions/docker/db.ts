@@ -1,3 +1,5 @@
+"use server";
+
 import prisma from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { DEFAULT_APP_ICON, FALLBACK_APP_NAME } from "./utils";

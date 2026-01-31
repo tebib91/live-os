@@ -11,7 +11,7 @@ import path from "path";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
-const DEFAULT_APP_ICON = "/icons/default-application-icon.png";
+const DEFAULT_APP_ICON = "/default-application-icon.png";
 const CUSTOM_APPS_ROOT = path.join(process.cwd(), "custom-apps");
 const CONTAINER_PREFIX = process.env.CONTAINER_PREFIX || "";
 
@@ -43,7 +43,9 @@ export async function deployCustomCompose(
         await execAsync(`cd "${appPath}" && docker compose down`);
       } catch {
         // Fallback: force remove the container directly
-        await execAsync(`docker rm -f "${getContainerName(appName)}"`).catch(() => null);
+        await execAsync(`docker rm -f "${getContainerName(appName)}"`).catch(
+          () => null,
+        );
       }
     }
 
@@ -73,20 +75,52 @@ export async function deployCustomCompose(
   }
 }
 
+type DeployCustomRunOptions = {
+  appName: string;
+  imageName: string;
+  containerName?: string;
+  ports?: string;
+  volumes?: string;
+  envVars?: string;
+  iconUrl?: string;
+  networkType?: string;
+  webUIPort?: string;
+  devices?: string;
+  command?: string;
+  privileged?: boolean;
+  memoryLimit?: string;
+  cpuShares?: string;
+  restartPolicy?: string;
+  capabilities?: string;
+  hostname?: string;
+};
+
 /**
  * Deploy a single container via docker run (simple mode).
  */
 export async function deployCustomRun(
-  appName: string,
-  imageName: string,
-  containerName?: string,
-  ports?: string,
-  volumes?: string,
-  envVars?: string,
-  iconUrl?: string,
-  networkType?: string,
-  webUIPort?: string,
+  opts: DeployCustomRunOptions,
 ): Promise<{ success: boolean; error?: string }> {
+  const {
+    appName,
+    imageName,
+    containerName,
+    ports,
+    volumes,
+    envVars,
+    iconUrl,
+    networkType,
+    webUIPort,
+    devices,
+    command: containerCommand,
+    privileged,
+    memoryLimit,
+    cpuShares,
+    restartPolicy,
+    capabilities,
+    hostname,
+  } = opts;
+
   if (!validateAppId(appName)) {
     return {
       success: false,
@@ -103,11 +137,45 @@ export async function deployCustomRun(
     // Remove existing container if present (update case)
     await execAsync(`docker rm -f "${finalContainer}"`).catch(() => null);
 
-    let command = `docker run -d --name "${finalContainer}" --restart unless-stopped`;
+    const restart = restartPolicy || "unless-stopped";
+    let cmd = `docker run -d --name "${finalContainer}" --restart ${restart}`;
 
     // Network type
     if (networkType && networkType !== "bridge") {
-      command += ` --network ${networkType}`;
+      cmd += ` --network ${networkType}`;
+    }
+
+    // Privileged
+    if (privileged) {
+      cmd += " --privileged";
+    }
+
+    // Memory limit
+    if (memoryLimit?.trim()) {
+      cmd += ` --memory ${memoryLimit.trim()}`;
+    }
+
+    // CPU shares
+    if (cpuShares?.trim()) {
+      cmd += ` --cpu-shares ${cpuShares.trim()}`;
+    }
+
+    // Hostname
+    if (hostname?.trim()) {
+      cmd += ` --hostname "${hostname.trim()}"`;
+    }
+
+    // Capabilities
+    for (const cap of splitLineList(capabilities)) {
+      cmd += ` --cap-add ${cap}`;
+    }
+
+    // Devices
+    for (const dev of splitLineList(devices)) {
+      if (!dev.includes(":")) {
+        return { success: false, error: `Invalid device mapping: ${dev}` };
+      }
+      cmd += ` --device ${dev}`;
     }
 
     // Ports (skipped for host networking — host mode shares the host network directly)
@@ -117,7 +185,7 @@ export async function deployCustomRun(
         if (!validatePort(host) || !validatePort(container)) {
           return { success: false, error: `Invalid port mapping: ${mapping}` };
         }
-        command += ` -p ${mapping}`;
+        cmd += ` -p ${mapping}`;
       }
     }
 
@@ -126,7 +194,7 @@ export async function deployCustomRun(
       if (!vol.includes(":")) {
         return { success: false, error: `Invalid volume mount: ${vol}` };
       }
-      command += ` -v "${vol}"`;
+      cmd += ` -v "${vol}"`;
     }
 
     // Env
@@ -134,13 +202,20 @@ export async function deployCustomRun(
       if (!envLine.includes("=")) {
         return { success: false, error: `Invalid env var: ${envLine}` };
       }
-      command += ` -e "${envLine}"`;
+      cmd += ` -e "${envLine}"`;
     }
 
-    command += ` ${imageName}`;
-    const { stdout, stderr } = await execAsync(command);
+    cmd += ` ${imageName}`;
+
+    // Append command override after image
+    if (containerCommand?.trim()) {
+      cmd += ` ${containerCommand.trim()}`;
+    }
+
+    const { stdout, stderr } = await execAsync(cmd);
     if (stdout) console.log("[CustomDeploy] run stdout:", stdout);
-    if (stderr && !isNoise(stderr)) console.error("[CustomDeploy] run stderr:", stderr);
+    if (stderr && !isNoise(stderr))
+      console.error("[CustomDeploy] run stderr:", stderr);
 
     await recordInstalledApp(appName, finalContainer, iconUrl, {
       image: imageName,
@@ -150,6 +225,14 @@ export async function deployCustomRun(
       deployMethod: "run",
       networkType: networkType || "bridge",
       webUIPort: webUIPort || "",
+      devices: devices || "",
+      command: containerCommand || "",
+      privileged: privileged ?? false,
+      memoryLimit: memoryLimit || "",
+      cpuShares: cpuShares || "",
+      restartPolicy: restart,
+      capabilities: capabilities || "",
+      hostname: hostname || "",
     });
     await triggerAppsUpdate();
     return { success: true };

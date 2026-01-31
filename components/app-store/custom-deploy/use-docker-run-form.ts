@@ -6,16 +6,23 @@ import {
   type ClipboardEvent,
 } from "react";
 import {
+  ensureCapabilityRows,
+  ensureDeviceRows,
   ensureEnvRows,
   ensurePortRows,
   ensureVolumeRows,
+  parseCapabilities,
+  parseDevices,
   parseEnvVars,
   parseImageAndTag,
   parsePorts,
   parseVolumes,
+  type CapabilityRow,
+  type DeviceMapping,
   type EnvVarRow,
   type NetworkType,
   type PortMapping,
+  type RestartPolicy,
   type VolumeMount,
 } from "./docker-run-utils";
 
@@ -25,6 +32,16 @@ type DockerRunInitialData = {
   ports?: string;
   volumes?: string;
   env?: string;
+  webUIPort?: string;
+  networkType?: NetworkType;
+  devices?: string;
+  command?: string;
+  privileged?: boolean;
+  memoryLimit?: string;
+  cpuShares?: string;
+  restartPolicy?: RestartPolicy;
+  capabilities?: string;
+  hostname?: string;
 };
 
 type UseDockerRunFormArgs = {
@@ -58,6 +75,20 @@ export function useDockerRunForm({ open, dockerRun, appIcon }: UseDockerRunFormA
   const [networkType, setNetworkType] = useState<NetworkType>("bridge");
   const [webUIPort, setWebUIPort] = useState("");
 
+  // New advanced fields
+  const [deviceMappings, setDeviceMappings] = useState<DeviceMapping[]>([
+    { id: "device-0", host: "", container: "" },
+  ]);
+  const [capabilities, setCapabilities] = useState<CapabilityRow[]>([
+    { id: "cap-0", name: "" },
+  ]);
+  const [containerCommand, setContainerCommand] = useState("");
+  const [privileged, setPrivileged] = useState(false);
+  const [memoryLimit, setMemoryLimit] = useState("");
+  const [cpuShares, setCpuShares] = useState("");
+  const [restartPolicy, setRestartPolicy] = useState<RestartPolicy>("unless-stopped");
+  const [containerHostname, setContainerHostname] = useState("");
+
   // Reset the form when the dialog opens or initial data changes.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -82,8 +113,26 @@ export function useDockerRunForm({ open, dockerRun, appIcon }: UseDockerRunFormA
     setPortMappings(parsedPorts);
     setVolumeMounts(parsedVolumes);
     setEnvVarRows(parsedEnvVars);
-    setNetworkType("bridge");
-    setWebUIPort("");
+    setNetworkType(dockerRun?.networkType ?? "bridge");
+    setWebUIPort(dockerRun?.webUIPort ?? "");
+
+    // Advanced fields
+    const parsedDevices = ensureDeviceRows(
+      parseDevices(dockerRun?.devices, nextId),
+      nextId,
+    );
+    const parsedCaps = ensureCapabilityRows(
+      parseCapabilities(dockerRun?.capabilities, nextId),
+      nextId,
+    );
+    setDeviceMappings(parsedDevices);
+    setCapabilities(parsedCaps);
+    setContainerCommand(dockerRun?.command ?? "");
+    setPrivileged(dockerRun?.privileged ?? false);
+    setMemoryLimit(dockerRun?.memoryLimit ?? "");
+    setCpuShares(dockerRun?.cpuShares ?? "");
+    setRestartPolicy(dockerRun?.restartPolicy ?? "unless-stopped");
+    setContainerHostname(dockerRun?.hostname ?? "");
   }, [open, dockerRun, appIcon, nextId]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -174,6 +223,45 @@ export function useDockerRunForm({ open, dockerRun, appIcon }: UseDockerRunFormA
       return rows.filter((row) => row.id !== id);
     });
 
+  // Device mapping CRUD
+  const updateDeviceMapping = (
+    id: string,
+    field: "host" | "container",
+    value: string,
+  ) => {
+    setDeviceMappings((rows) =>
+      rows.map((row) => (row.id === id ? { ...row, [field]: value } : row)),
+    );
+  };
+  const addDeviceMapping = () =>
+    setDeviceMappings((rows) => [
+      ...rows,
+      { id: nextId("device"), host: "", container: "" },
+    ]);
+  const removeDeviceMapping = (id: string) =>
+    setDeviceMappings((rows) => {
+      if (rows.length === 1) {
+        return [{ ...rows[0], host: "", container: "" }];
+      }
+      return rows.filter((row) => row.id !== id);
+    });
+
+  // Capability CRUD
+  const updateCapability = (id: string, name: string) => {
+    setCapabilities((rows) =>
+      rows.map((row) => (row.id === id ? { ...row, name } : row)),
+    );
+  };
+  const addCapability = () =>
+    setCapabilities((rows) => [...rows, { id: nextId("cap"), name: "" }]);
+  const removeCapability = (id: string) =>
+    setCapabilities((rows) => {
+      if (rows.length === 1) {
+        return [{ ...rows[0], name: "" }];
+      }
+      return rows.filter((row) => row.id !== id);
+    });
+
   const reset = () => {
     idRef.current = 0;
     tagManualRef.current = false;
@@ -186,6 +274,14 @@ export function useDockerRunForm({ open, dockerRun, appIcon }: UseDockerRunFormA
     setEnvVarRows(ensureEnvRows([], nextId));
     setNetworkType("bridge");
     setWebUIPort("");
+    setDeviceMappings(ensureDeviceRows([], nextId));
+    setCapabilities(ensureCapabilityRows([], nextId));
+    setContainerCommand("");
+    setPrivileged(false);
+    setMemoryLimit("");
+    setCpuShares("");
+    setRestartPolicy("unless-stopped");
+    setContainerHostname("");
   };
 
   return {
@@ -214,6 +310,27 @@ export function useDockerRunForm({ open, dockerRun, appIcon }: UseDockerRunFormA
     setNetworkType,
     webUIPort,
     setWebUIPort,
+    // Advanced fields
+    deviceMappings,
+    updateDeviceMapping,
+    addDeviceMapping,
+    removeDeviceMapping,
+    capabilities,
+    updateCapability,
+    addCapability,
+    removeCapability,
+    containerCommand,
+    setContainerCommand,
+    privileged,
+    setPrivileged,
+    memoryLimit,
+    setMemoryLimit,
+    cpuShares,
+    setCpuShares,
+    restartPolicy,
+    setRestartPolicy,
+    containerHostname,
+    setContainerHostname,
     reset,
   };
 }

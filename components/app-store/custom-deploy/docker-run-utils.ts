@@ -2,6 +2,9 @@ export type NetworkType = "bridge" | "host" | "macvlan" | "none";
 export type PortMapping = { id: string; host: string; container: string };
 export type VolumeMount = { id: string; host: string; container: string };
 export type EnvVarRow = { id: string; key: string; value: string };
+export type DeviceMapping = { id: string; host: string; container: string };
+export type CapabilityRow = { id: string; name: string };
+export type RestartPolicy = "no" | "always" | "unless-stopped" | "on-failure";
 export type IdFactory = (prefix: string) => string;
 
 export function parseImageAndTag(value: string) {
@@ -110,5 +113,61 @@ export function serializeEnvVars(rows: EnvVarRow[]) {
   return rows
     .map((row) => `${row.key.trim()}=${row.value.trim()}`)
     .filter((value) => value !== "=" && !value.startsWith("="))
+    .join("\n");
+}
+
+export function parseDevices(
+  value: string | undefined,
+  createId: IdFactory,
+): DeviceMapping[] {
+  const items = value
+    ? value
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+  return items.map((mapping) => {
+    const [host = "", container = ""] = mapping.split(":").map((v) => v.trim());
+    return { id: createId("device"), host, container };
+  });
+}
+
+export function ensureDeviceRows(rows: DeviceMapping[], createId: IdFactory) {
+  return rows.length
+    ? rows
+    : [{ id: createId("device"), host: "", container: "" }];
+}
+
+export function serializeDevices(rows: DeviceMapping[]) {
+  return rows
+    .map((row) => `${row.host.trim()}:${row.container.trim()}`)
+    .filter((value) => value !== ":" && value.includes(":"))
+    .join("\n");
+}
+
+export function parseCapabilities(
+  value: string | undefined,
+  createId: IdFactory,
+): CapabilityRow[] {
+  const items = value
+    ? value
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+  return items.map((name) => ({ id: createId("cap"), name }));
+}
+
+export function ensureCapabilityRows(
+  rows: CapabilityRow[],
+  createId: IdFactory,
+) {
+  return rows.length ? rows : [{ id: createId("cap"), name: "" }];
+}
+
+export function serializeCapabilities(rows: CapabilityRow[]) {
+  return rows
+    .map((row) => row.name.trim())
+    .filter(Boolean)
     .join("\n");
 }
