@@ -1,6 +1,7 @@
 'use client';
 
 import type { FileSystemItem } from '@/app/actions/filesystem';
+import { createPortal } from 'react-dom';
 import { type RefObject, useMemo } from 'react';
 import { menuSections } from './constants';
 import { ContextMenuHeader } from './context-menu-header';
@@ -89,10 +90,10 @@ export function FilesContextMenu({
     handleAction(actionId, item);
   };
 
-  return (
+  return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-50 bg-gradient-to-b from-[#0b0b0f]/95 to-[#101018]/95 border border-white/10 rounded-xl shadow-2xl text-white text-sm min-w-[240px] overflow-hidden backdrop-blur-lg"
+      className="fixed z-[60] bg-gradient-to-b from-[#0b0b0f]/95 to-[#101018]/95 border border-white/10 rounded-xl shadow-2xl text-white text-sm min-w-[240px] overflow-hidden backdrop-blur-lg"
       style={{ top: contextMenu.y, left: contextMenu.x }}
       onClick={(event) => event.stopPropagation()}
     >
@@ -116,6 +117,7 @@ export function FilesContextMenu({
           </div>
         ))}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

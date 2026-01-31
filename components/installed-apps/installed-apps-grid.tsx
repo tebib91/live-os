@@ -25,6 +25,7 @@ export function InstalledAppsGrid() {
     status: wsApp.status,
     webUIPort: wsApp.webUIPort,
     containerName: wsApp.containerName,
+    containers: wsApp.containers,
     installedAt: wsApp.installedAt,
   }));
 

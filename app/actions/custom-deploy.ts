@@ -15,6 +15,29 @@ const CUSTOM_APPS_ROOT = path.join(process.cwd(), "custom-apps");
 const CONTAINER_PREFIX = process.env.CONTAINER_PREFIX || "";
 
 /**
+ * Convert a `docker run` command into docker-compose YAML using composerize.
+ */
+export async function convertDockerRunToCompose(
+  command: string,
+): Promise<{ success: boolean; yaml?: string; error?: string }> {
+  if (!command.trim()) {
+    return { success: false, error: "Command is empty" };
+  }
+
+  try {
+    const composerize = (await import("composerize")).default;
+    const yaml = composerize(command.trim());
+    return { success: true, yaml };
+  } catch (error: any) {
+    console.error("[CustomDeploy] composerize error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to convert docker run command",
+    };
+  }
+}
+
+/**
  * Deploy a custom docker-compose.yml (used by Custom Deploy dialog).
  */
 export async function deployCustomCompose(
@@ -62,209 +85,20 @@ export async function deployCustomCompose(
       console.error("[CustomDeploy] compose stderr:", stderr);
     }
 
+    // Detect all containers from this compose project
+    const containers = await detectAllComposeContainerNames(appPath);
+
     await recordInstalledApp(
       appName,
       containerName,
       undefined,
-      { composePath, deployMethod: "compose" },
+      { composePath, deployMethod: "compose", containers },
       "custom",
     );
     await triggerAppsUpdate();
     return { success: true };
   } catch (error: any) {
     console.error("[CustomDeploy] deployCustomCompose error:", error);
-    return { success: false, error: error?.message || "Deploy failed" };
-  }
-}
-
-type DeployCustomRunOptions = {
-  appName: string;
-  imageName: string;
-  containerName?: string;
-  ports?: string;
-  volumes?: string;
-  envVars?: string;
-  iconUrl?: string;
-  networkType?: string;
-  webUIPort?: string;
-  devices?: string;
-  command?: string;
-  privileged?: boolean;
-  memoryLimit?: string;
-  cpuShares?: string;
-  restartPolicy?: string;
-  capabilities?: string;
-  hostname?: string;
-};
-
-/**
- * Deploy a single container via docker run (simple mode).
- */
-export async function deployCustomRun(
-  opts: DeployCustomRunOptions,
-): Promise<{ success: boolean; error?: string }> {
-  const {
-    appName,
-    imageName,
-    containerName,
-    ports,
-    volumes,
-    envVars,
-    iconUrl,
-    networkType,
-    webUIPort,
-    devices,
-    command: containerCommand,
-    privileged,
-    memoryLimit,
-    cpuShares,
-    restartPolicy,
-    capabilities,
-    hostname,
-  } = opts;
-
-  if (!validateAppId(appName)) {
-    return {
-      success: false,
-      error: "Invalid app name. Use lowercase letters, numbers, or hyphens.",
-    };
-  }
-  if (!imageName.trim()) {
-    return { success: false, error: "Docker image name is required" };
-  }
-
-  try {
-    const finalContainer = containerName?.trim() || getContainerName(appName);
-
-    // Remove existing container if present (update case)
-    await execAsync(`docker rm -f "${finalContainer}"`).catch(() => null);
-
-    const restart = restartPolicy || "unless-stopped";
-    let cmd = `docker run -d --name "${finalContainer}" --restart ${restart}`;
-
-    // Network type
-    if (networkType && networkType !== "bridge") {
-      cmd += ` --network ${networkType}`;
-    }
-
-    // Privileged
-    if (privileged) {
-      cmd += " --privileged";
-    }
-
-    // Memory limit
-    if (memoryLimit?.trim()) {
-      cmd += ` --memory ${memoryLimit.trim()}`;
-    }
-
-    // CPU shares
-    if (cpuShares?.trim()) {
-      cmd += ` --cpu-shares ${cpuShares.trim()}`;
-    }
-
-    // Hostname
-    if (hostname?.trim()) {
-      cmd += ` --hostname "${hostname.trim()}"`;
-    }
-
-    // Capabilities
-    for (const cap of splitLineList(capabilities)) {
-      cmd += ` --cap-add ${cap}`;
-    }
-
-    // Devices
-    for (const dev of splitLineList(devices)) {
-      if (!dev.includes(":")) {
-        return { success: false, error: `Invalid device mapping: ${dev}` };
-      }
-      cmd += ` --device ${dev}`;
-    }
-
-    // Ports (skipped for host networking — host mode shares the host network directly)
-    if (networkType !== "host") {
-      for (const mapping of splitCommaList(ports)) {
-        const [host, container] = mapping.split(":");
-        if (!validatePort(host) || !validatePort(container)) {
-          return { success: false, error: `Invalid port mapping: ${mapping}` };
-        }
-        cmd += ` -p ${mapping}`;
-      }
-    }
-
-    // Volumes
-    for (const vol of splitLineList(volumes)) {
-      if (!vol.includes(":")) {
-        return { success: false, error: `Invalid volume mount: ${vol}` };
-      }
-      cmd += ` -v "${vol}"`;
-    }
-
-    // Env
-    for (const envLine of splitLineList(envVars)) {
-      if (!envLine.includes("=")) {
-        return { success: false, error: `Invalid env var: ${envLine}` };
-      }
-      cmd += ` -e "${envLine}"`;
-    }
-
-    cmd += ` ${imageName}`;
-
-    // Append command override after image
-    if (containerCommand?.trim()) {
-      cmd += ` ${containerCommand.trim()}`;
-    }
-
-    const { stdout, stderr } = await execAsync(cmd);
-    if (stdout) console.log("[CustomDeploy] run stdout:", stdout);
-    if (stderr && !isNoise(stderr))
-      console.error("[CustomDeploy] run stderr:", stderr);
-
-    const runConfig: Record<string, unknown> = {
-      image: imageName,
-      ports: ports || "",
-      volumes: volumes || "",
-      env: envVars || "",
-      deployMethod: "run",
-      networkType: networkType || "bridge",
-      webUIPort: webUIPort || "",
-      devices: devices || "",
-      command: containerCommand || "",
-      privileged: privileged ?? false,
-      memoryLimit: memoryLimit || "",
-      cpuShares: cpuShares || "",
-      restartPolicy: restart,
-      capabilities: capabilities || "",
-      hostname: hostname || "",
-    };
-
-    const containerJson: Record<string, unknown> = {
-      image: imageName,
-      ports: splitCommaList(ports).map((m) => {
-        const [host, container] = m.split(":");
-        return { published: host, container };
-      }),
-      volumes: splitLineList(volumes).map((v) => {
-        const [source, container] = v.split(":");
-        return { source, container };
-      }),
-      environment: splitLineList(envVars).map((e) => {
-        const idx = e.indexOf("=");
-        return { key: e.slice(0, idx), value: e.slice(idx + 1) };
-      }),
-    };
-
-    await recordInstalledApp(
-      appName,
-      finalContainer,
-      iconUrl ? { icon: iconUrl } : undefined,
-      runConfig,
-      "custom",
-      containerJson,
-    );
-    await triggerAppsUpdate();
-    return { success: true };
-  } catch (error: any) {
-    console.error("[CustomDeploy] deployCustomRun error:", error);
     return { success: false, error: error?.message || "Deploy failed" };
   }
 }
@@ -276,29 +110,6 @@ function getContainerName(appId: string) {
 
 function validateAppId(appId: string): boolean {
   return Boolean(appId) && !appId.includes("..") && !appId.includes("/");
-}
-
-function validatePort(port: string | number): boolean {
-  const n = typeof port === "string" ? parseInt(port, 10) : port;
-  return Number.isFinite(n) && n >= 1 && n <= 65535;
-}
-
-function splitCommaList(value?: string) {
-  return value
-    ? value
-        .split(",")
-        .map((v) => v.trim())
-        .filter(Boolean)
-    : [];
-}
-
-function splitLineList(value?: string) {
-  return value
-    ? value
-        .split("\n")
-        .map((v) => v.trim())
-        .filter(Boolean)
-    : [];
 }
 
 async function exists(p: string): Promise<boolean> {
@@ -319,4 +130,23 @@ function isNoise(stderr: string) {
     lower.includes("pulling") ||
     lower.includes("downloaded")
   );
+}
+
+/**
+ * Detect all container names from a compose project directory.
+ */
+async function detectAllComposeContainerNames(
+  appDir: string,
+): Promise<string[]> {
+  try {
+    const { stdout } = await execAsync(
+      `cd "${appDir}" && docker compose ps --format "{{.Names}}"`,
+    );
+    return stdout
+      .split("\n")
+      .map((n) => n.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }

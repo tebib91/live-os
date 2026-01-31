@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 "use client";
 
 import { getAppComposeContent, getAppMedia } from "@/app/actions/appstore";
@@ -173,32 +173,6 @@ export function AppDetailDialog({
       setCustomDeployData({
         appName: app.id,
         dockerCompose: composeContent,
-        dockerRun: app.container
-          ? {
-              image: app.container.image || "",
-              containerName: app.id,
-              ports: (app.container.ports || [])
-                .map((p: any) =>
-                  [p.published ?? p.host, p.container ?? p.target]
-                    .filter(Boolean)
-                    .join(":"),
-                )
-                .filter(Boolean)
-                .join(","),
-              volumes: (app.container.volumes || [])
-                .map((v: any) =>
-                  [v.source, v.container || v.target].filter(Boolean).join(":"),
-                )
-                .filter(Boolean)
-                .join(","),
-              env: (app.container.environment || [])
-                .map((e: any) =>
-                  typeof e === "string" ? e : `${e.key}=${e.value}`,
-                )
-                .filter(Boolean)
-                .join(","),
-            }
-          : undefined,
         appIcon: app.icon,
         appTitle: app.title,
       });

@@ -28,6 +28,28 @@ import {
 const TRASH_ROOT = "/DATA/AppTrash";
 
 /**
+ * Run a compose lifecycle command (start/stop/restart) if a compose file exists.
+ * Falls back to plain docker command for legacy containers.
+ */
+async function composeLifecycle(
+  appId: string,
+  action: "start" | "stop" | "restart",
+): Promise<boolean> {
+  const resolved = await findComposeForApp(appId);
+  if (resolved) {
+    const sanitized = await sanitizeComposeFile(resolved.composePath);
+    console.log(
+      `[Docker] ${action}App: Using compose for "${appId}" at ${sanitized}`,
+    );
+    await execAsync(
+      `cd "${resolved.appDir}" && docker compose -f "${sanitized}" ${action}`,
+    );
+    return true;
+  }
+  return false;
+}
+
+/**
  * Stop an app
  */
 export async function stopApp(containerName: string): Promise<boolean> {
@@ -39,11 +61,11 @@ export async function stopApp(containerName: string): Promise<boolean> {
       return false;
     }
 
-    // const containerName = getContainerName(containerName);
-    console.log(`[Docker] stopApp: Container name: ${containerName}`);
-    console.log(`[Docker] stopApp: Executing: docker stop ${containerName}`);
+    const usedCompose = await composeLifecycle(containerName, "stop");
+    if (!usedCompose) {
+      await execAsync(`docker stop ${containerName}`);
+    }
 
-    await execAsync(`docker stop ${containerName}`);
     console.log(`[Docker] stopApp: Successfully stopped "${containerName}"`);
     void pollAndBroadcast();
     return true;
@@ -68,10 +90,11 @@ export async function startApp(containerName: string): Promise<boolean> {
       return false;
     }
 
-    console.log(`[Docker] startApp: Container name: ${containerName}`);
-    console.log(`[Docker] startApp: Executing: docker start ${containerName}`);
+    const usedCompose = await composeLifecycle(containerName, "start");
+    if (!usedCompose) {
+      await execAsync(`docker start ${containerName}`);
+    }
 
-    await execAsync(`docker start ${containerName}`);
     const healthy = await waitForContainerRunning(containerName, 5, 2000);
     if (!healthy) {
       console.warn(
@@ -103,12 +126,11 @@ export async function restartApp(containerName: string): Promise<boolean> {
       return false;
     }
 
-    console.log(`[Docker] restartApp: Container name: ${containerName}`);
-    console.log(
-      `[Docker] restartApp: Executing: docker restart ${containerName}`,
-    );
+    const usedCompose = await composeLifecycle(containerName, "restart");
+    if (!usedCompose) {
+      await execAsync(`docker restart ${containerName}`);
+    }
 
-    await execAsync(`docker restart ${containerName}`);
     const healthy = await waitForContainerRunning(containerName, 5, 2000);
     if (!healthy) {
       console.warn(

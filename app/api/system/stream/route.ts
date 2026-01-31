@@ -77,76 +77,106 @@ async function getInstalledApps() {
     const metaByContainer = new Map(
       knownApps.map((app) => [app.containerName, app]),
     );
-    const metaByAppId = new Map(knownApps.map((app) => [app.appId, app]));
     const storeMetaById = new Map(storeApps.map((app) => [app.appId, app]));
 
+    // Get containers with compose labels for grouping
     const { stdout } = await execAsync(
-      'docker ps -a --format "{{.Names}}\\t{{.Status}}\\t{{.Image}}"',
+      'docker ps -a --format "{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.Label \\"com.docker.compose.project\\"}}\t{{.Label \\"com.docker.compose.service\\"}}"',
     );
 
     if (!stdout.trim()) return [];
 
     const lines = stdout.trim().split("\n");
-    const normalize = (value: string | undefined) =>
-      (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
-    const fuzzyFindAppId = (containerName: string) => {
-      const normalized = normalize(containerName);
-      if (!normalized) return null;
-      const candidates = Array.from(
-        new Set([...metaByAppId.keys(), ...storeMetaById.keys()]),
-      );
-      for (const candidate of candidates) {
-        if (normalized.includes(normalize(candidate))) {
-          return candidate;
-        }
-      }
-      return null;
-    };
+    // Parse containers
+    const containers = lines.map((line) => {
+      const [name, status, image, composeProject, composeService] =
+        line.split("\t");
+      return {
+        name: name || "",
+        status: status || "",
+        image: image || "",
+        composeProject: composeProject || "",
+        composeService: composeService || "",
+      };
+    }).filter((c) => c.name);
 
-    return await Promise.all(
-      lines.map(async (line) => {
-        const [containerName, status, image] = line.split("\t");
+    // Group by compose project
+    const groups = new Map<string, typeof containers>();
+    for (const container of containers) {
+      const key = container.composeProject || container.name;
+      const group = groups.get(key) || [];
+      group.push(container);
+      groups.set(key, group);
+    }
 
-        let appStatus: "running" | "stopped" | "error" = "error";
-        if (status.toLowerCase().startsWith("up")) {
-          appStatus = "running";
-        } else if (status.toLowerCase().includes("exited")) {
-          appStatus = "stopped";
-        }
+    const results = [];
 
-        const meta = metaByContainer.get(containerName);
+    for (const [projectKey, groupContainers] of groups) {
+      const primaryContainer =
+        groupContainers.find((c) => metaByContainer.has(c.name)) ||
+        groupContainers[0];
 
-        const appId =
-          meta?.appId ||
-          getAppIdFromContainerName(containerName) ||
-          (image ? image.split("/").pop()?.split(":")[0] : null) ||
-          fuzzyFindAppId(containerName) ||
-          null;
+      const containerNames = groupContainers.map((c) => c.name);
 
-        // If fuzzy matched, prefer DB meta over store meta
-        const dbMeta = meta || (appId ? metaByAppId.get(appId) : undefined);
-        const storeMeta = appId ? storeMetaById.get(appId) : undefined;
-        const hostPort = await resolveHostPort(containerName);
+      const meta = metaByContainer.get(primaryContainer.name);
+      const anyMeta =
+        meta ||
+        groupContainers
+          .map((c) => metaByContainer.get(c.name))
+          .find(Boolean);
 
-        const fallbackName = containerName
-          .replace(/[-_]/g, " ")
-          .replace(/\b\w/g, (c) => c.toUpperCase());
+      const resolvedAppId =
+        anyMeta?.appId ||
+        getAppIdFromContainerName(primaryContainer.name);
 
-        return {
-          id: containerName,
-          appId: appId || containerName,
-          name:
-            dbMeta?.name || storeMeta?.title || storeMeta?.name || fallbackName,
-          icon:
-            dbMeta?.icon || storeMeta?.icon || "/default-application-icon.png",
-          status: appStatus,
-          webUIPort: hostPort ? Number(hostPort) : undefined,
-          containerName,
-          installedAt: dbMeta?.createdAt?.getTime?.() || Date.now(),
-        };
-      }),
-    );
+      const storeMeta = storeMetaById.get(resolvedAppId);
+
+      // Aggregate status
+      const statuses = groupContainers.map((c) => {
+        const s = c.status.toLowerCase();
+        if (s.startsWith("up")) return "running";
+        if (s.includes("exited")) return "stopped";
+        return "error";
+      });
+      let appStatus: "running" | "stopped" | "error" = "error";
+      if (statuses.every((s) => s === "running")) appStatus = "running";
+      else if (statuses.every((s) => s === "stopped")) appStatus = "stopped";
+      else if (statuses.some((s) => s === "running")) appStatus = "running";
+
+      const hostPort = await resolveHostPort(primaryContainer.name);
+
+      const fallbackName = primaryContainer.name
+        .replace(/[-_]/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+
+      const dbContainers = (anyMeta?.installConfig as Record<string, unknown>)
+        ?.containers as string[] | undefined;
+
+      results.push({
+        id: primaryContainer.name,
+        appId: resolvedAppId || primaryContainer.name,
+        name:
+          anyMeta?.name ||
+          storeMeta?.title ||
+          storeMeta?.name ||
+          fallbackName,
+        icon:
+          anyMeta?.icon ||
+          storeMeta?.icon ||
+          "/default-application-icon.png",
+        status: appStatus,
+        webUIPort: hostPort ? Number(hostPort) : undefined,
+        containerName: primaryContainer.name,
+        containers:
+          containerNames.length > 1
+            ? containerNames
+            : dbContainers || containerNames,
+        installedAt: anyMeta?.createdAt?.getTime?.() || Date.now(),
+      });
+    }
+
+    return results;
   } catch (error) {
     console.error("[SSE] Failed to collect installed apps:", error);
     return [];

@@ -6,101 +6,108 @@ import { logAction } from "../logger";
 import {
   CONTAINER_PREFIX,
   DEFAULT_APP_ICON,
+  aggregateStatus,
   execAsync,
   getContainerName,
+  groupContainersByProject,
+  listContainersWithLabels,
   resolveHostPort,
   validateAppId,
   validatePort,
 } from "./utils";
-import { getAllAppMeta, getInstallConfig, getInstalledAppRecords, getRecordedContainerName } from "./db";
+import {
+  getAllAppMeta,
+  getInstallConfig,
+  getInstalledAppRecords,
+  getRecordedContainerName,
+} from "./db";
 
 /**
- * Get list of installed LiveOS apps
+ * Get list of installed LiveOS apps.
+ * Groups containers by compose project so multi-service apps show as one entry.
  */
 export async function getInstalledApps(): Promise<InstalledApp[]> {
   console.log("[Docker] getInstalledApps: Fetching installed apps...");
 
   try {
-    const [knownApps, storeApps] = await Promise.all([
+    const [knownApps, storeApps, containers] = await Promise.all([
       getInstalledAppRecords(),
       getAllAppMeta(),
+      listContainersWithLabels(),
     ]);
+
     const metaByContainer = new Map(
-      knownApps.map((app) => [app.containerName, app])
+      knownApps.map((app) => [app.containerName, app]),
+    );
+    const metaByAppId = new Map(
+      knownApps.map((app) => [app.appId, app]),
     );
     const appMetaById = new Map(storeApps.map((app) => [app.appId, app]));
 
-    console.log(
-      `[Docker] getInstalledApps: Container prefix: "${
-        CONTAINER_PREFIX || "none"
-      }"`
-    );
-
-    // Build filter argument only if prefix is set
-    const filterArg = CONTAINER_PREFIX
-      ? `--filter "name=${CONTAINER_PREFIX}"`
-      : "";
-
-    // Use --format for clean parsing
-    const command = `docker ps -a ${filterArg} --format "{{.Names}}\t{{.Status}}\t{{.Image}}"`;
-    console.log(`[Docker] getInstalledApps: Executing: ${command}`);
-    const { stdout } = await execAsync(command);
+    // Group containers by compose project
+    const groups = groupContainersByProject(containers);
 
     console.log(
-      `[Docker] getInstalledApps: Raw stdout: ${stdout.substring(0, 200)}...`
+      `[Docker] getInstalledApps: ${containers.length} containers in ${groups.size} groups`,
     );
 
-    if (!stdout.trim()) {
-      console.log("[Docker] getInstalledApps: No installed apps found");
-      return [];
-    }
-
-    const lines = stdout.trim().split("\n");
-    console.log(
-      `[Docker] getInstalledApps: Processing ${lines.length} containers...`
-    );
     const apps: InstalledApp[] = [];
 
-    for (const line of lines) {
-      const [name, statusRaw, image] = line.split("\t");
+    for (const [projectKey, groupContainers] of groups) {
+      // Primary container is the first one (or the one we have a DB record for)
+      const primaryContainer =
+        groupContainers.find((c) => metaByContainer.has(c.name)) ||
+        groupContainers[0];
+
+      const containerNames = groupContainers.map((c) => c.name);
 
       // Clean appId (remove prefix if any)
       const rawId = CONTAINER_PREFIX
-        ? name.replace(new RegExp(`^${CONTAINER_PREFIX}`), "")
-        : name;
+        ? primaryContainer.name.replace(new RegExp(`^${CONTAINER_PREFIX}`), "")
+        : primaryContainer.name;
 
-      // Determine status
-      let status: "running" | "stopped" | "error" = "stopped";
-      if (statusRaw.includes("Up")) status = "running";
-      else if (statusRaw.includes("Exited")) status = "error";
+      const record = metaByContainer.get(primaryContainer.name);
+      // Also check if any group container matches a DB record
+      const anyRecord =
+        record ||
+        groupContainers
+          .map((c) => metaByContainer.get(c.name))
+          .find(Boolean);
 
-      const record = metaByContainer.get(name);
-      const resolvedAppId = record?.appId || rawId;
+      const resolvedAppId = anyRecord?.appId || projectKey || rawId;
       const storeMeta = appMetaById.get(resolvedAppId);
 
-      console.log(
-        `[Docker] getInstalledApps: Container "${name}" (appId: ${resolvedAppId}) - Status: ${status}, Image: ${image}`
-      );
+      // Aggregate status across all containers in the group
+      const status = aggregateStatus(groupContainers);
 
-      // Get first exposed port if available
-      const hostPort = await resolveHostPort(name);
+      // Get first exposed port if available (try primary first)
+      const hostPort = await resolveHostPort(primaryContainer.name);
       const webUIPort = hostPort ? parseInt(hostPort, 10) : undefined;
 
+      // Get containers list from DB record if available
+      const dbContainers = (anyRecord?.installConfig as Record<string, unknown>)
+        ?.containers as string[] | undefined;
+
       apps.push({
-        id: name,
+        id: primaryContainer.name,
         appId: resolvedAppId,
         name:
-          record?.name || storeMeta?.title || storeMeta?.name || rawId,
-        icon: record?.icon || storeMeta?.icon || DEFAULT_APP_ICON,
+          anyRecord?.name || storeMeta?.title || storeMeta?.name || rawId,
+        icon: anyRecord?.icon || storeMeta?.icon || DEFAULT_APP_ICON,
         status,
         webUIPort,
-        containerName: name,
-        installedAt: record?.createdAt?.getTime?.() || Date.now(),
+        containerName: primaryContainer.name,
+        containers:
+          containerNames.length > 1
+            ? containerNames
+            : dbContainers || containerNames,
+        installedAt:
+          anyRecord?.createdAt?.getTime?.() || Date.now(),
       });
     }
 
     console.log(
-      `[Docker] getInstalledApps: Found ${apps.length} installed apps`
+      `[Docker] getInstalledApps: Found ${apps.length} installed apps`,
     );
     return apps;
   } catch (error) {
@@ -129,7 +136,7 @@ export async function getAppById(
  * Get status of a specific app
  */
 export async function getAppStatus(
-  appId: string
+  appId: string,
 ): Promise<"running" | "stopped" | "error"> {
   try {
     if (!validateAppId(appId)) {
@@ -138,7 +145,7 @@ export async function getAppStatus(
 
     const containerName = getContainerName(appId);
     const { stdout } = await execAsync(
-      `docker inspect -f '{{.State.Status}}' ${containerName}`
+      `docker inspect -f '{{.State.Status}}' ${containerName}`,
     );
 
     const status = stdout.trim();
@@ -156,10 +163,11 @@ export async function getAppStatus(
 export async function getAppWebUI(appId: string): Promise<string | null> {
   try {
     if (!validateAppId(appId)) {
-      await logAction("app:webui:resolve:error", {
-        appId,
-        reason: "invalid-app-id",
-      }, "warn");
+      await logAction(
+        "app:webui:resolve:error",
+        { appId, reason: "invalid-app-id" },
+        "warn",
+      );
       return null;
     }
 
@@ -179,7 +187,11 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
     const protocol = process.env.LIVEOS_HTTPS === "true" ? "https" : "http";
 
     let resolvedUrl: string | null = null;
-    let resolutionMethod: "host-port" | "metadata-port" | "path-only" | "unresolved" = "unresolved";
+    let resolutionMethod:
+      | "host-port"
+      | "metadata-port"
+      | "path-only"
+      | "unresolved" = "unresolved";
 
     // 1) Prefer published host port from Docker (works for bridge mode)
     let hostPort: string | null = null;
@@ -208,15 +220,12 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
       resolvedUrl = `${protocol}://${host}:${hostPort}${pathSuffix}`;
       resolutionMethod = "host-port";
     } else if (configWebUIPort && validatePort(configWebUIPort)) {
-      // 2c) Custom deploy web UI port (host network or explicit override)
       resolvedUrl = `${protocol}://${host}:${configWebUIPort}${pathSuffix}`;
       resolutionMethod = "metadata-port";
     } else if (appMeta?.port && validatePort(appMeta.port)) {
-      // 3) Fallback to metadata port (host network or compose without publish)
       resolvedUrl = `${protocol}://${host}:${appMeta.port}${pathSuffix}`;
       resolutionMethod = "metadata-port";
     } else if (pathSuffix) {
-      // 4) Last resort: if we at least have a path, try it on default port 80/443
       resolvedUrl = `${protocol}://${host}${pathSuffix}`;
       resolutionMethod = "path-only";
     }
@@ -230,10 +239,11 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
       return resolvedUrl;
     }
 
-    await logAction("app:webui:resolve:error", {
-      appId,
-      reason: "unresolved",
-    }, "warn");
+    await logAction(
+      "app:webui:resolve:error",
+      { appId, reason: "unresolved" },
+      "warn",
+    );
     return null;
   } catch (error) {
     await logAction(
@@ -245,7 +255,10 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
       },
       "error",
     );
-    console.error(`[Docker] getAppWebUI: failed to resolve URL for ${appId}:`, error);
+    console.error(
+      `[Docker] getAppWebUI: failed to resolve URL for ${appId}:`,
+      error,
+    );
     return null;
   }
 }
@@ -255,10 +268,10 @@ export async function getAppWebUI(appId: string): Promise<string | null> {
  */
 export async function getAppLogs(
   appId: string,
-  lines: number = 100
+  lines: number = 100,
 ): Promise<string> {
   console.log(
-    `[Docker] getAppLogs: Getting logs for app "${appId}" (last ${lines} lines)...`
+    `[Docker] getAppLogs: Getting logs for app "${appId}" (last ${lines} lines)...`,
   );
 
   try {
@@ -279,16 +292,15 @@ export async function getAppLogs(
     }
 
     console.log(
-      `[Docker] getAppLogs: Retrieved ${
-        logs.split("\n").length
-      } lines of logs for "${appId}"`
+      `[Docker] getAppLogs: Retrieved ${logs.split("\n").length} lines of logs for "${appId}"`,
     );
     return logs;
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
     console.error(
       `[Docker] getAppLogs: Error getting logs for "${appId}":`,
-      error
+      error,
     );
     return `Error retrieving logs: ${errorMessage}`;
   }

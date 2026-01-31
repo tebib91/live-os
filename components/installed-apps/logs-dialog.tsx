@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Copy, Radio, RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useLogStream } from './use-log-stream';
 
@@ -28,8 +28,28 @@ export function LogsDialog({ open, onOpenChange, app }: LogsDialogProps) {
   const [live, setLive] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { lines, streaming, clear } = useLogStream(
+  const containerList = useMemo(
+    () =>
+      app.containers && app.containers.length > 1
+        ? app.containers
+        : [app.containerName],
+    [app.containers, app.containerName],
+  );
+  const hasMultiple = containerList.length > 1;
+
+  const [selectedContainer, setSelectedContainer] = useState(
     app.containerName,
+  );
+
+  // Reset selected container when dialog opens or app changes
+  useEffect(() => {
+    if (open) {
+      setSelectedContainer(app.containerName);
+    }
+  }, [open, app.containerName]);
+
+  const { lines, streaming, clear } = useLogStream(
+    selectedContainer,
     open && live,
   );
 
@@ -85,7 +105,7 @@ export function LogsDialog({ open, onOpenChange, app }: LogsDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex gap-2 mb-2">
+        <div className="flex flex-wrap gap-2 mb-2">
           <Button
             variant="outline"
             size="sm"
@@ -121,6 +141,23 @@ export function LogsDialog({ open, onOpenChange, app }: LogsDialogProps) {
             <Copy className="h-4 w-4 mr-2" />
             Copy
           </Button>
+
+          {hasMultiple && (
+            <select
+              value={selectedContainer}
+              onChange={(e) => {
+                setSelectedContainer(e.target.value);
+                clear();
+              }}
+              className="h-8 rounded-md bg-white/10 border border-white/20 text-white text-xs px-2 outline-none"
+            >
+              {containerList.map((name) => (
+                <option key={name} value={name} className="bg-zinc-900">
+                  {name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <ScrollArea className="h-[50vh] w-full rounded border border-white/20 bg-black/20 p-4">

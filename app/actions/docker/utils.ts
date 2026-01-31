@@ -195,6 +195,120 @@ export async function findComposeForApp(
 }
 
 /**
+ * List all containers with their compose project labels.
+ * Returns raw container info for grouping.
+ */
+export async function listContainersWithLabels(): Promise<
+  {
+    name: string;
+    status: string;
+    image: string;
+    composeProject: string;
+    composeService: string;
+  }[]
+> {
+  try {
+    const { stdout } = await execAsync(
+      'docker ps -a --format "{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.Label \\"com.docker.compose.project\\"}}\t{{.Label \\"com.docker.compose.service\\"}}"',
+    );
+    if (!stdout.trim()) return [];
+
+    return stdout
+      .trim()
+      .split("\n")
+      .map((line) => {
+        const [name, status, image, composeProject, composeService] =
+          line.split("\t");
+        return {
+          name: name || "",
+          status: status || "",
+          image: image || "",
+          composeProject: composeProject || "",
+          composeService: composeService || "",
+        };
+      })
+      .filter((c) => c.name);
+  } catch (error) {
+    console.error("[Docker] listContainersWithLabels error:", error);
+    return [];
+  }
+}
+
+/**
+ * Group containers by their compose project label.
+ * Containers without a compose project are treated as their own group.
+ */
+export function groupContainersByProject(
+  containers: {
+    name: string;
+    status: string;
+    image: string;
+    composeProject: string;
+    composeService: string;
+  }[],
+): Map<
+  string,
+  {
+    name: string;
+    status: string;
+    image: string;
+    composeProject: string;
+    composeService: string;
+  }[]
+> {
+  const groups = new Map<string, typeof containers>();
+
+  for (const container of containers) {
+    // Use compose project name as key, or container name for standalone
+    const key = container.composeProject || container.name;
+    const group = groups.get(key) || [];
+    group.push(container);
+    groups.set(key, group);
+  }
+
+  return groups;
+}
+
+/**
+ * Aggregate status for a group of containers.
+ * "running" if primary is up, "stopped" if all down, "error" otherwise.
+ */
+export function aggregateStatus(
+  containers: { status: string }[],
+): "running" | "stopped" | "error" {
+  const statuses = containers.map((c) => {
+    const s = c.status.toLowerCase();
+    if (s.startsWith("up")) return "running";
+    if (s.includes("exited")) return "stopped";
+    return "error";
+  });
+
+  if (statuses.every((s) => s === "running")) return "running";
+  if (statuses.every((s) => s === "stopped")) return "stopped";
+  if (statuses.some((s) => s === "running")) return "running";
+  return "error";
+}
+
+/**
+ * Detect all container names from a compose project directory.
+ */
+export async function detectAllComposeContainerNames(
+  appDir: string,
+): Promise<string[]> {
+  try {
+    const { stdout } = await execAsync(
+      `cd "${appDir}" && docker compose ps --format "{{.Names}}"`,
+    );
+    return stdout
+      .split("\n")
+      .map((n) => n.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Sanitize compose file by removing invalid services (e.g., app_proxy without image)
  */
 export async function sanitizeComposeFile(

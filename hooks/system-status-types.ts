@@ -38,6 +38,7 @@ export interface InstalledApp {
   status: "running" | "stopped" | "error";
   webUIPort?: number;
   containerName: string;
+  containers?: string[];
   installedAt: number;
   source?: string;
 }

@@ -15,6 +15,7 @@ import { getAppMeta, recordInstalledApp } from "./db";
 import { checkDependencies } from "./dependencies";
 import {
   DEFAULT_APP_ICON,
+  detectAllComposeContainerNames,
   detectComposeContainerName,
   execAsync,
   findComposeForApp,
@@ -204,6 +205,9 @@ export async function installApp(
       guessComposeContainerName(sanitizedComposePath) ||
       containerName;
 
+    // Detect all containers in this compose project
+    const allContainers = await detectAllComposeContainerNames(appDir);
+
     // Look up store metadata for source tracking
     const appRecord = await prisma.app.findFirst({
       where: { appId },
@@ -219,6 +223,7 @@ export async function installApp(
       environment: config.environment,
       composePath: sanitizedComposePath,
       deployMethod: "compose",
+      containers: allContainers.length > 0 ? allContainers : [detectedContainer],
     };
     await recordInstalledApp(
       appId,

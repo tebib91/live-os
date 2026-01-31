@@ -97,6 +97,7 @@ model InstalledApp {
   installConfig  Json?
   source         String?
   container      Json?
+  containers     Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

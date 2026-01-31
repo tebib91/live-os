@@ -8,7 +8,6 @@ import {
   stopApp,
   uninstallApp,
 } from "@/app/actions/docker";
-import { getInstallConfig } from "@/app/actions/docker/db";
 import {
   CustomDeployDialog,
   type CustomDeployInitialData,
@@ -42,28 +41,6 @@ import {
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { LogsDialog } from "./logs-dialog";
-
-type ComposePort = {
-  published?: number | string;
-  host?: number | string;
-  container?: number | string;
-  target?: number | string;
-};
-
-type ComposeVolume = {
-  source?: string;
-  container?: string;
-  target?: string;
-};
-
-type ComposeEnv = string | { key?: string; value?: string };
-
-type ComposeContainer = {
-  image?: string;
-  ports?: ComposePort[];
-  volumes?: ComposeVolume[];
-  environment?: ComposeEnv[];
-};
 
 interface AppContextMenuProps {
   app: InstalledApp;
@@ -148,89 +125,15 @@ export function AppContextMenu({ app, children }: AppContextMenuProps) {
   const handleEditDeploy = async () => {
     setCustomLoading(true);
     try {
-      const [result, installConfig] = await Promise.all([
-        getComposeForApp(app.appId),
-        getInstallConfig(app.appId),
-      ]);
+      const result = await getComposeForApp(app.appId);
       if (!result.success) {
         toast.error(result.error || "App config not found");
         return;
       }
 
-      const container = result.container as ComposeContainer | undefined;
-
-      // Prefer saved installConfig (user's customizations) over store defaults
-      const savedPorts = installConfig?.ports as string | undefined;
-      const savedVolumes = installConfig?.volumes as string | undefined;
-      const savedEnv = installConfig?.env as string | undefined;
-      const savedImage = installConfig?.image as string | undefined;
-      const savedWebUIPort = installConfig?.webUIPort as string | undefined;
-      const savedNetworkType = installConfig?.networkType as
-        | "bridge"
-        | "host"
-        | "macvlan"
-        | "none"
-        | undefined;
-      const savedDevices = installConfig?.devices as string | undefined;
-      const savedCommand = installConfig?.command as string | undefined;
-      const savedPrivileged = installConfig?.privileged as boolean | undefined;
-      const savedMemoryLimit = installConfig?.memoryLimit as string | undefined;
-      const savedCpuShares = installConfig?.cpuShares as string | undefined;
-      const savedRestartPolicy = installConfig?.restartPolicy as
-        | "no"
-        | "always"
-        | "unless-stopped"
-        | "on-failure"
-        | undefined;
-      const savedCapabilities = installConfig?.capabilities as string | undefined;
-      const savedHostname = installConfig?.hostname as string | undefined;
-
-      // Build dockerRun data: use installConfig first, fall back to store container metadata
-      const fallbackPorts = (container?.ports || [])
-        .map((p) =>
-          [p.published ?? p.host, p.container ?? p.target]
-            .filter(Boolean)
-            .join(":"),
-        )
-        .filter(Boolean)
-        .join(",");
-      const fallbackVolumes = (container?.volumes || [])
-        .map((v) =>
-          [v.source, v.container || v.target].filter(Boolean).join(":"),
-        )
-        .filter(Boolean)
-        .join(",");
-      const fallbackEnv = (container?.environment || [])
-        .map((e) => (typeof e === "string" ? e : `${e.key}=${e.value}`))
-        .filter(Boolean)
-        .join(",");
-
-      const hasRunConfig = installConfig?.deployMethod === "run";
-      const hasContainer = Boolean(container);
-
       setCustomData({
         appName: app.appId,
         dockerCompose: result.content,
-        dockerRun:
-          hasRunConfig || hasContainer
-            ? {
-                image: savedImage || container?.image || "",
-                containerName: app.appId,
-                ports: savedPorts ?? fallbackPorts,
-                volumes: savedVolumes ?? fallbackVolumes,
-                env: savedEnv ?? fallbackEnv,
-                webUIPort: savedWebUIPort ?? "",
-                networkType: savedNetworkType ?? "bridge",
-                devices: savedDevices ?? "",
-                command: savedCommand ?? "",
-                privileged: savedPrivileged ?? false,
-                memoryLimit: savedMemoryLimit ?? "",
-                cpuShares: savedCpuShares ?? "",
-                restartPolicy: savedRestartPolicy ?? "unless-stopped",
-                capabilities: savedCapabilities ?? "",
-                hostname: savedHostname ?? "",
-              }
-            : undefined,
         appIcon: result.appIcon,
         appTitle: result.appTitle,
       });

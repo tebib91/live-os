@@ -86,7 +86,8 @@ export interface InstalledApp {
   icon: string; // Icon path
   status: "running" | "stopped" | "error";
   webUIPort?: number; // Primary port for "Open" action
-  containerName: string; // Docker container name
+  containerName: string; // Docker container name (primary)
+  containers?: string[]; // All container names in compose project
   installedAt: number; // Timestamp
   source?: string; // Store slug or "custom"
 }
