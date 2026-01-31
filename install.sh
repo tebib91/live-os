@@ -639,6 +639,38 @@ install_nmcli() {
     fi
 }
 
+install_bluez() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_dry "Install Bluetooth stack (bluez + rfkill)"
+        return
+    fi
+
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        print_status "Bluetooth tools already installed (bluez)"
+        return
+    fi
+
+    print_status "Installing Bluetooth tools (bluez)..."
+
+    if [ -x "$(command -v apt-get)" ]; then
+        apt-get update
+        apt-get install -y bluez rfkill
+    elif [ -x "$(command -v dnf)" ]; then
+        dnf install -y bluez rfkill
+    elif [ -x "$(command -v yum)" ]; then
+        yum install -y bluez rfkill
+    else
+        print_error "Unsupported package manager. Please install bluez manually (provides bluetoothctl)."
+        return
+    fi
+
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        print_status "Bluetooth tools installed successfully"
+    else
+        print_error "bluez installation may have failed; bluetoothctl not found."
+    fi
+}
+
 # Install UFW firewall
 install_firewall() {
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -1031,6 +1063,7 @@ if [ "$NO_DEP" -eq 0 ]; then
     ensure_docker_permissions
     install_avahi
     install_nmcli
+    install_bluez
 fi
 
 # Setup the application

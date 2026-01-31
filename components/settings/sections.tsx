@@ -475,6 +475,8 @@ export function StorageSection({ onOpenDialog }: StorageSectionProps) {
 type UpdateSectionProps = {
   currentVersion: string;
   status?: string;
+  remoteVersion?: string;
+  hasUpdate?: boolean;
   onCheck?: () => void;
   checking?: boolean;
 };
@@ -482,9 +484,16 @@ type UpdateSectionProps = {
 export function UpdateSection({
   currentVersion,
   status,
+  remoteVersion,
+  hasUpdate,
   onCheck,
   checking,
 }: UpdateSectionProps) {
+  const headline =
+    hasUpdate && remoteVersion
+      ? `Update available: ${remoteVersion} (installed ${currentVersion})`
+      : `You are on the latest LiveOS (${currentVersion})`;
+
   return (
     <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/15 shadow-lg shadow-black/25">
       <div className="flex items-start justify-between gap-3">
@@ -496,9 +505,6 @@ export function UpdateSection({
             <h4 className="text-sm font-semibold text-white -tracking-[0.01em] mb-1">
               Updates
             </h4>
-            <p className="text-xs text-white/60">
-              You are on the latest LiveOS ({currentVersion})
-            </p>
             {status && (
               <p className="text-[11px] text-white/70 mt-1">{status}</p>
             )}

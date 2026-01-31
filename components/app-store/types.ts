@@ -88,4 +88,5 @@ export interface InstalledApp {
   webUIPort?: number; // Primary port for "Open" action
   containerName: string; // Docker container name
   installedAt: number; // Timestamp
+  source?: string; // Store slug or "custom"
 }

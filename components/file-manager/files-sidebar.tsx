@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { type DefaultDirectory } from '@/app/actions/filesystem';
-import { FolderIcon } from '@/components/icons/files';
-import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Clock, Grid3x3, Home, Plus, Star, Trash2 } from 'lucide-react';
+import { type DefaultDirectory } from "@/app/actions/filesystem";
+import { FolderIcon } from "@/components/icons/files";
+import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Clock, Grid3x3, Home, Plus, Star, Trash2 } from "lucide-react";
 
 interface FilesSidebarProps {
   homePath: string;
@@ -32,11 +32,11 @@ export function FilesSidebar({
   onEmptyTrash,
 }: FilesSidebarProps) {
   const isInTrash = currentPath === trashPath;
-  const homeLabel = homePath.split('/').filter(Boolean).pop() || 'Home';
+  const homeLabel = homePath.split("/").filter(Boolean).pop() || "Home";
 
   // Get folder name from path
   const getFolderName = (path: string) => {
-    const parts = path.split('/').filter(Boolean);
+    const parts = path.split("/").filter(Boolean);
     return parts[parts.length - 1] || path;
   };
 
@@ -73,7 +73,7 @@ export function FilesSidebar({
 
           <button
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors border border-transparent hover:border-white/10"
-            onClick={() => onNavigate(getShortcutPath('apps'))}
+            onClick={() => onNavigate(getShortcutPath("appsData"))}
           >
             <Grid3x3 className="h-4 w-4 text-white/70" />
             <span className="text-sm -tracking-[0.01em]">Apps</span>
@@ -151,10 +151,11 @@ export function FilesSidebar({
 
       <div className="p-3 border-t border-white/10 space-y-1">
         <button
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors border ${isInTrash
-              ? 'bg-white/10 text-white/90 border-white/10'
-              : 'text-white/60 hover:bg-white/5 hover:text-white border-transparent hover:border-white/10'
-            }`}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors border ${
+            isInTrash
+              ? "bg-white/10 text-white/90 border-white/10"
+              : "text-white/60 hover:bg-white/5 hover:text-white border-transparent hover:border-white/10"
+          }`}
           onClick={() => onNavigate(trashPath)}
         >
           <Trash2 className="w-4 h-4 text-white/50" />

@@ -164,6 +164,33 @@ ensure_cifs_utils() {
     fi
 }
 
+ensure_bluez() {
+    print_status "Ensuring Bluetooth tools (bluez + rfkill) are installed..."
+
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        print_status "Bluetooth tools already present"
+        return
+    fi
+
+    if [ -x "$(command -v apt-get)" ]; then
+        apt-get update
+        apt-get install -y bluez rfkill
+    elif [ -x "$(command -v dnf)" ]; then
+        dnf install -y bluez rfkill
+    elif [ -x "$(command -v yum)" ]; then
+        yum install -y bluez rfkill
+    else
+        print_error "Unsupported package manager. Please install bluez manually (provides bluetoothctl)."
+        return
+    fi
+
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        print_status "Bluetooth tools installed successfully"
+    else
+        print_error "bluez installation may have failed; bluetoothctl not found."
+    fi
+}
+
 ensure_migrations_ready() {
     print_status "Checking Prisma migration status..."
     if ! npx prisma migrate status --schema=prisma/schema.prisma; then
@@ -357,6 +384,7 @@ update_from_source() {
 
     ensure_archive_tools
     ensure_cifs_utils
+    ensure_bluez
     ensure_migrations_ready
 
     # Rebuild native modules

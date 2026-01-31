@@ -95,6 +95,10 @@ model InstalledApp {
   icon           String
   containerName  String   @unique
   installConfig  Json?
+  source         String?
+  container      Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@index([appId, source])
 }

@@ -2,6 +2,7 @@
 "use client";
 
 import { getFirewallStatus } from "@/app/actions/firewall";
+import { getBluetoothStatus, setBluetoothPower } from "@/app/actions/bluetooth";
 import { LanDevice, listLanDevices } from "@/app/actions/network";
 import { getWallpapers, updateSettings } from "@/app/actions/settings";
 import { getSystemInfo, getUptime } from "@/app/actions/system";
@@ -41,6 +42,7 @@ import {
   WallpaperSection,
   WifiSection,
 } from "./sections";
+import { BluetoothSection } from "./bluetooth-section";
 import { SettingsSidebar } from "./settings-sidebar";
 import { StorageDialog } from "./storage-dialog";
 import { SystemDetailsDialog } from "./system-details-dialog";
@@ -92,6 +94,9 @@ export function SettingsDialog({
   const [logsDialogOpen, setLogsDialogOpen] = useState(false);
   const [advancedDialogOpen, setAdvancedDialogOpen] = useState(false);
   const [savingWallpaper, setSavingWallpaper] = useState(false);
+  const [bluetoothStatus, setBluetoothStatus] = useState<HardwareInfo["bluetooth"] | null>(null);
+  const [bluetoothLoading, setBluetoothLoading] = useState(false);
+  const [bluetoothError, setBluetoothError] = useState<string | null>(null);
   const router = useRouter();
   const { requestReboot } = useRebootTracker();
 
@@ -146,6 +151,30 @@ export function SettingsDialog({
     }
   }, []);
 
+  const refreshBluetooth = useCallback(async () => {
+    setBluetoothLoading(true);
+    setBluetoothError(null);
+    try {
+      const status = await getBluetoothStatus();
+      setBluetoothStatus((prev) => {
+        const base: Partial<HardwareInfo["bluetooth"]> = prev ?? {};
+        return {
+          ...base,
+          ...status,
+          devices: prev?.devices,
+          firstName: prev?.firstName,
+          error: status.error ?? null,
+        };
+      });
+    } catch (err) {
+      setBluetoothError(
+        (err as Error)?.message || "Failed to refresh Bluetooth status",
+      );
+    } finally {
+      setBluetoothLoading(false);
+    }
+  }, []);
+
   // Fetch static data once when dialog opens
   // NOTE: LAN scan is slow (up to 80s), so only fetch on demand via "View devices" button
   useEffect(() => {
@@ -154,6 +183,7 @@ export function SettingsDialog({
       fetchWallpapers();
       fetchUptime();
       fetchFirewallStatus();
+      refreshBluetooth();
       // fetchLanDevices() removed - too slow for auto-fetch
     }
   }, [
@@ -162,6 +192,7 @@ export function SettingsDialog({
     fetchWallpapers,
     fetchUptime,
     fetchFirewallStatus,
+    refreshBluetooth,
   ]);
 
   const handleWallpaperSelect = useCallback(
@@ -181,6 +212,19 @@ export function SettingsDialog({
 
   const hardware: HardwareInfo | undefined = systemStats?.hardware;
   const uptimeLabel = formatUptime(uptimeSeconds || 0);
+
+  useEffect(() => {
+    setBluetoothStatus((prev) => {
+      const next = hardware?.bluetooth ?? null;
+      if (!next) return next;
+      return {
+        ...next,
+        devices: next.devices ?? prev?.devices,
+        firstName: next.firstName ?? prev?.firstName,
+        error: next.error ?? prev?.error ?? null,
+      };
+    });
+  }, [hardware?.bluetooth]);
 
   const handleLogout = useCallback(async () => {
     const res = await fetch("/api/auth/logout", { method: "POST" });
@@ -222,6 +266,43 @@ export function SettingsDialog({
       setCheckingUpdate(false);
     }
   }, []);
+
+  const handleToggleBluetooth = useCallback(
+    async (enabled: boolean) => {
+      setBluetoothLoading(true);
+      setBluetoothError(null);
+      try {
+        const result = await setBluetoothPower(enabled);
+        setBluetoothStatus((prev) => {
+          const base: Partial<HardwareInfo["bluetooth"]> = prev ?? {};
+          return {
+            ...base,
+            ...result.status,
+            devices: prev?.devices,
+            firstName: prev?.firstName,
+            error: result.status.error ?? null,
+          };
+        });
+
+        if (result.success) {
+          toast.success(enabled ? "Bluetooth enabled" : "Bluetooth disabled");
+        } else {
+          const message =
+            result.error || "Failed to change Bluetooth state";
+          setBluetoothError(message);
+          toast.error(message);
+        }
+      } catch (error) {
+        const message =
+          (error as Error)?.message || "Failed to change Bluetooth state";
+        setBluetoothError(message);
+        toast.error(message);
+      } finally {
+        setBluetoothLoading(false);
+      }
+    },
+    [],
+  );
 
   // Memoized callbacks for dialog openers to prevent child re-renders
   const handleCloseDialog = useCallback(
@@ -266,6 +347,8 @@ export function SettingsDialog({
     },
     [],
   );
+
+  const bluetoothDisplay = bluetoothStatus ?? hardware?.bluetooth ?? null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -328,6 +411,18 @@ export function SettingsDialog({
                 ssid={hardware?.wifi?.ssid}
                 quality={hardware?.wifi?.quality}
               />
+              <BluetoothSection
+                powered={bluetoothDisplay?.powered}
+                blocked={bluetoothDisplay?.blocked}
+                adapter={bluetoothDisplay?.adapter}
+                devices={bluetoothDisplay?.devices ?? hardware?.bluetooth?.devices}
+                firstDevice={bluetoothDisplay?.firstName ?? hardware?.bluetooth?.firstName}
+                available={bluetoothDisplay?.available}
+                loading={bluetoothLoading}
+                error={bluetoothError ?? bluetoothDisplay?.error ?? null}
+                onToggle={handleToggleBluetooth}
+                onRefresh={refreshBluetooth}
+              />
               <NetworkDevicesSection
                 deviceCount={lanDevices.length}
                 loading={lanDevicesLoading}
@@ -342,6 +437,8 @@ export function SettingsDialog({
               <UpdateSection
                 currentVersion={VERSION}
                 status={updateStatus?.message}
+                remoteVersion={updateStatus?.remoteVersion}
+                hasUpdate={updateStatus?.hasUpdate}
                 onCheck={handleCheckUpdate}
                 checking={checkingUpdate}
               />

@@ -39,6 +39,7 @@ export interface InstalledApp {
   webUIPort?: number;
   containerName: string;
   installedAt: number;
+  source?: string;
 }
 
 export interface InstallProgress {

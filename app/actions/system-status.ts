@@ -3,6 +3,7 @@
 
 import os from "os";
 import si from "systeminformation";
+import { getBluetoothStatus } from "./bluetooth";
 
 let lastNetworkSample: { rx: number; tx: number; timestamp: number } | null =
   null;
@@ -134,9 +135,21 @@ const buildWifi = (wifiConnections: any[], wifiNetworks: any[]) => {
   };
 };
 
-const buildBluetooth = (bluetoothDevices: any[]) => ({
+type BluetoothState = Awaited<ReturnType<typeof getBluetoothStatus>>;
+
+const buildBluetooth = (
+  bluetoothDevices: any[],
+  state?: BluetoothState | null,
+) => ({
   devices: Array.isArray(bluetoothDevices) ? bluetoothDevices.length : 0,
   firstName: firstItem(bluetoothDevices)?.name,
+  powered:
+    typeof state?.powered === "boolean" ? state.powered : undefined,
+  blocked:
+    typeof state?.blocked === "boolean" ? state.blocked : undefined,
+  adapter: state?.adapter ?? null,
+  available: state?.available,
+  error: state?.error ?? undefined,
 });
 
 const estimatePowerWatts = (cpuUsage: number) =>
@@ -238,7 +251,14 @@ export async function getSystemStatus() {
           bluetoothDevices = [];
         }
       }
-      bluetoothInfo = buildBluetooth(bluetoothDevices);
+      let bluetoothState: BluetoothState | null = null;
+      try {
+        bluetoothState = await getBluetoothStatus();
+      } catch {
+        bluetoothState = null;
+      }
+
+      bluetoothInfo = buildBluetooth(bluetoothDevices, bluetoothState);
       bluetoothCache = { value: bluetoothInfo, timestamp: now };
     }
 

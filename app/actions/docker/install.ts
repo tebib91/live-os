@@ -9,6 +9,7 @@ import { triggerAppsUpdate } from "@/lib/system-status/websocket-server";
 import { spawn } from "child_process";
 import path from "path";
 import { env } from "process";
+import prisma from "@/lib/prisma";
 import { logAction } from "../logger";
 import { getAppMeta, recordInstalledApp } from "./db";
 import { checkDependencies } from "./dependencies";
@@ -203,6 +204,15 @@ export async function installApp(
       guessComposeContainerName(sanitizedComposePath) ||
       containerName;
 
+    // Look up store metadata for source tracking
+    const appRecord = await prisma.app.findFirst({
+      where: { appId },
+      include: { store: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const storeSlug = appRecord?.store?.slug;
+    const containerJson = (appRecord?.container as Record<string, unknown>) ?? undefined;
+
     const persistedConfig: Record<string, unknown> = {
       ports: config.ports,
       volumes: config.volumes,
@@ -210,7 +220,14 @@ export async function installApp(
       composePath: sanitizedComposePath,
       deployMethod: "compose",
     };
-    await recordInstalledApp(appId, detectedContainer, metaOverride, persistedConfig);
+    await recordInstalledApp(
+      appId,
+      detectedContainer,
+      metaOverride,
+      persistedConfig,
+      storeSlug,
+      containerJson,
+    );
     await triggerAppsUpdate();
     await logAction("install:success", {
       appId,

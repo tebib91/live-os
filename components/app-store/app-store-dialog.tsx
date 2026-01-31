@@ -165,7 +165,11 @@ export function AppStoreDialog({ open, onOpenChange }: AppStoreDialogProps) {
     (app: App) => {
       return (
         installedApps.find(
-          (installed) => installed.appId.toLowerCase() === app.id.toLowerCase(),
+          (installed) =>
+            installed.appId.toLowerCase() === app.id.toLowerCase() &&
+            (!installed.source ||
+              !app.storeSlug ||
+              installed.source === app.storeSlug),
         ) || undefined
       );
     },

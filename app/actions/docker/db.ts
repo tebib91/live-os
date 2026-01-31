@@ -35,6 +35,8 @@ export async function recordInstalledApp(
   containerName: string,
   override?: { name?: string; icon?: string },
   installConfig?: Record<string, unknown>,
+  source?: string,
+  container?: Record<string, unknown>,
 ): Promise<void> {
   const meta = await getAppMeta(appId, override);
 
@@ -47,6 +49,10 @@ export async function recordInstalledApp(
       ...(installConfig !== undefined && {
         installConfig: installConfig as Prisma.InputJsonValue,
       }),
+      ...(source !== undefined && { source }),
+      ...(container !== undefined && {
+        container: container as Prisma.InputJsonValue,
+      }),
     },
     create: {
       appId,
@@ -55,6 +61,10 @@ export async function recordInstalledApp(
       containerName,
       ...(installConfig !== undefined && {
         installConfig: installConfig as Prisma.InputJsonValue,
+      }),
+      ...(source !== undefined && { source }),
+      ...(container !== undefined && {
+        container: container as Prisma.InputJsonValue,
       }),
     },
   });

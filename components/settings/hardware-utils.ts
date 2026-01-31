@@ -73,6 +73,11 @@ export type HardwareInfo = {
   bluetooth?: {
     devices?: number;
     firstName?: string;
+    powered?: boolean;
+    blocked?: boolean;
+    adapter?: string | null;
+    available?: boolean;
+    error?: string | null;
   };
 };
 

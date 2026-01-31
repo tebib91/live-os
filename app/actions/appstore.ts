@@ -613,24 +613,28 @@ export async function getComposeForApp(appId: string): Promise<{
       return { success: false, error: "Missing appId" };
     }
 
-    const app = await prisma.app.findFirst({
+    // Primary: look up from InstalledApp (single source of truth)
+    const installed = await prisma.installedApp.findFirst({
       where: { appId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
     });
 
-    if (!app) {
+    if (!installed) {
       return { success: false, error: "App metadata not found" };
     }
 
+    const config = installed.installConfig as Record<string, unknown> | null;
+    const composePath = (config?.composePath as string) ?? undefined;
+
     let content: string | undefined;
-    if (app.composePath) {
-      const composeResult = await getAppComposeContent(app.composePath);
+    if (composePath) {
+      const composeResult = await getAppComposeContent(composePath);
       if (composeResult.success && composeResult.content) {
         content = composeResult.content;
       }
     }
 
-    const container = (app as any)?.container ?? undefined;
+    const container = (installed.container as Record<string, unknown>) ?? undefined;
 
     if (!content && !container) {
       return {
@@ -642,9 +646,9 @@ export async function getComposeForApp(appId: string): Promise<{
     return {
       success: true,
       content,
-      appTitle: app.title || app.name || app.appId,
-      appIcon: app.icon || undefined,
-      container: container || undefined,
+      appTitle: installed.name || installed.appId,
+      appIcon: installed.icon || undefined,
+      container: (container as any) || undefined,
     };
   } catch (error) {
     console.error("Failed to load compose for app:", error);

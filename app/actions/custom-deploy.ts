@@ -2,8 +2,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { Prisma } from "@/app/generated/prisma/client";
-import prisma from "@/lib/prisma";
+import { recordInstalledApp } from "@/app/actions/docker/db";
 import { triggerAppsUpdate } from "@/lib/system-status/websocket-server";
 import { exec } from "child_process";
 import fs from "fs/promises";
@@ -63,10 +62,13 @@ export async function deployCustomCompose(
       console.error("[CustomDeploy] compose stderr:", stderr);
     }
 
-    await recordInstalledApp(appName, containerName, undefined, {
-      composePath: composePath,
-      deployMethod: "compose",
-    });
+    await recordInstalledApp(
+      appName,
+      containerName,
+      undefined,
+      { composePath, deployMethod: "compose" },
+      "custom",
+    );
     await triggerAppsUpdate();
     return { success: true };
   } catch (error: any) {
@@ -217,7 +219,7 @@ export async function deployCustomRun(
     if (stderr && !isNoise(stderr))
       console.error("[CustomDeploy] run stderr:", stderr);
 
-    await recordInstalledApp(appName, finalContainer, iconUrl, {
+    const runConfig: Record<string, unknown> = {
       image: imageName,
       ports: ports || "",
       volumes: volumes || "",
@@ -233,7 +235,32 @@ export async function deployCustomRun(
       restartPolicy: restart,
       capabilities: capabilities || "",
       hostname: hostname || "",
-    });
+    };
+
+    const containerJson: Record<string, unknown> = {
+      image: imageName,
+      ports: splitCommaList(ports).map((m) => {
+        const [host, container] = m.split(":");
+        return { published: host, container };
+      }),
+      volumes: splitLineList(volumes).map((v) => {
+        const [source, container] = v.split(":");
+        return { source, container };
+      }),
+      environment: splitLineList(envVars).map((e) => {
+        const idx = e.indexOf("=");
+        return { key: e.slice(0, idx), value: e.slice(idx + 1) };
+      }),
+    };
+
+    await recordInstalledApp(
+      appName,
+      finalContainer,
+      iconUrl ? { icon: iconUrl } : undefined,
+      runConfig,
+      "custom",
+      containerJson,
+    );
     await triggerAppsUpdate();
     return { success: true };
   } catch (error: any) {
@@ -245,40 +272,6 @@ export async function deployCustomRun(
 // Helpers
 function getContainerName(appId: string) {
   return `${CONTAINER_PREFIX}${appId.toLowerCase()}`;
-}
-
-async function recordInstalledApp(
-  appId: string,
-  containerName: string,
-  iconOverride?: string,
-  installConfig?: Record<string, unknown>,
-): Promise<void> {
-  const appMeta = await prisma.app.findFirst({
-    where: { appId },
-    orderBy: { createdAt: "desc" },
-  });
-  const icon = iconOverride?.trim() || appMeta?.icon || DEFAULT_APP_ICON;
-
-  await prisma.installedApp.upsert({
-    where: { containerName },
-    update: {
-      appId,
-      name: appMeta?.title || appMeta?.name || appId,
-      icon,
-      ...(installConfig !== undefined && {
-        installConfig: installConfig as Prisma.InputJsonValue,
-      }),
-    },
-    create: {
-      appId,
-      containerName,
-      name: appMeta?.title || appMeta?.name || appId,
-      icon,
-      ...(installConfig !== undefined && {
-        installConfig: installConfig as Prisma.InputJsonValue,
-      }),
-    },
-  });
 }
 
 function validateAppId(appId: string): boolean {
